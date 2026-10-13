@@ -1,3 +1,19 @@
+"""Transforms raw CommerceTools product and price payloads into flat SKU rows.
+
+This module takes the raw product documents fetched from CommerceTools together
+with their matched prices and flattens them into a dictionary keyed by SKU. Each
+SKU row combines product-level fields (category, name, hazard ratings, custom
+attributes) with variant-level fields (availability, image, lowest contracted
+price, seller, lead time) so that downstream consumers receive one self-contained
+record per sellable unit.
+
+The public entry point is :func:`transform`. The remaining functions are private
+helpers that parse individual products, variants, categories, attributes and
+image URLs. All functions are coroutines so the transform step can be awaited as
+part of the asynchronous pipeline, even though most of the work is CPU-bound dict
+manipulation.
+"""
+
 from .products import Product
 from .prices import Price
 from .logging_service import logger, log_function
@@ -52,6 +68,29 @@ async def transform(products: list[Product], prices: list[Price], channel_id: st
 
 
 async def _parse_product(raw: dict, prices_by_sku: dict[str, list[Price]], channel_id: str) -> dict[str, dict]:
+    """Flatten a single raw product document into one row per variant SKU.
+
+    Extracts the product-level fields that are shared across all variants
+    (category hierarchy, localized name/description/slug, custom attributes and
+    hazard ratings), then computes product-wide availability figures and parses
+    every variant (the master variant plus all additional variants) into its own
+    row via :func:`_parse_variant`.
+
+    Args:
+        raw: The raw product document as returned by CommerceTools.
+        prices_by_sku: Mapping of SKU to its list of matched prices, used by the
+            variant parser to select the lowest contracted price.
+        channel_id: The supply/inventory channel whose availability should be
+            reported for each variant.
+
+    Returns:
+        A dict mapping each variant's SKU to its parsed row. Variants without a
+        SKU are skipped.
+
+    Raises:
+        Exception: Re-raises any error encountered while parsing the product
+            after logging it with the product key for context.
+    """
     try:
         product_fields = {
             **await _category_fields(raw),
@@ -122,6 +161,32 @@ async def _parse_variant(
     total_qty: int,
     in_stock_any: bool,
 ) -> dict:
+    """Build a single flat row for one product variant.
+
+    Merges the shared product-level fields with variant-specific values:
+    identifiers (SKU, variant id/key, manufacturer numbers), image URL,
+    channel availability, and the selected price. Price selection prefers
+    ``CONTRACTED`` prices when any exist and otherwise falls back to the full
+    price pool; the lowest-amount price in the chosen pool is used.
+
+    Args:
+        product_fields: The product-level fields shared by every variant of the
+            parent product (produced by :func:`_parse_product`).
+        variant: The raw variant document (master variant or additional variant).
+        prices_by_sku: Mapping of SKU to its list of matched prices.
+        channel_id: The supply/inventory channel whose availability is reported.
+        total_qty: Total available quantity summed across all variants of the
+            parent product.
+        in_stock_any: Whether any channel of any variant of the parent product is
+            currently in stock.
+
+    Returns:
+        A dict representing the fully flattened row for this variant.
+
+    Raises:
+        Exception: Re-raises any error encountered while parsing the variant
+            after logging it with the SKU for context.
+    """
     try:
         sku = variant.get("sku")
         avail = await _channel_avail(variant, channel_id)
@@ -200,8 +265,36 @@ async def _parse_variant(
 
 
 async def _category_fields(raw: dict) -> dict:
+    """Derive root and sub category fields from a product's category references.
+
+    Each category reference carries an expanded ``obj`` describing the
+    subcategory. The business root is the first ancestor that itself has
+    ancestors, which skips the CommerceTools internal "All" root (whose
+    ``ancestors`` list is empty). Roots and subcategories are deduplicated by
+    key, and for each field a single value is returned when only one distinct
+    value exists, otherwise a list of values is returned.
+
+    Args:
+        raw: The raw product document.
+
+    Returns:
+        A dict with localized name/key/slug (and order hint / description) for
+        both the root and sub categories. All values are ``None`` when the
+        product has no categories.
+    """
+    logger.debug(
+        f"Deriving category fields for key={raw.get('key')!r}",
+        extra={
+            "function_name": "_category_fields",
+            "input_data": {"key": raw.get("key"), "categories": len(raw.get("categories", []))},
+        },
+    )
     categories = raw.get("categories", [])
     if not categories:
+        logger.debug(
+            f"No categories on product key={raw.get('key')!r}; returning empty category fields",
+            extra={"function_name": "_category_fields", "input_data": {"key": raw.get("key")}},
+        )
         return {
             "rootCategoryName": None, "rootCategoryKey": None,
             "rootCategorySlug": None, "rootCategoryOrderHint": None,
@@ -243,6 +336,13 @@ async def _category_fields(raw: dict) -> dict:
             return None
         return values[0] if len(values) == 1 else values
 
+    logger.debug(
+        f"Resolved {len(roots)} root and {len(subs)} sub categories for key={raw.get('key')!r}",
+        extra={
+            "function_name": "_category_fields",
+            "input_data": {"key": raw.get("key"), "roots": len(roots), "subs": len(subs)},
+        },
+    )
     return {
         "rootCategoryName": _pick(roots, "name", "en"),
         "rootCategoryKey": _pick(roots, "key"),
@@ -256,40 +356,142 @@ async def _category_fields(raw: dict) -> dict:
 
 
 async def _attr(attributes: list, name: str):
+    """Return the value of the named attribute, or ``None`` if absent.
+
+    Args:
+        attributes: A list of CommerceTools attribute dicts, each shaped like
+            ``{"name": ..., "value": ...}``. A falsy value is treated as empty.
+        name: The attribute name to look up.
+
+    Returns:
+        The attribute's ``value`` if a matching attribute is found, otherwise
+        ``None``.
+    """
     for a in attributes or []:
         if a.get("name") == name:
+            logger.debug(
+                f"Attribute {name!r} found",
+                extra={"function_name": "_attr", "input_data": {"name": name}},
+            )
             return a.get("value")
+    logger.debug(
+        f"Attribute {name!r} not found",
+        extra={"function_name": "_attr", "input_data": {"name": name}},
+    )
     return None
 
 
 async def _hazard(attrs: list, char_key: str, value_key: str) -> dict | None:
+    """Combine a hazard rating's code and value attributes into one dict.
+
+    Args:
+        attrs: The list of attribute dicts to search.
+        char_key: Attribute name holding the hazard code/character.
+        value_key: Attribute name holding the hazard value.
+
+    Returns:
+        A dict ``{"code": ..., "value": ...}`` when either attribute is present,
+        or ``None`` when both are absent.
+    """
     char = await _attr(attrs, char_key)
     val = await _attr(attrs, value_key)
     if char is None and val is None:
+        logger.debug(
+            f"No hazard rating for {char_key!r}/{value_key!r}",
+            extra={"function_name": "_hazard", "input_data": {"char_key": char_key, "value_key": value_key}},
+        )
         return None
+    logger.debug(
+        f"Hazard rating resolved for {char_key!r}/{value_key!r}",
+        extra={"function_name": "_hazard", "input_data": {"char_key": char_key, "value_key": value_key}},
+    )
     return {"code": char, "value": val}
 
 
 async def _to_float(value) -> float | None:
+    """Best-effort conversion of a value to ``float``.
+
+    Args:
+        value: The value to coerce. May be ``None`` or a non-numeric type.
+
+    Returns:
+        ``None`` when ``value`` is ``None``; the ``float`` conversion when it
+        succeeds; or the original ``value`` unchanged when conversion raises
+        ``ValueError``/``TypeError``.
+    """
     if value is None:
+        logger.debug(
+            "Coercing None to float -> None",
+            extra={"function_name": "_to_float", "input_data": {"value": None}},
+        )
         return None
     try:
-        return float(value)
+        result = float(value)
+        logger.debug(
+            f"Coerced value to float={result}",
+            extra={"function_name": "_to_float", "input_data": {"value": value}},
+        )
+        return result
     except (ValueError, TypeError):
+        logger.debug(
+            f"Could not coerce value to float; returning unchanged value={value!r}",
+            extra={"function_name": "_to_float", "input_data": {"value": value}},
+        )
         return value
 
 
 async def _image_url(variant: dict) -> str | None:
+    """Resolve the best available image URL for a variant.
+
+    Prefers the first entry in the variant's ``images`` list. When there are no
+    images, falls back to the first source URI of the first asset tagged
+    ``"image"``.
+
+    Args:
+        variant: The raw variant document.
+
+    Returns:
+        The resolved image URL, or ``None`` when neither images nor a tagged
+        image asset with sources is present.
+    """
     images = variant.get("images", [])
     if images:
+        logger.debug(
+            f"Image URL resolved from images for sku={variant.get('sku')!r}",
+            extra={"function_name": "_image_url", "input_data": {"sku": variant.get("sku"), "source": "images"}},
+        )
         return images[0].get("url")
     for asset in variant.get("assets", []):
         if "image" in asset.get("tags", []):
             sources = asset.get("sources", [])
             if sources:
+                logger.debug(
+                    f"Image URL resolved from asset sources for sku={variant.get('sku')!r}",
+                    extra={"function_name": "_image_url", "input_data": {"sku": variant.get("sku"), "source": "assets"}},
+                )
                 return sources[0].get("uri")
+    logger.debug(
+        f"No image URL found for sku={variant.get('sku')!r}",
+        extra={"function_name": "_image_url", "input_data": {"sku": variant.get("sku")}},
+    )
     return None
 
 
 async def _channel_avail(variant: dict, channel_id: str) -> dict:
-    return variant.get("availability", {}).get("channels", {}).get(channel_id, {})
+    """Return the availability block for a specific channel on a variant.
+
+    Args:
+        variant: The raw variant document.
+        channel_id: The channel id whose availability should be returned.
+
+    Returns:
+        The availability dict for the requested channel (typically containing
+        ``availableQuantity``, ``isOnStock`` and ``restockableInDays``), or an
+        empty dict when the variant has no availability for that channel.
+    """
+    avail = variant.get("availability", {}).get("channels", {}).get(channel_id, {})
+    logger.debug(
+        f"Channel availability lookup for sku={variant.get('sku')!r} channel={channel_id!r} -> {'found' if avail else 'none'}",
+        extra={"function_name": "_channel_avail", "input_data": {"sku": variant.get("sku"), "channel_id": channel_id}},
+    )
+    return avail

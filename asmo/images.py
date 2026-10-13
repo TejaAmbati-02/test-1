@@ -1,3 +1,15 @@
+"""Concurrent product-image downloading for the ASMO Data pipeline.
+
+This module exposes :class:`ImageDownloader`, which takes the transformed SKU
+rows produced upstream and downloads each row's ``imageUrl`` concurrently,
+writing one image file per SKU into an output directory. Downloads are bounded
+by a semaphore, identical URLs are fetched only once and shared, and failures
+are tolerated and tallied rather than aborting the run.
+
+Network calls use :mod:`aiohttp` with the project's shared SSL context and are
+logged through the structured logger.
+"""
+
 import asyncio
 from pathlib import Path
 from urllib.parse import urlparse
@@ -24,6 +36,14 @@ class ImageDownloader:
     _instance: "ImageDownloader | None" = None
 
     def __init__(self, base_dir: Path = Path("."), concurrency: int = 10) -> None:
+        """Configure the output location and concurrency limit.
+
+        Args:
+            base_dir: Directory under which the :data:`OUTPUT_DIR` image folder
+                is created (defaults to the current directory).
+            concurrency: Maximum number of image downloads allowed to run at
+                once.
+        """
         self._output_dir = base_dir / self.OUTPUT_DIR
         self._concurrency = concurrency
 

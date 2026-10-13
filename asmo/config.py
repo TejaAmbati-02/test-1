@@ -1,3 +1,13 @@
+"""Centralized configuration for CommerceTools connectivity.
+
+This module defines :class:`Config`, a single dataclass that gathers every
+setting needed to authenticate against and query a CommerceTools project.
+Credentials and project coordinates are read from environment variables when a
+``Config`` is instantiated, so :func:`dotenv.load_dotenv` must be called first
+(done in ``main.py``) to make ``.env`` values available. Derived endpoints and
+OAuth scopes are exposed as read-only properties computed from those settings.
+"""
+
 import os
 from dataclasses import dataclass, field
 
@@ -8,6 +18,20 @@ class Config:
 
     Reads credentials from environment variables; call load_dotenv() before
     instantiating (done in main.py) so .env values are present.
+
+    Required environment variables (``CT_CLIENT_ID``, ``CT_CLIENT_SECRET`` and
+    ``CT_CHANNEL_ID``) are read eagerly via ``default_factory`` and will raise
+    ``KeyError`` on instantiation if missing. ``CT_PROJECT_KEY`` and
+    ``CT_REGION`` are optional, and ``UPLOAD_ENABLED`` defaults to ``False``.
+
+    Attributes:
+        client_id: OAuth client id (from ``CT_CLIENT_ID``).
+        client_secret: OAuth client secret (from ``CT_CLIENT_SECRET``).
+        project_key: CommerceTools project key (from ``CT_PROJECT_KEY``).
+        region: CommerceTools region/host segment (from ``CT_REGION``).
+        channel_id: Supply/inventory channel id (from ``CT_CHANNEL_ID``).
+        upload_enabled: Whether uploads are enabled (from ``UPLOAD_ENABLED``).
+        page_size: Page size used when paging through API results.
     """
 
     client_id: str = field(default_factory=lambda: os.environ["CT_CLIENT_ID"])
@@ -20,14 +44,21 @@ class Config:
 
     @property
     def auth_url(self) -> str:
+        """The OAuth token endpoint for the configured region."""
         return f"https://auth.{self.region}.commercetools.com/oauth/token"
 
     @property
     def api_base(self) -> str:
+        """The base API URL for the configured region and project."""
         return f"https://api.{self.region}.commercetools.com/{self.project_key}"
 
     @property
     def scope(self) -> str:
+        """The space-separated OAuth scope string for the configured project.
+
+        Each required scope is suffixed with the project key, as expected by the
+        CommerceTools OAuth server.
+        """
         scopes = [
             "manage_project",
             "view_audit_log",

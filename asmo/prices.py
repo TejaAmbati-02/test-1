@@ -1,3 +1,17 @@
+"""Standalone-price retrieval from the CommerceTools API.
+
+This module fetches standalone prices from CommerceTools and maps them to a
+lightweight domain model. It exposes :class:`Price`, a dataclass flattening the
+fields the pipeline needs (amount, currency, seller names, contract metadata,
+…) alongside the raw payload, and :class:`PricesClient`, which retrieves the
+full price list using parallel offset-based pagination. A module-level
+:func:`_channel_name` helper resolves localised seller/channel names.
+
+Network calls use :mod:`aiohttp` with the project's shared SSL context, require
+a valid auth token (enforced via :func:`~asmo.auth.requires_token`), and are
+logged through the structured logger.
+"""
+
 import asyncio
 import aiohttp
 from dataclasses import dataclass, field
@@ -9,7 +23,14 @@ from .logging_service import logger, log_function
 
 @dataclass
 class Price:
-    """Lightweight representation of a CommerceTools standalone price."""
+    """Lightweight representation of a CommerceTools standalone price.
+
+    Flattens the parts of a standalone-price payload the pipeline consumes:
+    identity (``id``, ``sku``), monetary value (``currency``, ``amount`` in
+    major units), localised seller names, and custom-field metadata (``scope``,
+    ``contract_id``, ``lead_time_days``, ``price_unit``, ``moq``). The original
+    payload is retained in ``raw`` and excluded from the dataclass ``repr``.
+    """
 
     id: str
     sku: str
@@ -26,6 +47,21 @@ class Price:
 
     @classmethod
     def from_raw(cls, raw: dict) -> "Price":
+        """Build a :class:`Price` from a raw standalone-price payload.
+
+        Delegates the actual field extraction to :meth:`_from_raw`; this wrapper
+        adds error handling, logging any parsing failure (tagged with the SKU as
+        ``request_id``) before re-raising.
+
+        Args:
+            raw: A single standalone-price payload from the API.
+
+        Returns:
+            The populated :class:`Price` instance.
+
+        Raises:
+            Exception: Re-raised after logging if the payload cannot be parsed.
+        """
         try:
             return cls._from_raw(raw)
         except Exception as exc:
@@ -43,6 +79,21 @@ class Price:
 
     @classmethod
     def _from_raw(cls, raw: dict) -> "Price":
+        """Extract and convert fields from a raw payload into a :class:`Price`.
+
+        Reads the monetary ``value`` block and ``custom.fields``, converting the
+        integer ``centAmount`` to a major-unit ``amount`` using
+        ``fractionDigits`` (defaulting to 2), resolving English and German
+        seller names via :func:`_channel_name`, and pulling metadata such as
+        scope, contract id, lead time and minimum order quantity. The parsed
+        price is logged (tagged with the SKU) before being returned.
+
+        Args:
+            raw: A single standalone-price payload from the API.
+
+        Returns:
+            The populated :class:`Price` instance.
+        """
         value = raw.get("value", {})
         custom_fields = raw.get("custom", {}).get("fields", {})
         cent_amount = value.get("centAmount", 0)
@@ -79,6 +130,20 @@ class Price:
 
 
 def _channel_name(raw: dict, locale: str) -> str | None:
+    """Resolve the expanded channel's name for a given locale.
+
+    Reads the expanded ``channel.obj.name`` from the payload. When the name is a
+    localised dict, returns the value for ``locale`` (or ``None`` if absent).
+    When the name is a plain string, it is treated as the English name: returned
+    for ``locale == "en"`` and ``None`` for any other locale.
+
+    Args:
+        raw: A single standalone-price payload with an expanded channel.
+        locale: The locale key to resolve (e.g. ``"en"`` or ``"de"``).
+
+    Returns:
+        The seller/channel name for the locale, or ``None`` if unavailable.
+    """
     channel_obj = raw.get("channel", {}).get("obj", {})
     name = channel_obj.get("name")
     if isinstance(name, dict):
@@ -87,16 +152,42 @@ def _channel_name(raw: dict, locale: str) -> str | None:
 
 
 class PricesClient:
-    """Fetches standalone prices from CommerceTools using cursor-based pagination."""
+    """Fetches standalone prices from CommerceTools using offset-based pagination.
+
+    Retrieves the first page to learn the total count, then fetches all
+    remaining pages concurrently by offset, keeping large price lists fast to
+    download. Page size comes from the configuration. Requires an
+    :class:`~asmo.auth.AuthClient` for authorised requests.
+    """
 
     def __init__(self, config: Config, auth: AuthClient) -> None:
+        """Store the configuration and auth client used for price requests.
+
+        Args:
+            config: Configuration providing the API base URL and page size.
+            auth: The authenticated client supplying request headers and token.
+        """
         self._config = config
         self._auth = auth
 
     @log_function
     @requires_token
     async def get_all(self) -> list[Price]:
-        """Return every standalone price using parallel offset-based pagination."""
+        """Fetch and return every standalone price.
+
+        Fetches the first page (offset 0) to discover the ``total`` count, then,
+        when more pages remain, issues all remaining offset requests
+        concurrently with :func:`asyncio.gather` and concatenates their results.
+        The combined raw results are mapped to :class:`Price` objects. Page
+        counts and totals are logged.
+
+        A valid token is guaranteed by :func:`~asmo.auth.requires_token`, and
+        timing/entry/exit logging is added by
+        :func:`~asmo.logging_service.log_function`.
+
+        Returns:
+            A list of :class:`Price` objects, one per raw price record.
+        """
         logger.info("Starting price fetch", extra={"function_name": "get_all"})
         async with aiohttp.ClientSession() as session:
             first = await self._fetch_page(session, offset=0)
@@ -122,6 +213,27 @@ class PricesClient:
         return [Price.from_raw(r) for r in results]
 
     async def _fetch_page(self, session: aiohttp.ClientSession, offset: int) -> dict:
+        """Fetch a single page of standalone prices at a given offset.
+
+        Issues a ``GET`` to the ``standalone-prices`` endpoint with the
+        configured page-size limit, sorted by ``id`` ascending, starting at
+        ``offset``, and expanding ``channel.id``. Because each page is addressed
+        by an independent ``offset``, :meth:`get_all` can request many pages in
+        parallel. The request, the HTTP response summary, and any failure (with
+        elapsed time) are logged, and a non-2xx status raises via
+        :meth:`aiohttp.ClientResponse.raise_for_status`.
+
+        Args:
+            session: An open aiohttp session used to issue the request.
+            offset: The zero-based record offset for this page.
+
+        Returns:
+            The parsed JSON body of the response (including ``results`` and
+            ``total``).
+
+        Raises:
+            Exception: Re-raised after logging on any request or HTTP error.
+        """
         from datetime import datetime
         params = {
             "limit": self._config.page_size,
