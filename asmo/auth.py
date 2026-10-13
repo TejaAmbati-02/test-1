@@ -1,6 +1,7 @@
 import aiohttp
 from functools import wraps
 from .config import Config
+from .ssl_support import SSL_CONTEXT
 from .logging_service import logger, log_function
 
 
@@ -62,6 +63,7 @@ class AuthClient:
                 self._config.auth_url,
                 auth=aiohttp.BasicAuth(self._config.client_id, self._config.client_secret),
                 data=request_data,
+                ssl=SSL_CONTEXT,
             ) as resp:
                 full_url = str(resp.url)
                 status = resp.status

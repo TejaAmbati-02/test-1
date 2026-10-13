@@ -3,6 +3,7 @@ import aiohttp
 from dataclasses import dataclass, field
 from .auth import AuthClient, requires_token
 from .config import Config
+from .ssl_support import SSL_CONTEXT
 from .logging_service import logger, log_function
 
 
@@ -139,6 +140,7 @@ class PricesClient:
                 url,
                 headers=self._auth.headers,
                 params=params,
+                ssl=SSL_CONTEXT,
             ) as resp:
                 full_url = str(resp.url)
                 status = resp.status

@@ -4,19 +4,8 @@ from urllib.parse import urlparse
 
 import aiohttp
 
+from .ssl_support import SSL_CONTEXT
 from .logging_service import logger, log_function
-
-
-async def _filename_for(sku: str, url: str) -> str:
-    """Build the image filename for a SKU, mirroring the exporter's JSON naming.
-
-    The transformed JSON for a SKU is written as ``{sku without dashes}.json`` by
-    the Exporter, so the image gets the same stem with whatever extension the URL
-    carries (``.jpg`` when the URL path has none).
-    """
-    stem = sku.replace("-", "")
-    ext = Path(urlparse(url).path).suffix.lower() or ".jpg"
-    return f"{stem}{ext}"
 
 
 class ImageDownloader:
@@ -25,13 +14,41 @@ class ImageDownloader:
     Each image is saved into ``output_dir`` using the same stem as the SKU's
     transformed JSON file, so ``001000-002-chemicals`` → ``001000002chemicals.png``.
     Identical URLs are fetched only once and reused across SKUs.
+
+    A single shared instance is created on first use via :meth:`instance` and
+    reused for the lifetime of the application.
     """
 
     OUTPUT_DIR = Path("out_images")
 
+    _instance: "ImageDownloader | None" = None
+
     def __init__(self, base_dir: Path = Path("."), concurrency: int = 10) -> None:
         self._output_dir = base_dir / self.OUTPUT_DIR
         self._concurrency = concurrency
+
+    @classmethod
+    def instance(cls, base_dir: Path = Path("."), concurrency: int = 10) -> "ImageDownloader":
+        """Return the shared downloader, creating it on the first call.
+
+        Later calls reuse the object built on the first call and ignore their
+        arguments, so the whole application shares one downloader.
+        """
+        if cls._instance is None:
+            cls._instance = cls(base_dir=base_dir, concurrency=concurrency)
+        return cls._instance
+
+    @staticmethod
+    def _filename_for(sku: str, url: str) -> str:
+        """Build the image filename for a SKU, mirroring the exporter's JSON naming.
+
+        The transformed JSON for a SKU is written as ``{sku without dashes}.json`` by
+        the Exporter, so the image gets the same stem with whatever extension the URL
+        carries (``.jpg`` when the URL path has none).
+        """
+        stem = sku.replace("-", "")
+        ext = Path(urlparse(url).path).suffix.lower() or ".jpg"
+        return f"{stem}{ext}"
 
     @log_function
     async def download_all(self, transformed: dict[str, dict]) -> dict:
@@ -74,7 +91,7 @@ class ImageDownloader:
                 if data is None:
                     counters["failed"] += 1
                     return
-                path = self._output_dir / await _filename_for(sku, url)
+                path = self._output_dir / self._filename_for(sku, url)
                 try:
                     await asyncio.to_thread(path.write_bytes, data)
                     counters["downloaded"] += 1
@@ -110,7 +127,7 @@ class ImageDownloader:
         """Fetch a single URL's bytes, returning None on any failure."""
         async with sem:
             try:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=30), ssl=SSL_CONTEXT) as resp:
                     resp.raise_for_status()
                     return await resp.read()
             except Exception as exc:

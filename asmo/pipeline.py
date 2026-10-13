@@ -33,7 +33,7 @@ class Pipeline:
         self._products = ProductsClient(self._config, self._auth)
         self._prices = PricesClient(self._config, self._auth)
         self._exporter = Exporter(base_dir=output_dir)
-        self._images = ImageDownloader(base_dir=output_dir)
+        self._images = ImageDownloader.instance(base_dir=output_dir)
         self._storage = ObjectStorageClient(ObjectStorageConfig())
 
     @log_function
