@@ -47,10 +47,12 @@ class Folder(str, Enum):
     Members:
         PRODUCTS: Prefix for transformed product documents.
         CATEGORY: Prefix for category documents.
+        IMAGES: Prefix for product image files.
     """
 
     PRODUCTS = "products-data"
     CATEGORY = "category-data"
+    IMAGES = "products-images"
 
 
 class ObjectStorageConfig:

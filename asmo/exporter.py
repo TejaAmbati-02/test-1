@@ -69,11 +69,14 @@ class Exporter:
         prices: list[Price],
         transformed: dict[str, dict],
     ) -> ExportPaths:
-        """Write all products, prices and transformed rows to disk.
+        """Write all products, prices and transformed rows to disk (batch).
 
-        Ensures the three output folders exist, then writes the raw product
-        documents, the raw price documents and the transformed SKU rows, each
-        into its own folder.
+        Convenience entry point that writes the raw product and price documents
+        via :meth:`export_raw` and then the transformed SKU rows in one batch.
+        The pipeline itself no longer uses this method: it calls
+        :meth:`export_raw` and streams the transformed rows out one SKU at a
+        time via :meth:`write_transformed_row`, so each JSON file can be paired
+        with its image download. This method is kept for standalone/batch use.
 
         Args:
             products: The fetched products whose raw documents are written.
@@ -83,24 +86,65 @@ class Exporter:
         Returns:
             An :class:`ExportPaths` describing the folders written to.
         """
+        paths = await self.export_raw(products, prices)
+        await self._write_transformed(transformed)
+        logger.info("Export complete", extra={"function_name": "export", "status": "success"})
+        return paths
+
+    @log_function
+    async def export_raw(self, products: list[Product], prices: list[Price]) -> ExportPaths:
+        """Write only the raw product and price documents to disk.
+
+        Ensures all three output folders exist (including the transformed
+        folder, so a concurrent per-SKU writer can drop files into it without
+        racing on directory creation) and writes the raw product and price
+        documents. The transformed rows are intentionally *not* written here —
+        the pipeline streams those out per SKU via
+        :meth:`write_transformed_row` so each one can be paired with its image
+        download.
+
+        Args:
+            products: The fetched products whose raw documents are written.
+            prices: The fetched prices whose raw documents are written.
+
+        Returns:
+            An :class:`ExportPaths` describing the folders written to.
+        """
         logger.info(
-            f"Exporting {len(products)} products, {len(prices)} prices, {len(transformed)} transformed rows",
-            extra={"function_name": "export"},
+            f"Exporting {len(products)} products and {len(prices)} prices (raw)",
+            extra={"function_name": "export_raw"},
         )
         for folder in (self._products_dir, self._prices_dir, self._transformed_dir):
             folder.mkdir(parents=True, exist_ok=True)
 
         await self._write_each(self._products_dir, [p.raw for p in products])
         await self._write_each(self._prices_dir, [p.raw for p in prices])
-        await self._write_transformed(transformed)
 
-        paths = ExportPaths(
+        return ExportPaths(
             products=self._products_dir,
             prices=self._prices_dir,
             transformed=self._transformed_dir,
         )
-        logger.info("Export complete", extra={"function_name": "export", "status": "success"})
-        return paths
+
+    async def write_transformed_row(self, sku: str, row: dict) -> Path:
+        """Write a single transformed SKU row to the transformed folder.
+
+        Used by the pipeline to stream transformed JSON out one SKU at a time,
+        so each file's creation can be immediately followed by that SKU's image
+        download. The blocking write is offloaded to a worker thread. The file
+        is named after the SKU with hyphens removed, matching the image naming.
+
+        Args:
+            sku: The SKU the row belongs to; also the file stem.
+            row: The transformed row to serialise as JSON.
+
+        Returns:
+            The path the JSON file was written to.
+        """
+        self._transformed_dir.mkdir(parents=True, exist_ok=True)
+        file_path = self._transformed_dir / f"{sku.replace('-', '')}.json"
+        await asyncio.to_thread(self._write_row_sync, file_path, sku, row)
+        return file_path
 
     async def _write_each(self, folder: Path, records: list[dict]) -> None:
         """Write a list of raw records to a folder, one JSON file per record.
@@ -198,9 +242,9 @@ class Exporter:
     def _write_transformed_sync(self, transformed: dict[str, dict]) -> None:
         """Synchronously write transformed rows, one JSON file per SKU.
 
-        Runs on a worker thread (via :meth:`_write_transformed`). Each file is
-        named after the SKU with hyphens removed and is written as indented,
-        non-ASCII-escaped JSON.
+        Runs on a worker thread (via :meth:`_write_transformed`). Delegates each
+        row to :meth:`_write_row_sync` so the batch and per-SKU
+        (:meth:`write_transformed_row`) write paths share identical behaviour.
 
         Args:
             transformed: Mapping of SKU to transformed row to write.
@@ -210,27 +254,45 @@ class Exporter:
                 offending SKU.
         """
         for sku, row in transformed.items():
-            try:
-                file_path = self._transformed_dir / f"{sku.replace('-', '')}.json"
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(row, f, indent=2, ensure_ascii=False)
-                logger.debug(
-                    f"Wrote transformed row sku={sku!r} to {self._transformed_dir}/",
-                    extra={
-                        "request_id": sku,
-                        "function_name": "_write_transformed_sync",
-                        "input_data": {"sku": sku, "folder": str(self._transformed_dir)},
-                    },
-                )
-            except Exception as exc:
-                logger.error(
-                    f"Failed to write transformed row sku={sku!r}: {exc}",
-                    extra={
-                        "request_id": sku,
-                        "function_name": "_write_transformed_sync",
-                        "status": "error",
-                        "error_details": str(exc),
-                        "input_data": {"sku": sku, "folder": str(self._transformed_dir)},
-                    },
-                )
-                raise
+            self._write_row_sync(self._transformed_dir / f"{sku.replace('-', '')}.json", sku, row)
+
+    @staticmethod
+    def _write_row_sync(file_path: Path, sku: str, row: dict) -> None:
+        """Synchronously write one transformed SKU row to ``file_path``.
+
+        Runs on a worker thread. Writes indented, non-ASCII-escaped JSON and
+        logs success at debug level. Shared by both the batch writer
+        (:meth:`_write_transformed_sync`) and the per-SKU writer
+        (:meth:`write_transformed_row`).
+
+        Args:
+            file_path: Destination JSON file path.
+            sku: The SKU the row belongs to (used for logging context).
+            row: The transformed row to serialise.
+
+        Raises:
+            Exception: Re-raises any write error after logging it with the SKU.
+        """
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(row, f, indent=2, ensure_ascii=False)
+            logger.debug(
+                f"Wrote transformed row sku={sku!r} to {file_path.parent}/",
+                extra={
+                    "request_id": sku,
+                    "function_name": "_write_row_sync",
+                    "input_data": {"sku": sku, "folder": str(file_path.parent)},
+                },
+            )
+        except Exception as exc:
+            logger.error(
+                f"Failed to write transformed row sku={sku!r}: {exc}",
+                extra={
+                    "request_id": sku,
+                    "function_name": "_write_row_sync",
+                    "status": "error",
+                    "error_details": str(exc),
+                    "input_data": {"sku": sku, "folder": str(file_path.parent)},
+                },
+            )
+            raise
