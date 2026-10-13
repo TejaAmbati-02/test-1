@@ -13,9 +13,10 @@ between the local filesystem and the project's S3-compatible object store:
       operations.
 
 All network operations are implemented with ``aioboto3`` and are fully
-asynchronous. Every method opens a short-lived client via the shared
-``aioboto3.Session`` and closes it on exit, which keeps the module safe to use
-from many concurrent tasks.
+asynchronous. A single S3 client is opened lazily on first use and reused by
+every method (and every concurrent task) for the lifetime of the instance; it
+is closed by :meth:`ObjectStorageClient.aclose` or by using the client as an
+``async with`` context manager.
 
 Logging follows the project-wide convention: a human-readable message plus an
 ``extra`` dict carrying structured fields (``function_name``, ``input_data``,
@@ -26,6 +27,7 @@ import asyncio
 import aioboto3
 import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from botocore.client import Config
 from typing import Optional
@@ -273,9 +275,10 @@ class ObjectStorageClient:
 
     Wraps an ``aioboto3.Session`` and exposes high-level, folder-aware
     operations (upload, download, read, delete, existence checks, metadata and
-    presigned URLs). Every operation opens a short-lived client for the call and
-    closes it on completion, which makes the instance safe to share across
-    concurrent tasks.
+    presigned URLs). A single S3 client is opened on first use and reused by
+    every operation and concurrent task; call :meth:`aclose` (or use the client
+    as an ``async with`` context manager) to close it. Use :meth:`instance` to
+    share one client process-wide.
 
     Attributes:
         config: The :class:`ObjectStorageConfig` providing endpoint, bucket and
@@ -285,18 +288,77 @@ class ObjectStorageClient:
         config: Connection configuration for the target bucket.
     """
 
-    def __init__(self, config: ObjectStorageConfig):
+    _instance: "ObjectStorageClient | None" = None
+
+    def __init__(self, config: ObjectStorageConfig | None = None):
         """Store the configuration and create the shared aioboto3 session.
 
         Args:
-            config: Connection configuration for the target bucket.
+            config: Connection configuration for the target bucket. When omitted,
+                a fresh :class:`ObjectStorageConfig` is read from the environment.
         """
+        config = config or ObjectStorageConfig()
         logger.debug(
             f"Initialising ObjectStorageClient for bucket '{config.bucket_name}'",
             extra={"function_name": "ObjectStorageClient.__init__", "input_data": {"bucket_name": config.bucket_name, "endpoint_url": config.endpoint_url}},
         )
         self.config = config
         self._session = aioboto3.Session()
+        self._client_cm = None              # the open aioboto3 client context manager
+        self._s3 = None                     # the shared S3 client reused by every method
+        self._client_lock = asyncio.Lock()  # guards lazy client creation
+
+    @classmethod
+    def instance(cls, config: ObjectStorageConfig | None = None) -> "ObjectStorageClient":
+        """Return the shared storage client, creating it on the first call.
+
+        Later calls reuse the object built on the first call and ignore their
+        argument, so the whole application shares one client (and one underlying
+        S3 connection).
+        """
+        if cls._instance is None:
+            cls._instance = cls(config)
+        return cls._instance
+
+    async def _ensure_client(self):
+        """Open the shared S3 client once (race-safe) and return it.
+
+        All methods reuse this single client instead of opening a new one per
+        call/file. It stays open until :meth:`aclose` (or ``async with`` exit).
+        The lock makes creation atomic so concurrent callers share one client.
+        """
+        if self._s3 is None:
+            async with self._client_lock:
+                if self._s3 is None:   # re-check now that we hold the lock
+                    cm = self._session.client(**self._client_kwargs())
+                    self._s3 = await cm.__aenter__()
+                    self._client_cm = cm
+        return self._s3
+
+    @asynccontextmanager
+    async def _client(self):
+        """Yield the shared S3 client without closing it on block exit.
+
+        Lets every method keep its original ``async with ... as s3:`` shape while
+        reusing one long-lived client. The client is closed only by
+        :meth:`aclose` / ``async with self`` exit, not here.
+        """
+        client = await self._ensure_client()
+        yield client
+
+    async def aclose(self) -> None:
+        """Close the shared S3 client if it was opened (safe no-op otherwise)."""
+        if self._client_cm is not None:
+            await self._client_cm.__aexit__(None, None, None)
+            self._client_cm = None
+            self._s3 = None
+
+    async def __aenter__(self) -> "ObjectStorageClient":
+        await self._ensure_client()
+        return self
+
+    async def __aexit__(self, *exc) -> None:
+        await self.aclose()
 
     def _client_kwargs(self) -> dict:
         """Build the keyword arguments for ``session.client("s3", ...)``.
@@ -349,7 +411,7 @@ class ObjectStorageClient:
             f"Checking existence of bucket '{self.config.bucket_name}'",
             extra={"function_name": "bucket_exists", "input_data": {"bucket_name": self.config.bucket_name}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             try:
                 await s3.head_bucket(Bucket=self.config.bucket_name)
                 logger.info(
@@ -383,7 +445,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Listing objects",
             extra={"function_name": "list_folder", "input_data": {"folder": folder.value}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             response = await s3.list_objects_v2(
                 Bucket=self.config.bucket_name,
                 Prefix=f"{folder.value}/",
@@ -406,7 +468,54 @@ class ObjectStorageClient:
         results = await asyncio.gather(*[self.list_folder(folder) for folder in Folder])
         return {folder.value: result for folder, result in zip(Folder, results)}
 
-    # Upload 
+    # Folder existence
+
+    async def folder_exists(self, folder: Folder) -> bool:
+        """Return ``True`` if any object already lives under the folder's prefix.
+
+        Args:
+            folder: The logical :class:`Folder` to check.
+
+        Returns:
+            ``True`` if at least one object has the ``<folder>/`` prefix.
+        """
+        logger.debug(
+            f"[{folder.value}] Checking whether folder exists",
+            extra={"function_name": "folder_exists", "input_data": {"folder": folder.value}},
+        )
+        async with self._client() as s3:
+            response = await s3.list_objects_v2(
+                Bucket=self.config.bucket_name,
+                Prefix=f"{folder.value}/",
+                MaxKeys=1,
+            )
+            return response.get("KeyCount", 0) > 0
+
+    async def ensure_folder(self, folder: Folder) -> None:
+        """Create the folder (a zero-byte prefix marker) if it doesn't exist yet.
+
+        Object storage has no real folders — a prefix only "exists" once an
+        object carries it. If the folder is empty, an empty ``<folder>/`` marker
+        object is created so the folder is present even before the first file
+        lands. If it already exists, this is a no-op.
+
+        Args:
+            folder: The logical :class:`Folder` to ensure.
+        """
+        if await self.folder_exists(folder):
+            logger.info(
+                f"[{folder.value}] Folder already exists",
+                extra={"function_name": "ensure_folder", "status": "success"},
+            )
+            return
+        async with self._client() as s3:
+            await s3.put_object(Bucket=self.config.bucket_name, Key=f"{folder.value}/", Body=b"")
+            logger.info(
+                f"[{folder.value}] Folder did not exist — created",
+                extra={"function_name": "ensure_folder", "status": "success"},
+            )
+
+    # Upload
 
     async def upload_file(self, folder: Folder, local_path: str, filename: str) -> None:
         """Upload a file from the local filesystem to the folder.
@@ -429,7 +538,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Uploading local file '{local_path}' -> '{s3_key}'",
             extra={"function_name": "upload_file", "input_data": {"local_path": local_path, "key": s3_key}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             await s3.upload_file(local_path, self.config.bucket_name, s3_key)
             logger.info(
                 f"[{folder.value}] Uploaded '{local_path}' -> '{s3_key}'",
@@ -464,7 +573,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Putting {len(data)} bytes -> '{s3_key}' (content_type={content_type})",
             extra={"function_name": "upload_bytes", "input_data": {"key": s3_key, "size": len(data), "content_type": content_type}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             await s3.put_object(
                 Bucket=self.config.bucket_name,
                 Key=s3_key,
@@ -592,7 +701,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Downloading '{s3_key}' -> '{local_path}'",
             extra={"function_name": "download_file", "input_data": {"key": s3_key, "local_path": local_path}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             await s3.download_file(self.config.bucket_name, s3_key, local_path)
             logger.info(
                 f"[{folder.value}] Downloaded '{s3_key}' -> '{local_path}'",
@@ -618,7 +727,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Getting object '{s3_key}'",
             extra={"function_name": "read_object", "input_data": {"key": s3_key}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             response = await s3.get_object(Bucket=self.config.bucket_name, Key=s3_key)
             content = await response["Body"].read()
             logger.info(
@@ -671,7 +780,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Deleting '{s3_key}'",
             extra={"function_name": "delete_object", "input_data": {"key": s3_key}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             await s3.delete_object(Bucket=self.config.bucket_name, Key=s3_key)
             logger.info(
                 f"[{folder.value}] Deleted '{s3_key}'",
@@ -704,7 +813,7 @@ class ObjectStorageClient:
             extra={"function_name": "delete_many", "input_data": {"folder": folder.value, "count": len(filenames)}},
         )
         objects = [{"Key": self._build_key(folder, f)} for f in filenames]
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             response = await s3.delete_objects(
                 Bucket=self.config.bucket_name,
                 Delete={"Objects": objects, "Quiet": True},
@@ -767,7 +876,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Checking existence of '{s3_key}'",
             extra={"function_name": "object_exists", "input_data": {"key": s3_key}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             try:
                 await s3.head_object(Bucket=self.config.bucket_name, Key=s3_key)
                 logger.info(
@@ -799,7 +908,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Fetching metadata for '{s3_key}'",
             extra={"function_name": "object_metadata", "input_data": {"key": s3_key}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             try:
                 return await s3.head_object(Bucket=self.config.bucket_name, Key=s3_key)
             except Exception as exc:
@@ -832,7 +941,7 @@ class ObjectStorageClient:
             f"[{folder.value}] Generating presigned URL for '{s3_key}' (expires_in={expires_in}s)",
             extra={"function_name": "generate_presigned_url", "input_data": {"key": s3_key, "expires_in": expires_in}},
         )
-        async with self._session.client(**self._client_kwargs()) as s3:
+        async with self._client() as s3:
             url = await s3.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": self.config.bucket_name, "Key": s3_key},

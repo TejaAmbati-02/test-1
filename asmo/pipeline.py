@@ -9,7 +9,7 @@ from .prices import PricesClient, Price
 from .exporter import Exporter, ExportPaths
 from .transformer import transform
 from .images import ImageDownloader
-from .storage import ObjectStorageClient, ObjectStorageConfig, Folder
+from .storage import ObjectStorageClient, Folder
 from .logging_service import logger, log_function
 
 
@@ -35,15 +35,15 @@ class Pipeline:
         self._prices = PricesClient(self._config, self._auth)
         self._exporter = Exporter(base_dir=output_dir)
         self._images = ImageDownloader.instance(base_dir=output_dir)
-        self._storage = ObjectStorageClient(ObjectStorageConfig())
+        self._storage = ObjectStorageClient.instance()
 
     @log_function
     async def run(self) -> PipelineResult:
         """Authenticate, fetch products + prices concurrently, transform, then export."""
-        logger.info("Step 1/4 — authenticating", extra={"function_name": "run"})
+        logger.info("Step 1/5 — authenticating", extra={"function_name": "run"})
         await self._auth.authenticate()
 
-        logger.info("Step 2/4 — fetching products and prices concurrently", extra={"function_name": "run"})
+        logger.info("Step 2/5 — fetching products and prices concurrently", extra={"function_name": "run"})
         products, prices = await asyncio.gather(
             self._products.get_all(),
             self._prices.get_all(),
@@ -53,7 +53,7 @@ class Pipeline:
             extra={"function_name": "run", "input_data": {"products": len(products), "prices": len(prices)}},
         )
 
-        logger.info("Step 3/4 — transforming", extra={"function_name": "run"})
+        logger.info("Step 3/5 — transforming", extra={"function_name": "run"})
         transformed = await transform(products, prices, self._config.channel_id)
 
         # Per-SKU storage callbacks — only wired up when uploads are enabled.
@@ -63,21 +63,35 @@ class Pipeline:
         upload_image = self._make_upload_image() if self._config.upload_enabled else None
 
         logger.info(
-            "Step 4/4 — exporting raw dumps while, per SKU, writing the transformed "
+            "Step 4/5 — exporting raw dumps while, per SKU, writing the transformed "
             "JSON then downloading its image and "
             + ("uploading both to object storage in parallel" if self._config.upload_enabled
                else "storing them locally (upload disabled)"),
             extra={"function_name": "run", "input_data": {"upload_enabled": self._config.upload_enabled}},
         )
-        paths, image_summary = await asyncio.gather(
-            self._exporter.export_raw(products, prices),
-            self._images.download_all(
-                transformed,
-                write_json=self._exporter.write_transformed_row,
-                upload_json=upload_json,
-                upload_image=upload_image,
-            ),
-        )
+        async def _export_and_images():
+            return await asyncio.gather(
+                self._exporter.export_raw(products, prices),
+                self._images.download_all(
+                    transformed,
+                    write_json=self._exporter.write_transformed_row,
+                    upload_json=upload_json,
+                    upload_image=upload_image,
+                ),
+            )
+
+        if self._config.upload_enabled:
+            # Open the shared S3 client once for the whole run and make sure the
+            # target folders exist before the per-SKU uploads start.
+            async with self._storage:
+                await asyncio.gather(
+                    self._storage.ensure_folder(Folder.PRODUCTS),
+                    self._storage.ensure_folder(Folder.IMAGES),
+                )
+                paths, image_summary = await _export_and_images()
+        else:
+            paths, image_summary = await _export_and_images()
+
         logger.info(
             f"Export + storage — images: {image_summary['downloaded']} downloaded, "
             f"{image_summary['skipped']} skipped, {image_summary['failed']} failed; "
@@ -86,6 +100,26 @@ class Pipeline:
             f"{image_summary['upload_failed']} upload failures",
             extra={"function_name": "run", "status": "success", "input_data": image_summary},
         )
+
+        if self._config.index_enabled:
+            logger.info(
+                "Step 5/5 — embedding content and indexing transformed rows into OpenSearch",
+                extra={"function_name": "run"},
+            )
+            # Imported lazily so the package imports without OCI/OpenSearch installed.
+            from .search_index import OpenSearchIndexer
+
+            indexer = OpenSearchIndexer()
+            try:
+                index_summary = await indexer.index_rows(transformed)
+                logger.info(
+                    f"Indexing complete — {index_summary['indexed']} indexed, {index_summary['failed']} failed",
+                    extra={"function_name": "run", "status": "success", "input_data": index_summary},
+                )
+            finally:
+                await indexer.close()
+        else:
+            logger.info("Step 5/5 — indexing disabled (INDEX_ENABLED=false)", extra={"function_name": "run"})
 
         logger.info(
             f"Pipeline run complete — {len(products)} products, {len(prices)} prices, {len(transformed)} rows exported",

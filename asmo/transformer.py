@@ -240,6 +240,14 @@ async def _parse_variant(
             "unitOfMeasure": next((p.price_unit for p in pool if p.price_unit is not None), None),
             "moq": next((p.moq for p in pool if p.moq is not None), None),
         }
+        # Combined free-text blob of every field value, pipe-separated — useful
+        # as a single searchable/embeddable field downstream. Built from the row
+        # as assembled above, so it reflects exactly the fields emitted.
+        row["content"] = _combine_content(row)
+        logger.debug(
+            f"Built content field for sku={sku!r} ({len(row['content'])} chars)",
+            extra={"request_id": sku, "function_name": "_parse_variant", "input_data": {"sku": sku}},
+        )
         logger.info(
             f"Parsed row for sku={sku!r} ({len(row)} fields)",
             extra={
@@ -353,6 +361,66 @@ async def _category_fields(raw: dict) -> dict:
         "subCategorySlug": _pick(subs, "slug", "en"),
         "subCategoryDescription": _pick([{**s, "desc": (s.get("description") or {}).get("en")} for s in subs], "desc"),
     }
+
+
+def _stringify(value) -> str | None:
+    """Render a single field value as a plain string for the ``content`` blob.
+
+    Flattens the value types that appear in a transformed row so they can be
+    concatenated into one searchable string:
+
+        * ``None`` and empty/blank strings -> ``None`` (omitted from the blob).
+        * ``bool`` -> ``"True"``/``"False"``.
+        * ``list``/``tuple`` -> its non-empty items joined with ``", "``.
+        * ``dict`` -> its non-empty values joined with ``", "`` (e.g. a hazard
+          rating ``{"code": ..., "value": ...}``).
+        * everything else -> ``str(value)`` stripped of surrounding whitespace.
+
+    Args:
+        value: The field value to stringify.
+
+    Returns:
+        The string form, or ``None`` when the value carries no content.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        parts = [s for s in (_stringify(v) for v in value) if s]
+        return ", ".join(parts) if parts else None
+    if isinstance(value, dict):
+        parts = [s for s in (_stringify(v) for v in value.values()) if s]
+        return ", ".join(parts) if parts else None
+    text = str(value).strip()
+    return text or None
+
+
+def _combine_content(row: dict) -> str:
+    """Combine all of a row's fields into one pipe-separated ``key:value`` string.
+
+    Iterates the row in insertion order and joins each field as ``key:value``
+    with `` | `` between fields (e.g. ``productName_en:Acme | price:12.5``).
+    ``None`` and blank values are skipped so the blob stays dense. Any
+    pre-existing ``content`` key is excluded so the field never folds its own
+    previous value back in.
+
+    Args:
+        row: The assembled transformed row (its own ``content`` key, if present,
+            is ignored).
+
+    Returns:
+        A single ``" | "``-separated string of ``key:value`` pairs for every
+        meaningful field.
+    """
+    parts = [
+        f"{key}:{text}"
+        for key, value in row.items()
+        if key != "content"
+        for text in (_stringify(value),)
+        if text
+    ]
+    return " | ".join(parts)
 
 
 async def _attr(attributes: list, name: str):

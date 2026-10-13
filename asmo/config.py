@@ -40,6 +40,7 @@ class Config:
     region: str = field(default_factory=lambda: os.environ.get("CT_REGION"))
     channel_id: str = field(default_factory=lambda: os.environ["CT_CHANNEL_ID"])
     upload_enabled: bool = field(default_factory=lambda: os.environ.get("UPLOAD_ENABLED", "false").lower() == "true")
+    index_enabled: bool = field(default_factory=lambda: os.environ.get("INDEX_ENABLED", "false").lower() == "true")
     page_size: int = 500
 
     @property

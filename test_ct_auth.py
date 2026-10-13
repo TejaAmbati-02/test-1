@@ -9,7 +9,6 @@ import truststore
 # Use the OS trust store so TLS works behind the corporate proxy / MITM CA.
 truststore.inject_into_ssl()
 
-# --- Hardcoded values (from .env) --------------------------------------------
 CT_CLIENT_ID = "mkUEX1UR547nsGClQ_jdA2C3"
 CT_CLIENT_SECRET = "8q7bhcHmI6kUZ6eppLRTOZEEiFrs3vp-"
 CT_PROJECT_KEY = "easmo-dev"
@@ -18,7 +17,6 @@ CT_SCOPE = f"manage_project:{CT_PROJECT_KEY} view_audit_log:{CT_PROJECT_KEY}"
 
 AUTH_URL = f"https://auth.{CT_REGION}.commercetools.com/oauth/token"
 API_BASE = f"https://api.{CT_REGION}.commercetools.com/{CT_PROJECT_KEY}"
-# -----------------------------------------------------------------------------
 
 
 def get_token() -> str:
