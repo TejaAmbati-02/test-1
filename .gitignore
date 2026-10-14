@@ -1,0 +1,16 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+logs
+.env
+.DS_Store
+/pushing_data_to_index/out_transformed
+*.json
+pushing_data_to_index
