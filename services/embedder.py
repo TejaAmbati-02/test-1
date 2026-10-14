@@ -6,7 +6,7 @@ import math
 import oci
 
 from config import Settings, settings as _settings
-from services.oci_genai import build_genai_client, oci_error_fields
+from services.oci_genai import build_genai_client, extract_embeddings, oci_error_fields
 from utils.logger import logger
 
 
@@ -59,7 +59,14 @@ class EmbeddingService:
         cfg = self._settings
         logger.debug(
             "EmbeddingService._embed_query_sync — building EmbedTextDetails",
-            extra={"input_data": {"model": cfg.embedding_model_name, "dimension": cfg.embedding_dimension, "input_type": "SEARCH_QUERY"}},
+            extra={"input_data": {
+                "model": cfg.embedding_model_name,
+                "dimension": cfg.embedding_dimension,
+                "input_type": "SEARCH_QUERY",
+                "compartment_id": cfg.oci_compartment_id,
+                "query_preview": query[:120],
+                "query_len": len(query),
+            }},
         )
         details = oci.generative_ai_inference.models.EmbedTextDetails(
             compartment_id=cfg.oci_compartment_id,
@@ -69,15 +76,27 @@ class EmbeddingService:
             ),
             inputs=[query],
             input_type="SEARCH_QUERY",
-            truncate="NONE",
-            embedding_types=["float"],
+            truncate="END",
             output_dimensions=cfg.embedding_dimension,
             is_echo=False,
         )
-        logger.debug("EmbeddingService._embed_query_sync — calling OCI embed_text")
+        logger.debug("EmbeddingService._embed_query_sync — EmbedTextDetails built, calling OCI embed_text")
         response = self._client.embed_text(embed_text_details=details)
-        vector = list(response.data.embeddings[0])
-        logger.debug(f"EmbeddingService._embed_query_sync — received vector dim={len(vector)}")
+        logger.debug(
+            "EmbeddingService._embed_query_sync — OCI embed_text returned",
+            extra={"input_data": {
+                "has_embeddings": getattr(response.data, "embeddings", None) is not None,
+                "has_embeddings_by_type": getattr(response.data, "embeddings_by_type", None) is not None,
+                "model_id": getattr(response.data, "model_id", None),
+            }},
+        )
+        vectors = extract_embeddings(response.data)
+        logger.debug(f"EmbeddingService._embed_query_sync — extracted {len(vectors)} vector(s)")
+        vector = vectors[0]
+        logger.debug(
+            "EmbeddingService._embed_query_sync — vector ready",
+            extra={"input_data": {"dim": len(vector), "preview": [round(v, 5) for v in vector[:5]]}},
+        )
         if cfg.embedding_normalize:
             vector = self._l2_normalize(vector)
             logger.debug("EmbeddingService._embed_query_sync — vector L2-normalized")
@@ -85,13 +104,16 @@ class EmbeddingService:
 
     async def encode_query(self, query: str) -> list[float]:
         """Embed a single search query (SEARCH_QUERY input type)."""
-        logger.debug("EmbeddingService.encode_query — starting")
+        logger.debug(
+            "EmbeddingService.encode_query — starting",
+            extra={"input_data": {"query_preview": query[:120], "query_len": len(query), "client_loaded": self._client is not None}},
+        )
         try:
             if self._client is None:
                 logger.warning("EmbeddingService.encode_query — client not initialized, triggering load")
                 await self.load()
 
-            logger.debug("EmbeddingService.encode_query — dispatching embed to executor")
+            logger.debug("EmbeddingService.encode_query — dispatching embed to executor thread")
             loop = asyncio.get_running_loop()
             vector = await loop.run_in_executor(None, self._embed_query_sync, query)
             logger.info(

@@ -248,15 +248,18 @@ class SearchService:
             },
         )
         try:
-            logger.debug("SearchService.text_search_v1 — encoding query vector")
+            logger.debug(f"SearchService.text_search_v1 — encoding query vector for '{query}'")
             query_vector = await self._emb.encode_query(query)
-            logger.debug(f"SearchService.text_search_v1 — query vector encoded (dim={len(query_vector)})")
+            logger.debug(
+                "SearchService.text_search_v1 — query vector encoded",
+                extra={"input_data": {"dim": len(query_vector), "preview": [round(v, 5) for v in query_vector[:5]]}},
+            )
 
             lang = language if language in ("en", "de") else "en"
             name_field = f"productName_{lang}"
             desc_field = f"productDescription_{lang}"
             kw_fields = [name_field, desc_field, "content", "rootCategoryName", "subCategoryName"]
-            logger.debug(f"SearchService.text_search_v1 — using fields: {kw_fields}")
+            logger.debug(f"SearchService.text_search_v1 — resolved language='{lang}', keyword fields={kw_fields}")
 
             logger.debug("SearchService.text_search_v1 — building hybrid query (BM25 + kNN)")
             hybrid_query: dict[str, Any] = {
@@ -283,6 +286,10 @@ class SearchService:
             took_ms, total, candidates = self._parse_hits(raw, index)
             logger.info(
                 f"SearchService.text_search_v1 — RRF returned {len(candidates)} candidates from total={total} (took {took_ms}ms)",
+            )
+            logger.debug(
+                "SearchService.text_search_v1 — candidate ids/scores (pre-rerank)",
+                extra={"input_data": {"candidate_ids": [c.id for c in candidates[:20]], "top_scores": [round(c.score, 4) for c in candidates[:5]]}},
             )
 
             logger.debug("SearchService.text_search_v1 — parsing facets from aggregations")

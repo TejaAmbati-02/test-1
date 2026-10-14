@@ -68,9 +68,14 @@ class LoggingService:
         self._configured = False
         self.logger = logging.getLogger("app")
 
-    def setup(self, level: int = logging.INFO) -> None:
+    def setup(self, level: int | None = None) -> None:
         if self._configured:
             return
+
+        # Level from LOG_LEVEL env var (DEBUG|INFO|WARNING|ERROR), defaults to INFO.
+        if level is None:
+            level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+            level = getattr(logging, level_name, logging.INFO)
 
         root = logging.getLogger()
         root.setLevel(level)

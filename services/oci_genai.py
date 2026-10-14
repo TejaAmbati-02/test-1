@@ -8,6 +8,25 @@ from config import Settings
 from utils.logger import logger
 
 
+def extract_embeddings(result) -> list[list[float]]:
+    """Return float embedding vectors from an EmbedTextResult, regardless of SDK field.
+
+    `result.embeddings` is populated for the default float output; when `embedding_types`
+    is requested the vectors come back under `result.embeddings_by_type` instead. Handle both.
+    """
+    vecs = getattr(result, "embeddings", None)
+    if vecs:
+        return [list(v) for v in vecs]
+
+    by_type = getattr(result, "embeddings_by_type", None)
+    if by_type:
+        floats = by_type.get("float") if isinstance(by_type, dict) else getattr(by_type, "float", None)
+        if floats:
+            return [list(v) for v in floats]
+
+    raise ValueError("OCI embed response contained no embeddings")
+
+
 def oci_error_fields(exc: Exception) -> dict:
     """Extract structured OCI error details for logging.
 

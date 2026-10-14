@@ -6,7 +6,7 @@ import math
 import oci
 
 from config import Settings, settings as _settings
-from services.oci_genai import build_genai_client, oci_error_fields
+from services.oci_genai import build_genai_client, extract_embeddings, oci_error_fields
 from utils.logger import logger
 from models.response import SearchHit
 
@@ -70,6 +70,7 @@ class RerankerService:
         embeddings: list[list[float]] = []
         for start in range(0, len(texts), _MAX_BATCH):
             batch = texts[start:start + _MAX_BATCH]
+            logger.debug(f"RerankerService._embed_sync — batch starting at {start}, size {len(batch)} ({input_type})")
             details = oci.generative_ai_inference.models.EmbedTextDetails(
                 compartment_id=cfg.oci_compartment_id,
                 serving_mode=oci.generative_ai_inference.models.OnDemandServingMode(
@@ -79,13 +80,14 @@ class RerankerService:
                 inputs=batch,
                 input_type=input_type,
                 truncate="END",
-                embedding_types=["float"],
                 output_dimensions=cfg.embedding_dimension,
                 is_echo=False,
             )
             response = self._client.embed_text(embed_text_details=details)
-            embeddings.extend(list(vec) for vec in response.data.embeddings)
-        logger.debug(f"RerankerService._embed_sync — produced {len(embeddings)} embeddings")
+            batch_vecs = extract_embeddings(response.data)
+            logger.debug(f"RerankerService._embed_sync — batch at {start} produced {len(batch_vecs)} embeddings (dim={len(batch_vecs[0]) if batch_vecs else 0})")
+            embeddings.extend(batch_vecs)
+        logger.debug(f"RerankerService._embed_sync — produced {len(embeddings)} embeddings total")
         return embeddings
 
     async def rerank(self, query: str, hits: list[SearchHit], top_k: int, text_field: str = "content") -> list[SearchHit]:

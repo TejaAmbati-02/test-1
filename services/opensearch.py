@@ -173,13 +173,22 @@ class OpenSearchClientService:
             raise
 
     async def search(self, index: str, body: dict[str, Any], pipeline_id: str | None = None) -> dict[str, Any]:
-        logger.debug(f"OpenSearchClientService.search — executing on '{index}' pipeline={pipeline_id}")
+        logger.debug(
+            f"OpenSearchClientService.search — executing on '{index}' pipeline={pipeline_id}",
+            extra={"input_data": {"index": index, "pipeline": pipeline_id, "size": body.get("size"), "from": body.get("from"), "has_aggs": "aggs" in body}},
+        )
+        logger.debug("OpenSearchClientService.search — query body", extra={"input_data": {"body": body}})
         try:
             client = await self.get_client()
             params = {"search_pipeline": pipeline_id} if pipeline_id else {}
+            logger.debug(f"OpenSearchClientService.search — sending request with params={params}")
             result = await client.search(index=index, body=body, params=params)
             total = result["hits"]["total"]["value"]
             took = result.get("took", 0)
+            logger.debug(
+                "OpenSearchClientService.search — raw response received",
+                extra={"input_data": {"total_hits": total, "took_ms": took, "hits_returned": len(result["hits"]["hits"])}},
+            )
             logger.info(
                 f"OpenSearchClientService.search — done on '{index}'",
                 extra={
