@@ -202,4 +202,11 @@ async def global_exception_handler(_request: Request, exc: Exception) -> JSONRes
 
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        # Don't restart on log writes — the app writes logs into ./logs inside the watched tree.
+        reload_excludes=["logs/*", "*.log", "*.log.*"],
+    )
