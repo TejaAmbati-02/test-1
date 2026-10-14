@@ -90,7 +90,7 @@ class HealthResponse(BaseModel):
     opensearch_connected: bool = Field(description="Whether the API successfully pinged the OpenSearch cluster")
     opensearch_cluster: str | None = Field(default=None, description="Cluster name returned by OpenSearch, null if unreachable")
     embedding_model_loaded: bool = Field(description="Whether the sentence-transformer embedding model has been loaded into memory")
-    embedding_model_name: str = Field(description="HuggingFace model identifier used for query embedding")
+    embedding_model_name: str = Field(description="OCI GenAI model identifier used for query embedding")
 
 
 class ErrorDetail(BaseModel):

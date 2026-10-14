@@ -95,7 +95,7 @@ class LoggingService:
         root.addHandler(fh)
         root.addHandler(ch)
 
-        for name in ("urllib3", "httpx", "httpcore", "elastic_transport", "oci", "circuitbreaker", "sentence_transformers"):
+        for name in ("urllib3", "httpx", "httpcore", "elastic_transport", "oci", "circuitbreaker"):
             logging.getLogger(name).setLevel(logging.WARNING)
 
         self._configured = True

@@ -4,6 +4,5 @@ pydantic>=2.9.0
 pydantic-settings>=2.5.0
 opensearch-py[async]>=2.7.0
 oci>=2.126.0
-sentence-transformers>=3.0.0
 langchain-core>=0.3.0
 python-dotenv>=1.0.0

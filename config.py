@@ -32,10 +32,8 @@ class Settings(BaseSettings):
     hybrid_fetch_k: int = 50
     hybrid_rerank_top_k: int = 20
 
-    # Local cross-encoder reranker (sentence-transformers)
-    reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    reranker_device: str = "cpu"
-    reranker_cache_dir: str = ""
+    # Embedding-based reranker via OCI (Cohere Embed v4.0, cosine similarity)
+    reranker_model_name: str = "cohere.embed-v4.0"
     reranker_text_field: str = "text"
 
     # Per-document currency code field (e.g. "SAR", "USD"); drives the price facet
