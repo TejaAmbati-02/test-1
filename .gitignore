@@ -12,5 +12,5 @@ logs
 .env
 .DS_Store
 /pushing_data_to_index/out_transformed
-*.json
 pushing_data_to_index
+out_transformed

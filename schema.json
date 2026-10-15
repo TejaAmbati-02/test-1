@@ -1,0 +1,352 @@
+{
+  "properties": {
+    "availableQuantity": {
+      "type": "integer"
+    },
+    "chemicalHazardBulletin": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "content": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "standard",
+      "type": "text"
+    },
+    "content_vector": {
+      "dimension": 384,
+      "method": {
+        "engine": "lucene",
+        "space_type": "cosinesimil",
+        "name": "hnsw",
+        "parameters": {
+          "ef_construction": 128,
+          "m": 24
+        }
+      },
+      "type": "knn_vector"
+    },
+    "customerId": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "customerMaterialNumber": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "erpMaterialNumber": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "hazardFlame": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "fields": {
+            "text": {
+              "type": "text",
+              "analyzer": "standard"
+            }
+          },
+          "type": "keyword"
+        },
+        "value": {
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 512
+            }
+          },
+          "analyzer": "standard",
+          "type": "text"
+        }
+      }
+    },
+    "hazardHealth": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "fields": {
+            "text": {
+              "type": "text",
+              "analyzer": "standard"
+            }
+          },
+          "type": "keyword"
+        },
+        "value": {
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 512
+            }
+          },
+          "analyzer": "standard",
+          "type": "text"
+        }
+      }
+    },
+    "hazardReactive": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "fields": {
+            "text": {
+              "type": "text",
+              "analyzer": "standard"
+            }
+          },
+          "type": "keyword"
+        },
+        "value": {
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 512
+            }
+          },
+          "analyzer": "standard",
+          "type": "text"
+        }
+      }
+    },
+    "imageUrl": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "inStockAnyChannel": {
+      "type": "boolean"
+    },
+    "manufacturerNumber": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "materialType": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "price": {
+      "type": "float"
+    },
+    "productDescription_de": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "german",
+      "type": "text"
+    },
+    "productDescription_en": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "english",
+      "type": "text"
+    },
+    "productGroup": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "productKey": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "productManufacturerNumber": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "productName_de": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "german",
+      "type": "text"
+    },
+    "productName_en": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "english",
+      "type": "text"
+    },
+    "productSlug": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "restockableInDays": {
+      "type": "integer"
+    },
+    "rootCategoryKey": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "rootCategoryName": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "standard",
+      "type": "text"
+    },
+    "rootCategoryOrderHint": {
+      "type": "float"
+    },
+    "rootCategorySlug": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "sku": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "subCategoryDescription": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "standard",
+      "type": "text"
+    },
+    "subCategoryKey": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "subCategoryName": {
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 512
+        }
+      },
+      "analyzer": "standard",
+      "type": "text"
+    },
+    "subCategorySlug": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "totalAvailableQuantity": {
+      "type": "integer"
+    },
+    "unitOfMeasure": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    },
+    "variantId": {
+      "type": "integer"
+    },
+    "variantKey": {
+      "fields": {
+        "text": {
+          "type": "text",
+          "analyzer": "standard"
+        }
+      },
+      "type": "keyword"
+    }
+  }
+}

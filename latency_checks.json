@@ -1,0 +1,18 @@
+{
+  "base_url": "http://localhost:8000",
+  "note": "Latency diagnostic endpoints. Change base_url if the app runs elsewhere. samples is optional (default 5, max 20).",
+  "requests": [
+    {
+      "name": "OpenSearch latency",
+      "method": "GET",
+      "url": "http://localhost:8000/health/latency/opensearch?samples=5",
+      "curl": "curl -s \"http://localhost:8000/health/latency/opensearch?samples=5\""
+    },
+    {
+      "name": "OCI GenAI latency",
+      "method": "GET",
+      "url": "http://localhost:8000/health/latency/oci?samples=5",
+      "curl": "curl -s \"http://localhost:8000/health/latency/oci?samples=5\""
+    }
+  ]
+}
