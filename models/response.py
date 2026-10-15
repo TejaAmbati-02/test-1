@@ -58,6 +58,10 @@ class SearchApiResponse(BaseModel):
     facets: list[Facet] = Field(default=[], description="Aggregated facets computed across the full result set, ordered by configuration")
 
 
+class QuerySuggestion(BaseModel):
+    text: str = Field(description="Suggested search query string (distinct product-name phrase) matching the prefix")
+
+
 class ProductSuggestion(BaseModel):
     text: str = Field(description="Suggested product name to display in the autocomplete dropdown")
     sku: str = Field(description="SKU of the suggested product")
@@ -69,6 +73,7 @@ class CategorySuggestion(BaseModel):
 
 class SuggestionsResponse(BaseModel):
     query: str = Field(description="The prefix string that was used to generate these suggestions")
+    query_suggestions: list[QuerySuggestion] = Field(description="Suggested search query strings (distinct product-name phrases) matching the prefix")
     product_suggestions: list[ProductSuggestion] = Field(description="Product name suggestions matching the prefix")
     category_suggestions: list[CategorySuggestion] = Field(description="Category and sub-category suggestions matching the prefix")
 

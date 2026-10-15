@@ -8,6 +8,7 @@ from models.response import (
     FacetTermValue,
     ProductResult,
     ProductSuggestion,
+    QuerySuggestion,
     RangeFacet,
     SearchApiResponse,
     SearchHit,
@@ -384,6 +385,13 @@ class SearchService:
                     product_suggestions.append(ProductSuggestion(text=text, sku=sku))
             logger.debug(f"SearchService.get_suggestions — parsed {len(product_suggestions)} product suggestions")
 
+            # Query suggestions: distinct product-name phrases (order-preserving dedup).
+            unique_queries = dict.fromkeys(
+                p.text for p in product_suggestions if p.text
+            )
+            query_suggestions = [QuerySuggestion(text=t) for t in list(unique_queries)[:product_limit]]
+            logger.debug(f"SearchService.get_suggestions — parsed {len(query_suggestions)} query suggestions")
+
             aggs = cat_raw.get("aggregations", {})
             # Order-preserving dedup across both aggregations via dict.fromkeys.
             unique_names = dict.fromkeys(
@@ -400,11 +408,12 @@ class SearchService:
                 extra={
                     "status": "success",
                     "search_query": query,
-                    "response_payload": {"products": len(product_suggestions), "categories": len(category_suggestions)},
+                    "response_payload": {"queries": len(query_suggestions), "products": len(product_suggestions), "categories": len(category_suggestions)},
                 },
             )
             return SuggestionsResponse(
                 query=query,
+                query_suggestions=query_suggestions,
                 product_suggestions=product_suggestions,
                 category_suggestions=category_suggestions,
             )

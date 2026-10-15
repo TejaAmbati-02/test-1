@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import json
 import time
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 
 from config import settings as _cfg
 from utils.logger import logger
@@ -26,35 +26,14 @@ _RETRIEVAL_K = _cfg.hybrid_retrieval_k
 _ERROR_RESPONSES = {
     400: {"model": ErrorResponse, "description": "Bad request — invalid filter key, empty request, or malformed query"},
     404: {"model": ErrorResponse, "description": "Not found — the target index does not exist"},
-    422: {"model": ErrorResponse, "description": "Validation error — request body/query parameters failed validation"},
+    422: {"model": ErrorResponse, "description": "Validation error — form fields failed validation"},
+    501: {"model": ErrorResponse, "description": "Not implemented — image / text+image search"},
     500: {"model": ErrorResponse, "description": "Internal server error"},
 }
 
 
 def _api_error(http_status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=http_status, detail={"code": code, "message": message})
-
-
-class SearchRequest(BaseModel):
-    channel: str = Field(default="web", description="Client channel — 'web' or 'mobile'")
-    language: Literal["en", "ar"] = Field(default="en", description="Response language")
-    search_query: str | None = Field(default=None, description="Free-text query. Omit when doing filter-only browse")
-    sort_by: Literal["price"] | None = Field(default=None, description="Sort field — 'price' or omit to sort by relevance")
-    sort_order: Literal["asc", "desc"] = Field(default="desc", description="Sort direction")
-    filters: dict[str, Any] | None = Field(
-        default=None,
-        description=(
-            """Filter key-value pairs. Term filters accept a scalar (string, bool, number).
-            Range filters accept {\"gte\": x, \"lte\": y}.
-            Allowed keys: category_ids, sub_category, material_type, customer_material_number,
-            unit_of_measure, availability, price, sku, product_group, manufacturer_number,
-            product_manufacturer_number, erp_material_number, chemical_hazard_bulletin,
-            product_key, variant_key, customer_id, hazard_health, hazard_flame, hazard_reactive, root_category"""
-        ),
-    )
-    page: int = Field(default=1, ge=1, description="Page number, 1-indexed")
-    page_size: int = Field(default=60, ge=1, le=200, description="Results per page, max 200")
-    image_ref: str | None = Field(default=None, description="Opaque reference returned by a prior image-based search")
 
 
 @index_router.get("", response_model=IndicesResponse, responses=_ERROR_RESPONSES, summary="List all indices")
@@ -71,50 +50,94 @@ async def list_indices(_request: Request) -> IndicesResponse:
 
 
 @v1_router.post("/search", response_model=SearchApiResponse, responses=_ERROR_RESPONSES, summary="Search products (text / filter-browse)")
-async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
+async def v1_search(
+    request: Request,
+    channel: Annotated[str, Form(description="Client channel — 'web' or 'mobile'")],
+    language: Annotated[str, Form(description="Response language — 'en' or 'de'")],
+    search_query: Annotated[str | None, Form(description="Free-text query. Omit for filter-only browse")] = None,
+    sort_by: Annotated[str | None, Form(description="Sort field — 'relevance' or 'price'")] = None,
+    sort_order: Annotated[str, Form(description="Sort direction — 'asc' or 'desc'")] = "desc",
+    filters: Annotated[str | None, Form(description="Filter object as a JSON string")] = None,
+    page: Annotated[int, Form(description="1-based page number")] = 1,
+    page_size: Annotated[int, Form(description="Results per page")] = 60,
+    image: Annotated[UploadFile | None, File(description="Optional image for image / text+image search")] = None,
+) -> SearchApiResponse:
     request_id: str = getattr(request.state, "request_id", "")
     _t0 = time.perf_counter()
+
+    has_image = image is not None
 
     logger.info(
         "POST /v1/search — received",
         extra={
-            "search_query": body.search_query,
-            "language": body.language,
-            "channel": body.channel,
+            "search_query": search_query,
+            "language": language,
+            "channel": channel,
             "input_data": {
                 "request_id": request_id,
-                "page": body.page,
-                "page_size": body.page_size,
-                "sort_by": body.sort_by,
-                "sort_order": body.sort_order,
-                "has_filters": bool(body.filters),
-                "filter_keys": list(body.filters.keys()) if body.filters else [],
-                "has_image_ref": bool(body.image_ref),
+                "page": page,
+                "page_size": page_size,
+                "sort_by": sort_by,
+                "sort_order": sort_order,
+                "has_filters": bool(filters),
+                "has_image": has_image,
             },
         },
     )
 
+    # Validate required/enumerated form fields (multipart fields aren't type-validated by FastAPI).
+    if channel not in ("web", "mobile"):
+        raise _api_error(422, "VALIDATION_ERROR", "channel must be 'web' or 'mobile'")
+    if language not in ("en", "de"):
+        raise _api_error(422, "VALIDATION_ERROR", "language must be 'en' or 'de'")
+    if sort_by not in (None, "", "relevance", "price"):
+        raise _api_error(422, "VALIDATION_ERROR", "sort_by must be 'relevance' or 'price'")
+    if sort_order not in ("asc", "desc"):
+        raise _api_error(422, "VALIDATION_ERROR", "sort_order must be 'asc' or 'desc'")
+    if page < 1:
+        raise _api_error(422, "VALIDATION_ERROR", "page must be >= 1")
+    if page_size < 1 or page_size > 200:
+        raise _api_error(422, "VALIDATION_ERROR", "page_size must be between 1 and 200")
+
+    # 'relevance' means default (no explicit sort field).
+    effective_sort_by = None if sort_by in (None, "", "relevance") else sort_by
+
+    # Parse the filters JSON string into a dict.
+    filters_dict: dict = {}
+    if filters:
+        try:
+            parsed = json.loads(filters)
+        except json.JSONDecodeError as exc:
+            raise _api_error(422, "VALIDATION_ERROR", f"filters must be a valid JSON string: {exc}")
+        if not isinstance(parsed, dict):
+            raise _api_error(422, "VALIDATION_ERROR", "filters must be a JSON object")
+        filters_dict = parsed
+
+    # Image / text+image search is not implemented yet (form-only phase).
+    if has_image:
+        logger.warning("POST /v1/search — image provided but image search is not implemented")
+        raise _api_error(501, "NOT_IMPLEMENTED", "Image and text+image search are not yet implemented")
+
     logger.debug("POST /v1/search — building OpenSearch filter clauses")
     os_filters: list[dict] = []
-    if body.filters:
-        for k, v in body.filters.items():
-            if k not in ALLOWED_FILTER_KEYS:
-                logger.warning(
-                    f"POST /v1/search — rejected invalid filter key '{k}'",
-                    extra={"status": "error", "error_details": f"Filter key '{k}' not in allowed list"},
-                )
-                raise _api_error(400, "INVALID_FILTER_KEY", f"Filter key '{k}' is not supported")
-            os_field = FILTER_KEY_MAP[k]
-            clause = {"range": {os_field: v}} if isinstance(v, dict) else {"term": {os_field: v}}
-            os_filters.append(clause)
-            logger.debug(f"POST /v1/search — filter: {k} -> {os_field}")
+    for k, v in filters_dict.items():
+        if k not in ALLOWED_FILTER_KEYS:
+            logger.warning(
+                f"POST /v1/search — rejected invalid filter key '{k}'",
+                extra={"status": "error", "error_details": f"Filter key '{k}' not in allowed list"},
+            )
+            raise _api_error(400, "INVALID_FILTER_KEY", f"Filter key '{k}' is not supported")
+        os_field = FILTER_KEY_MAP[k]
+        clause = {"range": {os_field: v}} if isinstance(v, dict) else {"term": {os_field: v}}
+        os_filters.append(clause)
+        logger.debug(f"POST /v1/search — filter: {k} -> {os_field}")
 
-    has_query = bool(body.search_query and body.search_query.strip())
+    has_query = bool(search_query and search_query.strip())
     has_filters = bool(os_filters)
 
     if not has_query and not has_filters:
-        logger.warning("POST /v1/search — rejected: no query and no filters provided")
-        raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query or filters must be provided")
+        logger.warning("POST /v1/search — rejected: no query, no image and no filters provided")
+        raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image or filters must be provided")
 
     logger.info(
         f"POST /v1/search — dispatching: mode={'hybrid' if has_query else 'filter-browse'} filters={len(os_filters)}",
@@ -124,26 +147,25 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
         if has_query:
             result = await search_service.text_search_v1(
                 index=_cfg.opensearch_index_name,
-                query=body.search_query.strip(),
+                query=search_query.strip(),
                 vector_field=_cfg.opensearch_vector_field,
-                language=body.language,
+                language=language,
                 filters=os_filters,
-                sort_by=body.sort_by,
-                sort_order=body.sort_order,
-                page=body.page,
-                page_size=body.page_size,
+                sort_by=effective_sort_by,
+                sort_order=sort_order,
+                page=page,
+                page_size=page_size,
                 retrieval_k=_RETRIEVAL_K,
                 request_id=request_id,
-                image_ref=body.image_ref,
             )
         else:
             result = await search_service.filter_browse(
                 index=_cfg.opensearch_index_name,
                 filters=os_filters,
-                sort_by=body.sort_by,
-                sort_order=body.sort_order,
-                page=body.page,
-                page_size=body.page_size,
+                sort_by=effective_sort_by,
+                sort_order=sort_order,
+                page=page,
+                page_size=page_size,
             )
 
         elapsed_ms = (time.perf_counter() - _t0) * 1000
@@ -152,9 +174,9 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
             extra={
                 "status": "success",
                 "latency": f"{elapsed_ms:.1f}ms",
-                "search_query": body.search_query,
-                "language": body.language,
-                "channel": body.channel,
+                "search_query": search_query,
+                "language": language,
+                "channel": channel,
                 "response_payload": {
                     "request_id": request_id,
                     "total": result.total,
@@ -181,7 +203,7 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
             extra={
                 "status": "error",
                 "latency": f"{elapsed_ms:.1f}ms",
-                "search_query": body.search_query,
+                "search_query": search_query,
                 "error_details": str(exc),
             },
         )
@@ -197,7 +219,7 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
 async def v1_suggestions(
     _request: Request,
     q: Annotated[str, Query(min_length=1, description="Typed prefix to match against product names and category names")],
-    language: Annotated[Literal["en", "ar"], Query(description="Response language")] = "en",
+    language: Annotated[Literal["en", "de"], Query(description="Response language")] = "en",
     product_limit: Annotated[int, Query(ge=1, le=20, description="Max product suggestions to return")] = 5,
     category_limit: Annotated[int, Query(ge=1, le=10, description="Max category suggestions to return")] = 3,
     query_limit: Annotated[int | None, Query(ge=1, le=20, description="When set, overrides product_limit")] = None,
