@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+import os
 import time
 
 import uvicorn
@@ -197,11 +198,14 @@ async def global_exception_handler(_request: Request, exc: Exception) -> JSONRes
 
 
 if __name__ == "__main__":
+    # Auto-reload is OFF by default. Enable only for local dev with RELOAD=true, and
+    # never in a OneDrive/synced folder — background file syncing triggers endless reloads.
+    reload_enabled = os.environ.get("RELOAD", "false").strip().lower() in ("1", "true", "yes", "on")
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
-        # Don't restart on log writes — the app writes logs into ./logs inside the watched tree.
-        reload_excludes=["logs/*", "*.log", "*.log.*"],
+        reload=reload_enabled,
+        # If reload is on, ignore log writes under ./logs (they'd otherwise trigger restarts).
+        reload_excludes=["logs/*", "*.log", "*.log.*"] if reload_enabled else None,
     )
