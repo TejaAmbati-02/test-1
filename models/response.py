@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class SearchHit(BaseModel):
     id: str = Field(description="OpenSearch document _id")
     index: str = Field(description="Index the document was retrieved from")
-    score: float = Field(description="Raw relevance score assigned by OpenSearch or the reranker")
+    score: float = Field(description="Relevance score assigned by OpenSearch")
     source: dict[str, Any] = Field(description="Full document source as stored in the index")
     highlights: dict[str, list[str]] | None = Field(
         default=None,
@@ -40,7 +40,7 @@ Facet = Annotated[Union[TermsFacet, RangeFacet], Field(discriminator="type")]
 
 class ProductResult(BaseModel):
     id: str = Field(description="Product document ID in OpenSearch")
-    score: float = Field(description="Final relevance score after RRF fusion and cross-encoder reranking")
+    score: float = Field(description="Final relevance score after RRF fusion of BM25 and kNN")
     source: dict[str, Any] = Field(description="Raw product document fields as stored in the index")
 
 

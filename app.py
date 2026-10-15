@@ -22,7 +22,6 @@ from models.response import ErrorDetail, ErrorResponse, HealthResponse
 from routers.search import index_router, v1_router
 from services.embedder import embedding_service
 from services.opensearch import os_client
-from services.reranker import reranker_service
 from services.search import search_service
 
 setup_logging()
@@ -35,10 +34,6 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info(f"Loading embedding model: {settings.embedding_model_name}")
         await embedding_service.load()
         logger.info("Embedding model ready")
-
-        logger.info(f"Loading reranker model: {settings.reranker_model_name}")
-        await reranker_service.load()
-        logger.info("Reranker model ready")
 
         logger.info(f"Connecting to OpenSearch at {settings.opensearch_host}:{settings.opensearch_port}")
         connected = await os_client.ping()

@@ -18,7 +18,6 @@ from config import settings as _cfg
 from utils.logger import logger
 from services.embedder import EmbeddingService, embedding_service
 from services.opensearch import OpenSearchClientService, os_client
-from services.reranker import RerankerService, reranker_service
 
 PIPELINE_ID = "hybrid-rrf-pipeline"
 CURRENCY_FIELD = _cfg.currency_field
@@ -70,7 +69,7 @@ def _build_aggs() -> dict[str, Any]:
             # reports its own min/max instead of mixing them into one range.
             aggs[api_key] = {
                 "terms": {"field": CURRENCY_FIELD, "size": 20},
-                "aggs": {"stats": {"field": os_field}},
+                "aggs": {"price_stats": {"stats": {"field": os_field}}},
             }
     return aggs
 
@@ -89,7 +88,7 @@ def _parse_facets(aggs_raw: dict[str, Any]) -> list[TermsFacet | RangeFacet]:
         else:
             # One RangeFacet per currency bucket, each carrying its own code.
             for b in bucket.get("buckets", []):
-                stats = b.get("stats", {})
+                stats = b.get("price_stats", {})
                 mn, mx = stats.get("min"), stats.get("max")
                 if mn is not None and mx is not None:
                     facets.append(RangeFacet(key=api_key, min=mn, max=mx, currency=str(b["key"])))
@@ -101,11 +100,9 @@ class SearchService:
         self,
         os_client: OpenSearchClientService,
         embedding_svc: EmbeddingService,
-        reranker_svc: RerankerService,
     ) -> None:
         self._os = os_client
         self._emb = embedding_svc
-        self._reranker = reranker_svc
 
     async def setup_pipeline(self) -> None:
         logger.info(f"SearchService.setup_pipeline — checking for existing pipeline '{PIPELINE_ID}'")
@@ -230,8 +227,6 @@ class SearchService:
         page: int,
         page_size: int,
         retrieval_k: int,
-        fetch_k: int,
-        rerank_top_k: int,
         request_id: str | None = None,
         image_ref: str | None = None,
     ) -> SearchApiResponse:
@@ -242,8 +237,7 @@ class SearchService:
                 "language": language,
                 "input_data": {
                     "index": index, "page": page, "page_size": page_size,
-                    "retrieval_k": retrieval_k, "fetch_k": fetch_k, "rerank_top_k": rerank_top_k,
-                    "filter_count": len(filters), "sort_by": sort_by,
+                    "retrieval_k": retrieval_k, "filter_count": len(filters), "sort_by": sort_by,
                 },
             },
         )
@@ -270,8 +264,10 @@ class SearchService:
                     ]
                 }
             }
+            # RRF-fused results, paginated natively by OpenSearch (from/size) — no rerank step.
             body: dict[str, Any] = {
-                "size": fetch_k,
+                "from": (page - 1) * page_size,
+                "size": page_size,
                 "query": {"bool": {"must": [hybrid_query], "filter": filters}} if filters else hybrid_query,
                 "aggs": _build_aggs(),
             }
@@ -283,27 +279,20 @@ class SearchService:
             logger.info(f"SearchService.text_search_v1 — executing hybrid RRF search via pipeline '{PIPELINE_ID}'")
             raw = await self._os.search(index, body, pipeline_id=PIPELINE_ID)
 
-            took_ms, total, candidates = self._parse_hits(raw, index)
+            took_ms, total, hits = self._parse_hits(raw, index)
             logger.info(
-                f"SearchService.text_search_v1 — RRF returned {len(candidates)} candidates from total={total} (took {took_ms}ms)",
+                f"SearchService.text_search_v1 — RRF returned {len(hits)} hits for page {page} of total={total} (took {took_ms}ms)",
             )
             logger.debug(
-                "SearchService.text_search_v1 — candidate ids/scores (pre-rerank)",
-                extra={"input_data": {"candidate_ids": [c.id for c in candidates[:20]], "top_scores": [round(c.score, 4) for c in candidates[:5]]}},
+                "SearchService.text_search_v1 — hit ids/scores",
+                extra={"input_data": {"hit_ids": [h.id for h in hits], "top_scores": [round(h.score, 4) for h in hits[:5]]}},
             )
 
             logger.debug("SearchService.text_search_v1 — parsing facets from aggregations")
             facets = _parse_facets(raw.get("aggregations", {}))
 
-            logger.info(f"SearchService.text_search_v1 — reranking {len(candidates)} candidates (top_k={rerank_top_k})")
-            reranked = await self._reranker.rerank(query, candidates, top_k=rerank_top_k)
-            logger.info(f"SearchService.text_search_v1 — reranking produced {len(reranked)} results")
-
-            logger.debug(f"SearchService.text_search_v1 — paginating: page={page} page_size={page_size}")
-            start = (page - 1) * page_size
-            page_hits = reranked[start: start + page_size]
-            results = [ProductResult(id=h.id, score=h.score, source=h.source) for h in page_hits]
-            total_pages = max(1, -(-len(reranked) // page_size))
+            results = [ProductResult(id=h.id, score=h.score, source=h.source) for h in hits]
+            total_pages = max(1, -(-total // page_size))
 
             logger.info(
                 "SearchService.text_search_v1 — done",
@@ -311,7 +300,7 @@ class SearchService:
                     "status": "success",
                     "search_query": query,
                     "response_payload": {
-                        "total": total, "reranked": len(reranked), "returned": len(results),
+                        "total": total, "returned": len(results),
                         "page": page, "total_pages": total_pages, "facets": len(facets), "took_ms": took_ms,
                     },
                 },
@@ -427,4 +416,4 @@ class SearchService:
             raise
 
 
-search_service = SearchService(os_client, embedding_service, reranker_service)
+search_service = SearchService(os_client, embedding_service)

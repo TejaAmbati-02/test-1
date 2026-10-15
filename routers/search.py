@@ -22,8 +22,6 @@ index_router = APIRouter(prefix="/indices", tags=["Indices"])
 v1_router = APIRouter(prefix="/v1", tags=["V1 Search API"])
 
 _RETRIEVAL_K = _cfg.hybrid_retrieval_k
-_FETCH_K = _cfg.hybrid_fetch_k
-_TOP_K = _cfg.hybrid_rerank_top_k
 
 _ERROR_RESPONSES = {
     400: {"model": ErrorResponse, "description": "Bad request — invalid filter key, empty request, or malformed query"},
@@ -135,8 +133,6 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
                 page=body.page,
                 page_size=body.page_size,
                 retrieval_k=_RETRIEVAL_K,
-                fetch_k=_FETCH_K,
-                rerank_top_k=_TOP_K,
                 request_id=request_id,
                 image_ref=body.image_ref,
             )
