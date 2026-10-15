@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 import time
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from config import settings as _cfg
 from utils.logger import logger
@@ -36,6 +36,18 @@ def _api_error(http_status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=http_status, detail={"code": code, "message": message})
 
 
+class SearchRequest(BaseModel):
+    channel: Literal["web", "mobile"] = Field(description="Client channel — 'web' or 'mobile'")
+    language: Literal["en", "de"] = Field(description="Response language — 'en' or 'de'")
+    search_query: str | None = Field(default=None, description="Free-text query. Omit for filter-only browse")
+    sort_by: Literal["relevance", "price"] | None = Field(default=None, description="Sort field — 'relevance' or 'price'")
+    sort_order: Literal["asc", "desc"] = Field(default="desc", description="Sort direction — 'asc' or 'desc'")
+    filters: dict[str, Any] | None = Field(default=None, description="Filter object. Keys must match the supported filter keys")
+    page: int = Field(default=1, ge=1, description="1-based page number")
+    page_size: int = Field(default=60, ge=1, le=200, description="Results per page")
+    image: str | None = Field(default=None, description="Optional base64 image for image / text+image search (not yet implemented)")
+
+
 @index_router.get("", response_model=IndicesResponse, responses=_ERROR_RESPONSES, summary="List all indices")
 async def list_indices(_request: Request) -> IndicesResponse:
     logger.info("GET /indices")
@@ -50,77 +62,41 @@ async def list_indices(_request: Request) -> IndicesResponse:
 
 
 @v1_router.post("/search", response_model=SearchApiResponse, responses=_ERROR_RESPONSES, summary="Search products (text / filter-browse)")
-async def v1_search(
-    request: Request,
-    channel: Annotated[str, Form(description="Client channel — 'web' or 'mobile'")],
-    language: Annotated[str, Form(description="Response language — 'en' or 'de'")],
-    search_query: Annotated[str | None, Form(description="Free-text query. Omit for filter-only browse")] = None,
-    sort_by: Annotated[str | None, Form(description="Sort field — 'relevance' or 'price'")] = None,
-    sort_order: Annotated[str, Form(description="Sort direction — 'asc' or 'desc'")] = "desc",
-    filters: Annotated[str | None, Form(description="Filter object as a JSON string")] = None,
-    page: Annotated[int, Form(description="1-based page number")] = 1,
-    page_size: Annotated[int, Form(description="Results per page")] = 60,
-    image: Annotated[UploadFile | None, File(description="Optional image for image / text+image search")] = None,
-) -> SearchApiResponse:
+async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
     request_id: str = getattr(request.state, "request_id", "")
     _t0 = time.perf_counter()
 
-    has_image = image is not None
+    has_image = bool(body.image)
 
     logger.info(
         "POST /v1/search — received",
         extra={
-            "search_query": search_query,
-            "language": language,
-            "channel": channel,
+            "search_query": body.search_query,
+            "language": body.language,
+            "channel": body.channel,
             "input_data": {
                 "request_id": request_id,
-                "page": page,
-                "page_size": page_size,
-                "sort_by": sort_by,
-                "sort_order": sort_order,
-                "has_filters": bool(filters),
+                "page": body.page,
+                "page_size": body.page_size,
+                "sort_by": body.sort_by,
+                "sort_order": body.sort_order,
+                "has_filters": bool(body.filters),
                 "has_image": has_image,
             },
         },
     )
 
-    # Validate required/enumerated form fields (multipart fields aren't type-validated by FastAPI).
-    if channel not in ("web", "mobile"):
-        raise _api_error(422, "VALIDATION_ERROR", "channel must be 'web' or 'mobile'")
-    if language not in ("en", "de"):
-        raise _api_error(422, "VALIDATION_ERROR", "language must be 'en' or 'de'")
-    if sort_by not in (None, "", "relevance", "price"):
-        raise _api_error(422, "VALIDATION_ERROR", "sort_by must be 'relevance' or 'price'")
-    if sort_order not in ("asc", "desc"):
-        raise _api_error(422, "VALIDATION_ERROR", "sort_order must be 'asc' or 'desc'")
-    if page < 1:
-        raise _api_error(422, "VALIDATION_ERROR", "page must be >= 1")
-    if page_size < 1 or page_size > 200:
-        raise _api_error(422, "VALIDATION_ERROR", "page_size must be between 1 and 200")
-
     # 'relevance' means default (no explicit sort field).
-    effective_sort_by = None if sort_by in (None, "", "relevance") else sort_by
+    effective_sort_by = None if body.sort_by in (None, "relevance") else body.sort_by
 
-    # Parse the filters JSON string into a dict.
-    filters_dict: dict = {}
-    if filters:
-        try:
-            parsed = json.loads(filters)
-        except json.JSONDecodeError as exc:
-            raise _api_error(422, "VALIDATION_ERROR", f"filters must be a valid JSON string: {exc}")
-        if not isinstance(parsed, dict):
-            raise _api_error(422, "VALIDATION_ERROR", "filters must be a JSON object")
-        filters_dict = parsed
-
-    # Image / text+image search is not implemented yet (form-only phase).
+    # Image / text+image search is not implemented yet.
     if has_image:
         logger.warning("POST /v1/search — image provided but image search is not implemented")
         raise _api_error(501, "NOT_IMPLEMENTED", "Image and text+image search are not yet implemented")
 
     logger.debug("POST /v1/search — building OpenSearch filter clauses")
     os_filters: list[dict] = []
-    for k, v in filters_dict.items():
+    for k, v in (body.filters or {}).items():
         if k not in ALLOWED_FILTER_KEYS:
             logger.warning(
                 f"POST /v1/search — rejected invalid filter key '{k}'",
@@ -132,7 +108,7 @@ async def v1_search(
         os_filters.append(clause)
         logger.debug(f"POST /v1/search — filter: {k} -> {os_field}")
 
-    has_query = bool(search_query and search_query.strip())
+    has_query = bool(body.search_query and body.search_query.strip())
     has_filters = bool(os_filters)
 
     if not has_query and not has_filters:
@@ -147,14 +123,14 @@ async def v1_search(
         if has_query:
             result = await search_service.text_search_v1(
                 index=_cfg.opensearch_index_name,
-                query=search_query.strip(),
+                query=body.search_query.strip(),
                 vector_field=_cfg.opensearch_vector_field,
-                language=language,
+                language=body.language,
                 filters=os_filters,
                 sort_by=effective_sort_by,
-                sort_order=sort_order,
-                page=page,
-                page_size=page_size,
+                sort_order=body.sort_order,
+                page=body.page,
+                page_size=body.page_size,
                 retrieval_k=_RETRIEVAL_K,
                 request_id=request_id,
             )
@@ -163,9 +139,9 @@ async def v1_search(
                 index=_cfg.opensearch_index_name,
                 filters=os_filters,
                 sort_by=effective_sort_by,
-                sort_order=sort_order,
-                page=page,
-                page_size=page_size,
+                sort_order=body.sort_order,
+                page=body.page,
+                page_size=body.page_size,
             )
 
         elapsed_ms = (time.perf_counter() - _t0) * 1000
@@ -174,9 +150,9 @@ async def v1_search(
             extra={
                 "status": "success",
                 "latency": f"{elapsed_ms:.1f}ms",
-                "search_query": search_query,
-                "language": language,
-                "channel": channel,
+                "search_query": body.search_query,
+                "language": body.language,
+                "channel": body.channel,
                 "response_payload": {
                     "request_id": request_id,
                     "total": result.total,
@@ -203,7 +179,7 @@ async def v1_search(
             extra={
                 "status": "error",
                 "latency": f"{elapsed_ms:.1f}ms",
-                "search_query": search_query,
+                "search_query": body.search_query,
                 "error_details": str(exc),
             },
         )

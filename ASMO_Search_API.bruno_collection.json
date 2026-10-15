@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "ASMO AI Search API v2.1 — Scenario Tests (multipart)",
+    "name": "ASMO AI Search API v2.1 — Scenario Tests (JSON)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -85,36 +85,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pipe",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -140,36 +124,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "switchboard",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"switchboard\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -194,36 +162,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pressure transmitter",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"pressure transmitter\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -248,36 +200,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "centrifugal pump",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"centrifugal pump\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -302,36 +238,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "corrosion inhibitor",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"corrosion inhibitor\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -356,36 +276,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "fire extinguisher",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"fire extinguisher\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -410,41 +314,25 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "ergonomic chair",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"ergonomic chair\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
         {
-          "name": "TC-008 Search — Arabic language",
+          "name": "TC-008 Search — German language (de)",
           "event": [
             {
               "listen": "test",
@@ -461,36 +349,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "مضخة",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "ar",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"Pumpe\",\n  \"language\": \"de\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         }
@@ -522,46 +394,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "valve",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "sort_by",
-                  "value": "price",
-                  "type": "text"
-                },
-                {
-                  "key": "sort_order",
-                  "value": "asc",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"sort_by\": \"price\",\n  \"sort_order\": \"asc\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -588,46 +434,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "valve",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "sort_by",
-                  "value": "price",
-                  "type": "text"
-                },
-                {
-                  "key": "sort_order",
-                  "value": "desc",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"sort_by\": \"price\",\n  \"sort_order\": \"desc\",\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         }
@@ -659,36 +479,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"category_ids\": \"buyer-default-electrical\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "20",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"category_ids\": \"buyer-default-electrical\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}"
             }
           }
         },
@@ -714,36 +518,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"category_ids\": \"buyer-default-machinery-equipment\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "20",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"category_ids\": \"buyer-default-machinery-equipment\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}"
             }
           }
         },
@@ -768,36 +556,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"availability\": true}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "20",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"availability\": true\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}"
             }
           }
         },
@@ -826,36 +598,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "20",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"price\": {\n      \"gte\": 50,\n      \"lte\": 150\n    }\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}"
             }
           }
         },
@@ -881,36 +637,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"customer_id\": \"SHELL\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "20",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"customer_id\": \"SHELL\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}"
             }
           }
         },
@@ -936,36 +676,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"material_type\": \"9CAT\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "20",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"material_type\": \"9CAT\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}"
             }
           }
         }
@@ -996,41 +720,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "motor control center",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"availability\": true}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"motor control center\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"availability\": true\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         },
@@ -1057,41 +760,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "flow meter",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"price\": {\"gte\": 50, \"lte\": 200}}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"flow meter\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"price\": {\n      \"gte\": 50,\n      \"lte\": 200\n    }\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         }
@@ -1119,36 +801,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"sku\": \"012000-005-pipes\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "5",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"sku\": \"012000-005-pipes\"\n  },\n  \"page\": 1,\n  \"page_size\": 5\n}"
             }
           }
         },
@@ -1174,36 +840,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"hazard_health\": \"H1\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"hazard_health\": \"H1\"\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         }
@@ -1232,36 +882,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "valve",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "2",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "5",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"page\": 2,\n  \"page_size\": 5\n}"
             }
           }
         },
@@ -1289,36 +923,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "valve",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "5",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 5\n}"
             }
           }
         }
@@ -1347,41 +965,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pipe",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "image_ref",
-                  "value": "img-ref-test-001",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "5",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"image_ref\": \"img-ref-test-001\",\n  \"page\": 1,\n  \"page_size\": 5\n}"
             }
           }
         },
@@ -1404,36 +1001,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"sku\": \"qa-product-01\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "5",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"sku\": \"qa-product-01\"\n  },\n  \"page\": 1,\n  \"page_size\": 5\n}"
             }
           }
         },
@@ -1456,36 +1037,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"sku\": \"ao-100016_1\"}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "5",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"sku\": \"ao-100016_1\"\n  },\n  \"page\": 1,\n  \"page_size\": 5\n}"
             }
           }
         },
@@ -1511,36 +1076,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"availability\": false}",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"availability\": false\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}"
             }
           }
         }
@@ -1774,26 +1323,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pipe",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "fr",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"pipe\",\n  \"language\": \"fr\"\n}"
             }
           }
         },
@@ -1815,21 +1358,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"language\": \"en\"\n}"
             }
           }
         },
@@ -1851,31 +1393,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pipe",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "filters",
-                  "value": "{\"unknown_key\": \"val\"}",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"unknown_key\": \"val\"\n  }\n}"
             }
           }
         },
@@ -1896,31 +1427,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pipe",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "500",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"page_size\": 500\n}"
             }
           }
         },
@@ -1941,31 +1461,20 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/v1/search",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pipe",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "0",
-                  "type": "text"
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              },
+              "raw": "{\n  \"channel\": \"web\",\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"page\": 0\n}"
             }
           }
         },
