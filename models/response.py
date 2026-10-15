@@ -93,6 +93,18 @@ class HealthResponse(BaseModel):
     embedding_model_name: str = Field(description="OCI GenAI model identifier used for query embedding")
 
 
+class LatencyResponse(BaseModel):
+    target: str = Field(description="Which dependency was measured: 'opensearch' or 'oci'")
+    endpoint: str = Field(description="Host/endpoint that was contacted")
+    samples: int = Field(description="Number of round-trips attempted")
+    samples_ms: list[float] = Field(description="Per-call round-trip time in milliseconds, in order (first is usually cold)")
+    min_ms: float = Field(description="Fastest round-trip (best-case / warm connection)")
+    avg_ms: float = Field(description="Average round-trip across samples")
+    max_ms: float = Field(description="Slowest round-trip (usually the cold/first call)")
+    ok: bool = Field(description="True if all round-trips succeeded")
+    error: str | None = Field(default=None, description="Error message if a round-trip failed")
+
+
 class ErrorDetail(BaseModel):
     code: str = Field(description="Machine-readable error code, e.g. INVALID_FILTER_KEY, EMPTY_REQUEST")
     message: str = Field(description="Human-readable description of what went wrong")

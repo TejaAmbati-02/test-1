@@ -19,7 +19,7 @@ import uuid
 
 from config import settings
 from utils.logger import logger, setup_logging, set_log_context, clear_log_context
-from models.response import ErrorDetail, ErrorResponse, HealthResponse
+from models.response import ErrorDetail, ErrorResponse, HealthResponse, LatencyResponse
 from routers.search import index_router, v1_router
 from services.embedder import embedding_service
 from services.opensearch import os_client
@@ -145,8 +145,9 @@ app.include_router(v1_router)
 async def health() -> HealthResponse:
     logger.info("GET /health")
     try:
-        connected = await os_client.ping()
-        cluster = await os_client.cluster_name() if connected else None
+        # Single OpenSearch round-trip: cluster_name() already confirms connectivity.
+        cluster = await os_client.cluster_name()
+        connected = cluster is not None
         model_loaded = embedding_service.is_loaded
         status = "ok" if connected and model_loaded else "degraded"
         logger.info(f"Health: status={status} opensearch={connected} model={model_loaded}")
@@ -160,6 +161,67 @@ async def health() -> HealthResponse:
     except Exception as exc:
         logger.exception(f"Health check failed: {exc}")
         raise
+
+
+async def _measure_latency(call, samples: int) -> tuple[list[float], str | None]:
+    """Run an async no-arg call `samples` times, returning per-call ms and any error."""
+    times: list[float] = []
+    error: str | None = None
+    for i in range(samples):
+        t0 = time.perf_counter()
+        try:
+            await call()
+            times.append(round((time.perf_counter() - t0) * 1000, 1))
+        except Exception as exc:
+            error = f"sample {i + 1} failed: {exc}"
+            break
+    return times, error
+
+
+def _latency_response(target: str, endpoint: str, samples: int, times: list[float], error: str | None) -> LatencyResponse:
+    return LatencyResponse(
+        target=target,
+        endpoint=endpoint,
+        samples=samples,
+        samples_ms=times,
+        min_ms=min(times) if times else 0.0,
+        avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
+        max_ms=max(times) if times else 0.0,
+        ok=error is None and len(times) == samples,
+        error=error,
+    )
+
+
+@app.get("/health/latency/opensearch", response_model=LatencyResponse, tags=["Health"])
+async def latency_opensearch(samples: int = 5) -> LatencyResponse:
+    """Measure round-trip latency to OpenSearch (one GET / per sample)."""
+    samples = max(1, min(samples, 20))
+    logger.info(f"GET /health/latency/opensearch — {samples} samples")
+
+    async def _call() -> None:
+        client = await os_client.get_client()
+        await client.info()
+
+    times, error = await _measure_latency(_call, samples)
+    endpoint = f"{settings.opensearch_host}:{settings.opensearch_port}"
+    result = _latency_response("opensearch", endpoint, samples, times, error)
+    logger.info(f"OpenSearch latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+    return result
+
+
+@app.get("/health/latency/oci", response_model=LatencyResponse, tags=["Health"])
+async def latency_oci(samples: int = 5) -> LatencyResponse:
+    """Measure round-trip latency to OCI GenAI (one embed call per sample)."""
+    samples = max(1, min(samples, 20))
+    logger.info(f"GET /health/latency/oci — {samples} samples")
+
+    async def _call() -> None:
+        await embedding_service.encode_query("latency check")
+
+    times, error = await _measure_latency(_call, samples)
+    result = _latency_response("oci", settings.oci_genai_endpoint, samples, times, error)
+    logger.info(f"OCI latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+    return result
 
 
 @app.exception_handler(StarletteHTTPException)
