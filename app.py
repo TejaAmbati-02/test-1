@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+import asyncio
 import os
 import time
 
@@ -27,10 +28,31 @@ from services.search import search_service
 
 setup_logging()
 
+# How often the background heartbeat pings OpenSearch to keep the pooled TCP/TLS
+# connection warm. Must stay below the server/aiohttp idle-reap window (~15s) so the
+# socket is never torn down — otherwise the next request pays a full handshake (~1s).
+OPENSEARCH_HEARTBEAT_INTERVAL = 5
+
+
+async def _opensearch_heartbeat(interval: int) -> None:
+    """Periodically ping OpenSearch so the keep-alive connection never goes idle-cold."""
+    logger.info(f"OpenSearch heartbeat started — every {interval}s")
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            await os_client.ping()
+        except asyncio.CancelledError:
+            logger.info("OpenSearch heartbeat cancelled")
+            raise
+        except Exception as exc:
+            # Never let a transient ping failure kill the heartbeat loop.
+            logger.warning(f"OpenSearch heartbeat ping failed: {exc}")
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Application startup")
+    heartbeat_task: asyncio.Task | None = None
     try:
         logger.info(f"Loading embedding model: {settings.embedding_model_name}")
         await embedding_service.load()
@@ -47,6 +69,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         await search_service.setup_pipeline()
         logger.info("Search pipeline ready")
 
+        # Keep the warmed-up connection alive so no request ever hits a cold handshake.
+        heartbeat_task = asyncio.create_task(_opensearch_heartbeat(OPENSEARCH_HEARTBEAT_INTERVAL))
+
     except Exception as exc:
         logger.exception(f"Startup failed: {exc}")
         raise
@@ -55,6 +80,12 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     logger.info("Shutting down")
+    if heartbeat_task is not None:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
     await os_client.close()
     logger.info("Shutdown complete")
 

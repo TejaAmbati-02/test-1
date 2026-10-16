@@ -1,0 +1,34 @@
+# Version control
+.git
+.gitignore
+
+# Secrets & local OCI creds (mount at runtime, never bake into the image)
+.env
+.oci
+
+# Python caches / build artifacts
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+
+# Runtime output
+logs/
+out_transformed/
+pushing_data_to_index/
+
+# Editor / OS cruft
+.DS_Store
+.claude/
+
+# Dev-only assets not needed in the image
+*.postman_collection.json
+*.bruno_collection.json
+ASMO_Search_Test_Cases.xlsx
+curls.sh
+latency_checks.json
+Dockerfile
+.dockerignore
