@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from models.response import (
@@ -244,7 +245,9 @@ class SearchService:
         )
         try:
             logger.debug(f"SearchService.text_search_v1 — encoding query vector for '{query}'")
+            _t_embed0 = time.perf_counter()
             query_vector = await self._emb.encode_query(query)
+            embed_ms = (time.perf_counter() - _t_embed0) * 1000
             logger.debug(
                 "SearchService.text_search_v1 — query vector encoded",
                 extra={"input_data": {"dim": len(query_vector), "preview": [round(v, 5) for v in query_vector[:5]]}},
@@ -278,9 +281,33 @@ class SearchService:
                 logger.debug(f"SearchService.text_search_v1 — sort applied: {sort}")
 
             logger.info(f"SearchService.text_search_v1 — executing hybrid RRF search via pipeline '{PIPELINE_ID}'")
+            _t_search0 = time.perf_counter()
             raw = await self._os.search(index, body, pipeline_id=PIPELINE_ID)
+            search_wall_ms = (time.perf_counter() - _t_search0) * 1000
 
             took_ms, total, hits = self._parse_hits(raw, index)
+
+            # Phase breakdown so slow searches can be attributed precisely:
+            #   embed_ms       = OCI GenAI embedding round-trip (Riyadh, on-demand)
+            #   search_wall_ms = full OpenSearch call wall time (network + server)
+            #   took_ms        = OpenSearch server-side time only
+            #   os_network_ms  = search_wall_ms - took_ms  (round-trip + (de)serialization)
+            os_network_ms = round(search_wall_ms - took_ms, 1)
+            logger.info(
+                f"SearchService.text_search_v1 — PHASE BREAKDOWN: embed={embed_ms:.1f}ms "
+                f"os_wall={search_wall_ms:.1f}ms os_server(took)={took_ms}ms os_network={os_network_ms}ms",
+                extra={
+                    "status": "success",
+                    "search_query": query,
+                    "latency": f"{embed_ms + search_wall_ms:.1f}ms",
+                    "response_payload": {
+                        "embed_ms": round(embed_ms, 1),
+                        "os_wall_ms": round(search_wall_ms, 1),
+                        "os_server_took_ms": took_ms,
+                        "os_network_ms": os_network_ms,
+                    },
+                },
+            )
             logger.info(
                 f"SearchService.text_search_v1 — RRF returned {len(hits)} hits for page {page} of total={total} (took {took_ms}ms)",
             )
