@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     embedding_dimension: int
     embedding_normalize: bool
 
+    # Query-embedding LRU cache. Repeated search-box queries skip the OCI round-trip
+    # entirely (side-stepping on-demand cold starts). `embedding_warm_queries` is a
+    # list of common terms embedded once at startup so those hits are instant from
+    # the first request. Override via env as a JSON array, e.g.
+    # EMBEDDING_WARM_QUERIES='["pipe","valve","gauge"]'
+    embedding_cache_size: int = 2048
+    embedding_warm_queries: list[str] = [
+        "pipe", "valve", "gauge", "pressure gauge", "flange",
+        "bolt", "gasket", "pump", "motor", "cable",
+        "sensor", "transmitter", "fitting", "seal", "bearing",
+    ]
+
     opensearch_index_name: str = "asmo-search-api-index"
     opensearch_vector_field: str = "content_vector"
     default_top_k: int = 10

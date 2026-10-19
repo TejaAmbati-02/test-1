@@ -107,6 +107,31 @@ class EmbeddingService:
             logger.debug("EmbeddingService._embed_query_sync — vector L2-normalized")
         return vector
 
+    async def warm_cache(self, queries: list[str]) -> int:
+        """Pre-embed common queries at startup so their first real hit is a cache hit.
+
+        Runs each embed through encode_query (which populates the cache). Individual
+        failures are logged and skipped — warming must never block startup. Returns
+        the number of queries successfully cached.
+        """
+        unique = list(dict.fromkeys(q.strip() for q in queries if q and q.strip()))
+        logger.info(
+            "EmbeddingService.warm_cache — starting",
+            extra={"input_data": {"requested": len(queries), "unique": len(unique)}},
+        )
+        warmed = 0
+        for q in unique:
+            try:
+                await self.encode_query(q)
+                warmed += 1
+            except Exception as exc:
+                logger.warning(f"EmbeddingService.warm_cache — failed to warm '{q}': {exc}")
+        logger.info(
+            "EmbeddingService.warm_cache — done",
+            extra={"status": "success", "input_data": {"warmed": warmed, "cache_size": len(self._cache)}},
+        )
+        return warmed
+
     async def encode_query(self, query: str) -> list[float]:
         """Embed a single search query (SEARCH_QUERY input type)."""
         logger.debug(

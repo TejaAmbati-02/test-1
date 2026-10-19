@@ -94,6 +94,16 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as exc:
             logger.warning(f"Embedding warmup failed (continuing): {exc}")
 
+        # Pre-warm the query-embedding cache with common search terms so their first
+        # real request is an instant cache hit instead of a cold OCI round-trip.
+        if settings.embedding_warm_queries:
+            logger.info(f"Pre-warming query cache with {len(settings.embedding_warm_queries)} common queries")
+            try:
+                warmed = await embedding_service.warm_cache(settings.embedding_warm_queries)
+                logger.info(f"Query cache pre-warmed — {warmed} queries cached")
+            except Exception as exc:
+                logger.warning(f"Query cache pre-warm failed (continuing): {exc}")
+
         logger.info(f"Connecting to OpenSearch at {settings.opensearch_host}:{settings.opensearch_port}")
         connected = await os_client.ping()
         if not connected:
