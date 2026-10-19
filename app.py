@@ -1,12 +1,12 @@
 from __future__ import annotations
-
+ 
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-
+ 
 import asyncio
 import os
 import time
-
+ 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -15,9 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
-
+ 
 import uuid
-
+ 
 from config import settings
 from utils.logger import logger, setup_logging, set_log_context, clear_log_context
 from models.response import ErrorDetail, ErrorResponse, HealthResponse, LatencyResponse
@@ -25,25 +25,25 @@ from routers.search import index_router, v1_router
 from services.embedder import embedding_service
 from services.opensearch import os_client
 from services.search import search_service
-
+ 
 setup_logging()
-
+ 
 # How often the background heartbeat pings OpenSearch to keep the pooled TCP/TLS
 # connection warm. Must stay below the server/aiohttp idle-reap window (~15s) so the
 # socket is never torn down — otherwise the next request pays a full handshake (~1s).
 OPENSEARCH_HEARTBEAT_INTERVAL = 5
-
+ 
 # How often the background heartbeat sends a tiny embed to OCI GenAI to keep the
 # on-demand model warm. The first embed after the model goes idle pays a cold
 # spin-up (~1.5s observed); a periodic warmup keeps real searches off that path.
 # Override with OCI_EMBED_HEARTBEAT_INTERVAL (seconds). Each tick is a billable
 # on-demand call, so keep it only as frequent as needed to beat the idle window.
 OCI_EMBED_HEARTBEAT_INTERVAL = int(os.environ.get("OCI_EMBED_HEARTBEAT_INTERVAL", "60"))
-
+ 
 # Throwaway query used for both the startup warmup and the keep-alive heartbeat.
 _EMBED_WARMUP_TEXT = "warmup"
-
-
+ 
+ 
 async def _opensearch_heartbeat(interval: int) -> None:
     """Periodically ping OpenSearch so the keep-alive connection never goes idle-cold."""
     logger.info(f"OpenSearch heartbeat started — every {interval}s")
@@ -57,8 +57,8 @@ async def _opensearch_heartbeat(interval: int) -> None:
         except Exception as exc:
             # Never let a transient ping failure kill the heartbeat loop.
             logger.warning(f"OpenSearch heartbeat ping failed: {exc}")
-
-
+ 
+ 
 async def _oci_embed_heartbeat(interval: int) -> None:
     """Periodically embed a throwaway query so the on-demand OCI model never goes idle-cold."""
     logger.info(f"OCI embed heartbeat started — every {interval}s")
@@ -72,8 +72,8 @@ async def _oci_embed_heartbeat(interval: int) -> None:
         except Exception as exc:
             # Never let a transient embed failure kill the heartbeat loop.
             logger.warning(f"OCI embed heartbeat failed: {exc}")
-
-
+ 
+ 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Application startup")
@@ -83,7 +83,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info(f"Loading embedding model: {settings.embedding_model_name}")
         await embedding_service.load()
         logger.info("Embedding model ready")
-
+ 
         # Warm the on-demand OCI model now so the first real search doesn't pay the
         # cold spin-up (~1.5s). A failure here must not block startup — searches can
         # still run, they'll just warm it lazily.
@@ -93,40 +93,30 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Embedding model warmed up")
         except Exception as exc:
             logger.warning(f"Embedding warmup failed (continuing): {exc}")
-
-        # Pre-warm the query-embedding cache with common search terms so their first
-        # real request is an instant cache hit instead of a cold OCI round-trip.
-        if settings.embedding_warm_queries:
-            logger.info(f"Pre-warming query cache with {len(settings.embedding_warm_queries)} common queries")
-            try:
-                warmed = await embedding_service.warm_cache(settings.embedding_warm_queries)
-                logger.info(f"Query cache pre-warmed — {warmed} queries cached")
-            except Exception as exc:
-                logger.warning(f"Query cache pre-warm failed (continuing): {exc}")
-
+ 
         logger.info(f"Connecting to OpenSearch at {settings.opensearch_host}:{settings.opensearch_port}")
         connected = await os_client.ping()
         if not connected:
             logger.warning("OpenSearch ping returned False — searches may fail")
         else:
             logger.info("OpenSearch connected")
-
+ 
         logger.info("Setting up hybrid search pipeline (RRF)")
         await search_service.setup_pipeline()
         logger.info("Search pipeline ready")
-
+ 
         # Keep the warmed-up connection alive so no request ever hits a cold handshake.
         heartbeat_task = asyncio.create_task(_opensearch_heartbeat(OPENSEARCH_HEARTBEAT_INTERVAL))
         # Keep the on-demand embedding model warm so no request ever hits a cold spin-up.
         embed_heartbeat_task = asyncio.create_task(_oci_embed_heartbeat(OCI_EMBED_HEARTBEAT_INTERVAL))
-
+ 
     except Exception as exc:
         logger.exception(f"Startup failed: {exc}")
         raise
-
+ 
     logger.info("Startup complete — API is ready")
     yield
-
+ 
     logger.info("Shutting down")
     for task in (heartbeat_task, embed_heartbeat_task):
         if task is not None:
@@ -137,8 +127,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
                 pass
     await os_client.close()
     logger.info("Shutdown complete")
-
-
+ 
+ 
 app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
@@ -147,18 +137,18 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
-
+ 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
         set_log_context(request_id)
-
+ 
         client_ip = request.client.host if request.client else "unknown"
         query_string = str(request.url.query) if request.url.query else ""
         user_agent = request.headers.get("user-agent", "")
         content_type = request.headers.get("content-type", "")
-
+ 
         start = time.perf_counter()
         logger.info(
             f"REQUEST {request.method} {request.url.path}",
@@ -175,7 +165,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "status": "received",
             },
         )
-
+ 
         try:
             response = await call_next(request)
             elapsed_ms = (time.perf_counter() - start) * 1000
@@ -207,8 +197,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             raise
         finally:
             clear_log_context()
-
-
+ 
+ 
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -216,11 +206,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+ 
 app.include_router(index_router)
 app.include_router(v1_router)
-
-
+ 
+ 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health() -> HealthResponse:
     logger.info("GET /health")
@@ -241,8 +231,8 @@ async def health() -> HealthResponse:
     except Exception as exc:
         logger.exception(f"Health check failed: {exc}")
         raise
-
-
+ 
+ 
 async def _measure_latency(call, samples: int) -> tuple[list[float], str | None]:
     """Run an async no-arg call `samples` times, returning per-call ms and any error."""
     times: list[float] = []
@@ -256,8 +246,8 @@ async def _measure_latency(call, samples: int) -> tuple[list[float], str | None]
             error = f"sample {i + 1} failed: {exc}"
             break
     return times, error
-
-
+ 
+ 
 def _latency_response(target: str, endpoint: str, samples: int, times: list[float], error: str | None) -> LatencyResponse:
     return LatencyResponse(
         target=target,
@@ -270,40 +260,40 @@ def _latency_response(target: str, endpoint: str, samples: int, times: list[floa
         ok=error is None and len(times) == samples,
         error=error,
     )
-
-
+ 
+ 
 @app.get("/health/latency/opensearch", response_model=LatencyResponse, tags=["Health"])
 async def latency_opensearch(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to OpenSearch (one GET / per sample)."""
     samples = max(1, min(samples, 20))
     logger.info(f"GET /health/latency/opensearch — {samples} samples")
-
+ 
     async def _call() -> None:
         client = await os_client.get_client()
         await client.info()
-
+ 
     times, error = await _measure_latency(_call, samples)
     endpoint = f"{settings.opensearch_host}:{settings.opensearch_port}"
     result = _latency_response("opensearch", endpoint, samples, times, error)
     logger.info(f"OpenSearch latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
     return result
-
-
+ 
+ 
 @app.get("/health/latency/oci", response_model=LatencyResponse, tags=["Health"])
 async def latency_oci(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to OCI GenAI (one embed call per sample)."""
     samples = max(1, min(samples, 20))
     logger.info(f"GET /health/latency/oci — {samples} samples")
-
+ 
     async def _call() -> None:
         await embedding_service.encode_query("latency check")
-
+ 
     times, error = await _measure_latency(_call, samples)
     result = _latency_response("oci", settings.oci_genai_endpoint, samples, times, error)
     logger.info(f"OCI latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
     return result
-
-
+ 
+ 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
     detail = exc.detail
@@ -313,8 +303,8 @@ async def http_exception_handler(_request: Request, exc: StarletteHTTPException)
         status_code=exc.status_code,
         content=ErrorResponse(error=ErrorDetail(code="HTTP_ERROR", message=str(detail))).model_dump(),
     )
-
-
+ 
+ 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     logger.warning(f"Request validation failed: {exc.errors()}")
@@ -328,8 +318,8 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
             )
         ).model_dump(),
     )
-
-
+ 
+ 
 @app.exception_handler(Exception)
 async def global_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
     logger.exception(f"Unhandled exception: {exc}")
@@ -337,8 +327,8 @@ async def global_exception_handler(_request: Request, exc: Exception) -> JSONRes
         status_code=500,
         content=ErrorResponse(error=ErrorDetail(code="INTERNAL_ERROR", message=str(exc))).model_dump(),
     )
-
-
+ 
+ 
 if __name__ == "__main__":
     # Auto-reload is OFF by default. Enable only for local dev with RELOAD=true, and
     # never in a OneDrive/synced folder — background file syncing triggers endless reloads.
