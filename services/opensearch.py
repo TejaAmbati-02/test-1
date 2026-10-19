@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from opensearchpy import AsyncOpenSearch, NotFoundError, RequestError
@@ -182,9 +183,15 @@ class OpenSearchClientService:
             client = await self.get_client()
             params = {"search_pipeline": pipeline_id} if pipeline_id else {}
             logger.debug(f"OpenSearchClientService.search — sending request with params={params}")
+            os_start = time.perf_counter()
             result = await client.search(index=index, body=body, params=params)
+            os_elapsed_ms = round((time.perf_counter() - os_start) * 1000, 2)
             total = result["hits"]["total"]["value"]
             took = result.get("took", 0)
+            logger.info(
+                f"OpenSearchClientService.search — OpenSearch time taken on '{index}'",
+                extra={"status": "success", "response_payload": {"opensearch_elapsed_ms": os_elapsed_ms, "server_took_ms": took}},
+            )
             logger.debug(
                 "OpenSearchClientService.search — raw response received",
                 extra={"input_data": {"total_hits": total, "took_ms": took, "hits_returned": len(result["hits"]["hits"])}},

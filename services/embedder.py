@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import time
 from collections import OrderedDict
 
 import oci
@@ -86,7 +87,13 @@ class EmbeddingService:
             is_echo=False,
         )
         logger.debug("EmbeddingService._embed_query_sync — EmbedTextDetails built, calling OCI embed_text")
+        oci_start = time.perf_counter()
         response = self._client.embed_text(embed_text_details=details)
+        oci_elapsed_ms = round((time.perf_counter() - oci_start) * 1000, 2)
+        logger.info(
+            "EmbeddingService._embed_query_sync — OCI embed_text time taken",
+            extra={"status": "success", "response_payload": {"oci_elapsed_ms": oci_elapsed_ms}},
+        )
         logger.debug(
             "EmbeddingService._embed_query_sync — OCI embed_text returned",
             extra={"input_data": {
