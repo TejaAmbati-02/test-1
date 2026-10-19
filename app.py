@@ -33,6 +33,16 @@ setup_logging()
 # socket is never torn down — otherwise the next request pays a full handshake (~1s).
 OPENSEARCH_HEARTBEAT_INTERVAL = 5
 
+# How often the background heartbeat sends a tiny embed to OCI GenAI to keep the
+# on-demand model warm. The first embed after the model goes idle pays a cold
+# spin-up (~1.5s observed); a periodic warmup keeps real searches off that path.
+# Override with OCI_EMBED_HEARTBEAT_INTERVAL (seconds). Each tick is a billable
+# on-demand call, so keep it only as frequent as needed to beat the idle window.
+OCI_EMBED_HEARTBEAT_INTERVAL = int(os.environ.get("OCI_EMBED_HEARTBEAT_INTERVAL", "60"))
+
+# Throwaway query used for both the startup warmup and the keep-alive heartbeat.
+_EMBED_WARMUP_TEXT = "warmup"
+
 
 async def _opensearch_heartbeat(interval: int) -> None:
     """Periodically ping OpenSearch so the keep-alive connection never goes idle-cold."""
@@ -49,14 +59,40 @@ async def _opensearch_heartbeat(interval: int) -> None:
             logger.warning(f"OpenSearch heartbeat ping failed: {exc}")
 
 
+async def _oci_embed_heartbeat(interval: int) -> None:
+    """Periodically embed a throwaway query so the on-demand OCI model never goes idle-cold."""
+    logger.info(f"OCI embed heartbeat started — every {interval}s")
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            await embedding_service.encode_query(_EMBED_WARMUP_TEXT)
+        except asyncio.CancelledError:
+            logger.info("OCI embed heartbeat cancelled")
+            raise
+        except Exception as exc:
+            # Never let a transient embed failure kill the heartbeat loop.
+            logger.warning(f"OCI embed heartbeat failed: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Application startup")
     heartbeat_task: asyncio.Task | None = None
+    embed_heartbeat_task: asyncio.Task | None = None
     try:
         logger.info(f"Loading embedding model: {settings.embedding_model_name}")
         await embedding_service.load()
         logger.info("Embedding model ready")
+
+        # Warm the on-demand OCI model now so the first real search doesn't pay the
+        # cold spin-up (~1.5s). A failure here must not block startup — searches can
+        # still run, they'll just warm it lazily.
+        logger.info("Warming up embedding model with a throwaway query")
+        try:
+            await embedding_service.encode_query(_EMBED_WARMUP_TEXT)
+            logger.info("Embedding model warmed up")
+        except Exception as exc:
+            logger.warning(f"Embedding warmup failed (continuing): {exc}")
 
         logger.info(f"Connecting to OpenSearch at {settings.opensearch_host}:{settings.opensearch_port}")
         connected = await os_client.ping()
@@ -71,6 +107,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Keep the warmed-up connection alive so no request ever hits a cold handshake.
         heartbeat_task = asyncio.create_task(_opensearch_heartbeat(OPENSEARCH_HEARTBEAT_INTERVAL))
+        # Keep the on-demand embedding model warm so no request ever hits a cold spin-up.
+        embed_heartbeat_task = asyncio.create_task(_oci_embed_heartbeat(OCI_EMBED_HEARTBEAT_INTERVAL))
 
     except Exception as exc:
         logger.exception(f"Startup failed: {exc}")
@@ -80,12 +118,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     logger.info("Shutting down")
-    if heartbeat_task is not None:
-        heartbeat_task.cancel()
-        try:
-            await heartbeat_task
-        except asyncio.CancelledError:
-            pass
+    for task in (heartbeat_task, embed_heartbeat_task):
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
     await os_client.close()
     logger.info("Shutdown complete")
 

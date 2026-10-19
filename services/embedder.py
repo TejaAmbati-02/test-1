@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections import OrderedDict
 
 import oci
 
@@ -16,6 +17,10 @@ class EmbeddingService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._client: "oci.generative_ai_inference.GenerativeAiInferenceClient | None" = None
+        # LRU cache of query -> embedding. Repeated search-box queries (the common
+        # case) skip the OCI round-trip entirely, side-stepping on-demand cold starts.
+        self._cache: "OrderedDict[tuple[str, int, bool], list[float]]" = OrderedDict()
+        self._cache_max = getattr(settings, "embedding_cache_size", 2048)
 
     @property
     def is_loaded(self) -> bool:
@@ -109,6 +114,20 @@ class EmbeddingService:
             extra={"input_data": {"query_preview": query[:120], "query_len": len(query), "client_loaded": self._client is not None}},
         )
         try:
+            cache_key = (
+                query.strip().lower(),
+                self._settings.embedding_dimension,
+                self._settings.embedding_normalize,
+            )
+            cached = self._cache.get(cache_key)
+            if cached is not None:
+                self._cache.move_to_end(cache_key)
+                logger.info(
+                    "EmbeddingService.encode_query — cache hit (OCI call skipped)",
+                    extra={"status": "success", "input_data": {"output_dim": len(cached)}},
+                )
+                return cached
+
             if self._client is None:
                 logger.warning("EmbeddingService.encode_query — client not initialized, triggering load")
                 await self.load()
@@ -116,6 +135,11 @@ class EmbeddingService:
             logger.debug("EmbeddingService.encode_query — dispatching embed to executor thread")
             loop = asyncio.get_running_loop()
             vector = await loop.run_in_executor(None, self._embed_query_sync, query)
+
+            self._cache[cache_key] = vector
+            self._cache.move_to_end(cache_key)
+            if len(self._cache) > self._cache_max:
+                self._cache.popitem(last=False)
             logger.info(
                 "EmbeddingService.encode_query — done",
                 extra={

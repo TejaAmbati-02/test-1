@@ -169,6 +169,8 @@ class SearchService:
             body: dict[str, Any] = {
                 "from": (page - 1) * page_size,
                 "size": page_size,
+                # Never return the raw embedding vector — it's large and useless to clients.
+                "_source": {"excludes": [_cfg.opensearch_vector_field]},
                 "query": {"bool": {"filter": filters}} if filters else {"match_all": {}},
                 "aggs": _build_aggs(),
             }
@@ -272,6 +274,8 @@ class SearchService:
             body: dict[str, Any] = {
                 "from": (page - 1) * page_size,
                 "size": page_size,
+                # Never return the raw embedding vector — it's large and useless to clients.
+                "_source": {"excludes": [vector_field]},
                 "query": {"bool": {"must": [hybrid_query], "filter": filters}} if filters else hybrid_query,
                 "aggs": _build_aggs(),
             }
