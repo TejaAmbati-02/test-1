@@ -1,20 +1,20 @@
 from __future__ import annotations
-
+ 
 import asyncio
 import math
 import time
 from collections import OrderedDict
-
+ 
 import oci
-
+ 
 from config import Settings, settings as _settings
 from services.oci_genai import build_genai_client, extract_embeddings, oci_error_fields
 from utils.logger import logger
-
-
+ 
+ 
 class EmbeddingService:
     """Search-query embeddings backed by OCI GenAI (Cohere Embed v4.0)."""
-
+ 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._client: "oci.generative_ai_inference.GenerativeAiInferenceClient | None" = None
@@ -22,15 +22,15 @@ class EmbeddingService:
         # case) skip the OCI round-trip entirely, side-stepping on-demand cold starts.
         self._cache: "OrderedDict[tuple[str, int, bool], list[float]]" = OrderedDict()
         self._cache_max = getattr(settings, "embedding_cache_size", 2048)
-
+ 
     @property
     def is_loaded(self) -> bool:
         return self._client is not None
-
+ 
     @property
     def model_name(self) -> str:
         return self._settings.embedding_model_name
-
+ 
     async def load(self) -> None:
         if self._client is not None:
             logger.debug("EmbeddingService.load — client already initialized, skipping")
@@ -53,14 +53,14 @@ class EmbeddingService:
                 extra={"status": "error", "error_details": str(exc), "input_data": {"model": cfg.embedding_model_name}, **oci_error_fields(exc)},
             )
             raise
-
+ 
     @staticmethod
     def _l2_normalize(vector: list[float]) -> list[float]:
         norm = math.sqrt(sum(v * v for v in vector))
         if norm == 0.0:
             return vector
         return [v / norm for v in vector]
-
+ 
     def _embed_query_sync(self, query: str) -> list[float]:
         cfg = self._settings
         logger.debug(
@@ -113,32 +113,7 @@ class EmbeddingService:
             vector = self._l2_normalize(vector)
             logger.debug("EmbeddingService._embed_query_sync — vector L2-normalized")
         return vector
-
-    async def warm_cache(self, queries: list[str]) -> int:
-        """Pre-embed common queries at startup so their first real hit is a cache hit.
-
-        Runs each embed through encode_query (which populates the cache). Individual
-        failures are logged and skipped — warming must never block startup. Returns
-        the number of queries successfully cached.
-        """
-        unique = list(dict.fromkeys(q.strip() for q in queries if q and q.strip()))
-        logger.info(
-            "EmbeddingService.warm_cache — starting",
-            extra={"input_data": {"requested": len(queries), "unique": len(unique)}},
-        )
-        warmed = 0
-        for q in unique:
-            try:
-                await self.encode_query(q)
-                warmed += 1
-            except Exception as exc:
-                logger.warning(f"EmbeddingService.warm_cache — failed to warm '{q}': {exc}")
-        logger.info(
-            "EmbeddingService.warm_cache — done",
-            extra={"status": "success", "input_data": {"warmed": warmed, "cache_size": len(self._cache)}},
-        )
-        return warmed
-
+ 
     async def encode_query(self, query: str) -> list[float]:
         """Embed a single search query (SEARCH_QUERY input type)."""
         logger.debug(
@@ -159,15 +134,15 @@ class EmbeddingService:
                     extra={"status": "success", "input_data": {"output_dim": len(cached)}},
                 )
                 return cached
-
+ 
             if self._client is None:
                 logger.warning("EmbeddingService.encode_query — client not initialized, triggering load")
                 await self.load()
-
+ 
             logger.debug("EmbeddingService.encode_query — dispatching embed to executor thread")
             loop = asyncio.get_running_loop()
             vector = await loop.run_in_executor(None, self._embed_query_sync, query)
-
+ 
             self._cache[cache_key] = vector
             self._cache.move_to_end(cache_key)
             if len(self._cache) > self._cache_max:
@@ -192,6 +167,7 @@ class EmbeddingService:
                 extra={"status": "error", "error_details": str(exc), **oci_error_fields(exc)},
             )
             raise
-
-
+ 
+ 
 embedding_service = EmbeddingService(_settings)
+ 
