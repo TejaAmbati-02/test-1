@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 import time
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, Field, ValidationError
+from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import settings as _cfg
 from utils.logger import logger
@@ -13,7 +17,7 @@ from models.response import (
     IndicesResponse,
     IndexInfo,
     SearchApiResponse,
-    SuggestionsResponse
+    SuggestionsResponse,
 )
 from services.opensearch import IndexNotFoundError, OpenSearchQueryError
 from services.search import ALLOWED_FILTER_KEYS, FILTER_KEY_MAP, search_service
@@ -23,29 +27,122 @@ v1_router = APIRouter(prefix="/v1", tags=["V1 Search API"])
 
 _RETRIEVAL_K = _cfg.hybrid_retrieval_k
 
+# Contract-level enums (§2.1). Validated manually so unsupported values return a
+# 400 with the standard error body (§5), rather than FastAPI's default 422.
+SUPPORTED_CHANNELS = frozenset({"web", "mobile"})
+SUPPORTED_LANGUAGES = frozenset({"en", "ar"})
+SUPPORTED_SORT_BY = frozenset({"relevance", "price"})
+SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
+
+# Image constraints (§5): unsupported type -> 400, oversized -> 413.
+ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
+# Generic binary uploads (e.g. a .bin part) carry no image type; the bytes decide.
+GENERIC_BINARY_TYPES = frozenset({"", "application/octet-stream"})
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MiB
+
 _ERROR_RESPONSES = {
-    400: {"model": ErrorResponse, "description": "Bad request — invalid filter key, empty request, or malformed query"},
+    400: {"model": ErrorResponse, "description": "Bad request — unsupported channel/language, invalid filter, or empty request"},
     404: {"model": ErrorResponse, "description": "Not found — the target index does not exist"},
-    422: {"model": ErrorResponse, "description": "Validation error — form fields failed validation"},
-    501: {"model": ErrorResponse, "description": "Not implemented — image / text+image search"},
+    413: {"model": ErrorResponse, "description": "Payload too large — uploaded image exceeds the size limit"},
     500: {"model": ErrorResponse, "description": "Internal server error"},
 }
+
+
+def _image_mime(data: bytes) -> str | None:
+    """Return the MIME type for PNG/JPEG/GIF/WebP bytes, else None."""
+    if data[:8].startswith(b"\x89PNG"):
+        return "image/png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 def _api_error(http_status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=http_status, detail={"code": code, "message": message})
 
 
-class SearchRequest(BaseModel):
-    channel: Literal["web", "mobile"] = Field(description="Client channel — 'web' or 'mobile'")
-    language: Literal["en", "de"] = Field(description="Response language — 'en' or 'de'")
-    search_query: str | None = Field(default=None, description="Free-text query. Omit for filter-only browse")
-    sort_by: Literal["relevance", "price"] | None = Field(default=None, description="Sort field — 'relevance' or 'price'")
-    sort_order: Literal["asc", "desc"] = Field(default="desc", description="Sort direction — 'asc' or 'desc'")
-    filters: dict[str, Any] | None = Field(default=None, description="Filter object. Keys must match the supported filter keys")
-    page: int = Field(default=1, ge=1, description="1-based page number")
-    page_size: int = Field(default=60, ge=1, le=200, description="Results per page")
-    image: str | None = Field(default=None, description="Optional base64 image for image / text+image search (not yet implemented)")
+def _validate_enum(value: str, allowed: frozenset[str], field: str, code: str) -> None:
+    if value not in allowed:
+        logger.warning(f"POST /v1/search — unsupported {field}: '{value}'")
+        raise _api_error(400, code, f"Unsupported {field} '{value}'. Allowed: {', '.join(sorted(allowed))}")
+
+
+def _parse_filters(raw: str | None) -> dict[str, Any]:
+    """Parse the `filters` form field (a JSON string per §2.1) into a dict."""
+    if not raw or not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise _api_error(400, "INVALID_FILTER", f"filters must be a valid JSON object: {exc.msg}")
+    if not isinstance(parsed, dict):
+        raise _api_error(400, "INVALID_FILTER", "filters must be a JSON object")
+    return parsed
+
+
+# Value types per filter key (§5: invalid filter value -> 400). Keys not listed
+# here are keyword fields and take strings.
+NUMERIC_FILTER_KEYS = frozenset({"price", "moq", "supplier_count"})
+BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator"})
+RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
+
+
+def _valid_scalar(key: str, value: Any) -> bool:
+    if key in NUMERIC_FILTER_KEYS:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if key in BOOLEAN_FILTER_KEYS:
+        return isinstance(value, bool)
+    return isinstance(value, str) and value != ""
+
+
+def _validate_filter_value(key: str, value: Any) -> None:
+    """Raise 400 INVALID_FILTER_VALUE unless the value fits the field's type.
+
+    Numeric fields accept a number, a non-empty list of numbers, or a range
+    object such as {"gte": 50, "lte": 150}; boolean fields accept true/false;
+    every other field accepts a string or a non-empty list of strings.
+    """
+    if isinstance(value, dict):
+        ok = (
+            key in NUMERIC_FILTER_KEYS
+            and value
+            and set(value) <= RANGE_OPERATORS
+            and all(_valid_scalar(key, v) for v in value.values())
+        )
+    elif isinstance(value, list):
+        ok = bool(value) and all(_valid_scalar(key, v) for v in value)
+    else:
+        ok = _valid_scalar(key, value)
+    if not ok:
+        logger.warning(f"POST /v1/search — rejected invalid value for filter '{key}': {value!r}")
+        raise _api_error(400, "INVALID_FILTER_VALUE", f"Invalid value for filter '{key}': {json.dumps(value)}")
+
+
+def _build_os_filters(filters: dict[str, Any]) -> list[dict]:
+    os_filters: list[dict] = []
+    for k, v in filters.items():
+        if k not in ALLOWED_FILTER_KEYS:
+            logger.warning(
+                f"POST /v1/search — rejected invalid filter key '{k}'",
+                extra={"status": "error", "error_details": f"Filter key '{k}' not in allowed list"},
+            )
+            raise _api_error(400, "INVALID_FILTER_KEY", f"The filter key '{k}' is not supported.")
+        _validate_filter_value(k, v)
+        os_field = FILTER_KEY_MAP[k]
+        # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
+        if isinstance(v, dict):
+            clause = {"range": {os_field: v}}
+        elif isinstance(v, list):
+            clause = {"terms": {os_field: v}}
+        else:
+            clause = {"term": {os_field: v}}
+        os_filters.append(clause)
+        logger.debug(f"POST /v1/search — filter: {k} -> {os_field}")
+    return os_filters
 
 
 @index_router.get("", response_model=IndicesResponse, responses=_ERROR_RESPONSES, summary="List all indices")
@@ -61,76 +158,175 @@ async def list_indices(_request: Request) -> IndicesResponse:
         raise _api_error(500, "INTERNAL_ERROR", str(exc))
 
 
-@v1_router.post("/search", response_model=SearchApiResponse, responses=_ERROR_RESPONSES, summary="Search products (text / filter-browse)")
-async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
+class SearchForm(BaseModel):
+    """Text fields of the multipart search request (§2.1)."""
+
+    channel: str = Field(description="Client channel — 'web' or 'mobile'")
+    language: str = Field(description="Response language — 'en' or 'ar'")
+    search_query: str | None = Field(default=None, description="Free-text query. Omit for filter-only browse")
+    sort_by: str | None = Field(default=None, description="Sort field — 'relevance' or 'price'")
+    sort_order: str = Field(default="desc", description="Sort direction — 'asc' or 'desc'")
+    filters: str | None = Field(default=None, description="Filter object encoded as a JSON string")
+    page: int = Field(default=1, ge=1, description="1-based page number")
+    page_size: int = Field(default=60, ge=1, le=200, description="Results per page (frontend default 60)")
+
+
+# The multipart body is parsed in the handler (not by FastAPI) so the image part
+# is accepted as raw binary whether or not the client gives it a filename. This
+# documents the same form for OpenAPI / Swagger.
+_SEARCH_REQUEST_BODY = {
+    "required": True,
+    "content": {
+        "multipart/form-data": {
+            "schema": {
+                "type": "object",
+                "required": ["channel", "language"],
+                "properties": {
+                    **SearchForm.model_json_schema()["properties"],
+                    "image": {"type": "string", "format": "binary", "description": "Optional binary image (PNG, JPEG, GIF or WebP) for image / text+image search"},
+                },
+            }
+        }
+    },
+}
+
+
+async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None, str]:
+    """Parse the multipart body into the text fields and the raw image bytes.
+
+    The image part is binary either way: with a filename it arrives as a file
+    part; without one Starlette hands it over as text, decoded with latin-1 when
+    the bytes are not valid UTF-8 (always true for image data), so encoding back
+    with latin-1 restores the exact bytes.
+
+    Returns:
+        ``(fields, image_bytes, declared_content_type)``; ``image_bytes`` is None
+        when no (or an empty) image part was sent.
+    """
+    try:
+        # Above MAX_IMAGE_BYTES so oversized images reach the 413 check below.
+        form = await request.form(max_part_size=2 * MAX_IMAGE_BYTES)
+    except StarletteHTTPException as exc:
+        if "maximum size" in str(exc.detail):
+            raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
+        raise _api_error(400, "VALIDATION_ERROR", f"Malformed multipart body: {exc.detail}")
+
+    # Empty text fields count as absent, as with FastAPI's own form handling.
+    fields = {k: v for k, v in form.multi_items() if k != "image" and isinstance(v, str) and v != ""}
+    try:
+        parsed = SearchForm(**fields)
+    except ValidationError as exc:
+        raise RequestValidationError([{**e, "loc": ("body", *e["loc"])} for e in exc.errors()])
+
+    part = form.get("image")
+    if isinstance(part, UploadFile):
+        data = await part.read()
+        declared = (part.content_type or "").lower()
+    elif isinstance(part, str):
+        try:
+            data = part.encode("latin-1")
+        except UnicodeEncodeError:
+            data = part.encode("utf-8")  # was valid UTF-8 text, so not an image; the byte check rejects it
+        declared = ""  # a part without a filename exposes no content type
+    else:
+        data, declared = b"", ""
+    return parsed, (data or None), declared
+
+
+@v1_router.post(
+    "/search",
+    response_model=SearchApiResponse,
+    responses=_ERROR_RESPONSES,
+    summary="Search products (text / image / text+image / filter-browse)",
+    openapi_extra={"requestBody": _SEARCH_REQUEST_BODY},
+)
+async def v1_search(request: Request) -> SearchApiResponse:
     request_id: str = getattr(request.state, "request_id", "")
     _t0 = time.perf_counter()
 
-    has_image = bool(body.image)
+    form, image_bytes, declared_type = await _read_search_form(request)
+    channel, language = form.channel, form.language
+    search_query, sort_by, sort_order = form.search_query, form.sort_by, form.sort_order
+    filters, page, page_size = form.filters, form.page, form.page_size
+
+    # --- Contract validation (§5) -------------------------------------------
+    _validate_enum(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
+    _validate_enum(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
+    if sort_by is not None:
+        _validate_enum(sort_by, SUPPORTED_SORT_BY, "sort_by", "INVALID_SORT_BY")
+    _validate_enum(sort_order, SUPPORTED_SORT_ORDER, "sort_order", "INVALID_SORT_ORDER")
+
+    has_image = image_bytes is not None
 
     logger.info(
         "POST /v1/search — received",
         extra={
-            "search_query": body.search_query,
-            "language": body.language,
-            "channel": body.channel,
+            "search_query": search_query,
+            "language": language,
+            "channel": channel,
             "input_data": {
                 "request_id": request_id,
-                "page": body.page,
-                "page_size": body.page_size,
-                "sort_by": body.sort_by,
-                "sort_order": body.sort_order,
-                "has_filters": bool(body.filters),
+                "page": page,
+                "page_size": page_size,
+                "sort_by": sort_by,
+                "sort_order": sort_order,
+                "has_filters": bool(filters),
                 "has_image": has_image,
             },
         },
     )
 
-    # 'relevance' means default (no explicit sort field).
-    effective_sort_by = None if body.sort_by in (None, "relevance") else body.sort_by
-
-    # Image / text+image search is not implemented yet.
+    # --- Image validation (§5): unsupported type -> 400, oversized -> 413 ----
+    image_input: tuple[bytes, str] | None = None
     if has_image:
-        logger.warning("POST /v1/search — image provided but image search is not implemented")
-        raise _api_error(501, "NOT_IMPLEMENTED", "Image and text+image search are not yet implemented")
+        if declared_type not in ALLOWED_IMAGE_TYPES | GENERIC_BINARY_TYPES:
+            logger.warning(f"POST /v1/search — unsupported image type '{declared_type}'")
+            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", f"Unsupported image type '{declared_type}'.")
+        if len(image_bytes) > MAX_IMAGE_BYTES:
+            logger.warning(f"POST /v1/search — image too large: {len(image_bytes)} bytes")
+            raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
+        # Trust the bytes, not the declared header: the embedder rejects anything else.
+        detected = _image_mime(image_bytes)
+        if detected is None:
+            logger.warning(f"POST /v1/search — image bytes are not PNG/JPEG/GIF/WebP (declared '{declared_type}')")
+            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", "The uploaded file is not a valid PNG, JPEG, GIF or WebP image.")
+        image_input = (image_bytes, detected)
 
-    logger.debug("POST /v1/search — building OpenSearch filter clauses")
-    os_filters: list[dict] = []
-    for k, v in (body.filters or {}).items():
-        if k not in ALLOWED_FILTER_KEYS:
-            logger.warning(
-                f"POST /v1/search — rejected invalid filter key '{k}'",
-                extra={"status": "error", "error_details": f"Filter key '{k}' not in allowed list"},
-            )
-            raise _api_error(400, "INVALID_FILTER_KEY", f"Filter key '{k}' is not supported")
-        os_field = FILTER_KEY_MAP[k]
-        clause = {"range": {os_field: v}} if isinstance(v, dict) else {"term": {os_field: v}}
-        os_filters.append(clause)
-        logger.debug(f"POST /v1/search — filter: {k} -> {os_field}")
+    # 'relevance' means default (no explicit sort field).
+    effective_sort_by = None if sort_by in (None, "relevance") else sort_by
 
-    has_query = bool(body.search_query and body.search_query.strip())
+    logger.debug("POST /v1/search — parsing filters and building OpenSearch clauses")
+    os_filters = _build_os_filters(_parse_filters(filters))
+
+    has_query = bool(search_query and search_query.strip())
     has_filters = bool(os_filters)
 
-    if not has_query and not has_filters:
+    # --- Operation decision (§2.2) ------------------------------------------
+    if not has_query and not has_image and not has_filters:
         logger.warning("POST /v1/search — rejected: no query, no image and no filters provided")
         raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image or filters must be provided")
 
-    logger.info(
-        f"POST /v1/search — dispatching: mode={'hybrid' if has_query else 'filter-browse'} filters={len(os_filters)}",
+    mode = (
+        "text+image" if has_query and has_image
+        else "image" if has_image
+        else "text" if has_query
+        else "filter-browse"
     )
+    logger.info(f"POST /v1/search — dispatching: mode={mode} filters={len(os_filters)}")
 
     try:
-        if has_query:
-            result = await search_service.text_search_v1(
+        if has_query or has_image:
+            result = await search_service.search_v1(
                 index=_cfg.opensearch_index_name,
-                query=body.search_query.strip(),
+                query=search_query.strip() if has_query else None,
+                image=image_input,
                 vector_field=_cfg.opensearch_vector_field,
-                language=body.language,
+                language=language,
                 filters=os_filters,
                 sort_by=effective_sort_by,
-                sort_order=body.sort_order,
-                page=body.page,
-                page_size=body.page_size,
+                sort_order=sort_order,
+                page=page,
+                page_size=page_size,
                 retrieval_k=_RETRIEVAL_K,
                 request_id=request_id,
             )
@@ -139,9 +335,10 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
                 index=_cfg.opensearch_index_name,
                 filters=os_filters,
                 sort_by=effective_sort_by,
-                sort_order=body.sort_order,
-                page=body.page,
-                page_size=body.page_size,
+                sort_order=sort_order,
+                page=page,
+                page_size=page_size,
+                request_id=request_id,
             )
 
         elapsed_ms = (time.perf_counter() - _t0) * 1000
@@ -150,22 +347,20 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
             extra={
                 "status": "success",
                 "latency": f"{elapsed_ms:.1f}ms",
-                "search_query": body.search_query,
-                "language": body.language,
-                "channel": body.channel,
+                "search_query": search_query,
+                "language": language,
+                "channel": channel,
                 "response_payload": {
                     "request_id": request_id,
-                    "total": result.total,
-                    "returned": len(result.results),
-                    "total_pages": result.total_pages,
-                    "search_type": result.search_type,
-                    "took_ms": result.took_ms,
+                    "total_results": result.total_results,
+                    "returned": len(result.products),
                     "api_latency_ms": round(elapsed_ms, 1),
-                    "facets": len(result.facets),
                 },
             },
         )
         return result
+    except HTTPException:
+        raise
     except IndexNotFoundError as exc:
         logger.warning(f"POST /v1/search — index not found: {exc}", extra={"status": "error", "error_details": str(exc)})
         raise _api_error(404, "INDEX_NOT_FOUND", str(exc))
@@ -179,7 +374,7 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
             extra={
                 "status": "error",
                 "latency": f"{elapsed_ms:.1f}ms",
-                "search_query": body.search_query,
+                "search_query": search_query,
                 "error_details": str(exc),
             },
         )
@@ -194,13 +389,16 @@ async def v1_search(request: Request, body: SearchRequest) -> SearchApiResponse:
 )
 async def v1_suggestions(
     _request: Request,
-    q: Annotated[str, Query(min_length=1, description="Typed prefix to match against product names and category names")],
-    language: Annotated[Literal["en", "de"], Query(description="Response language")] = "en",
-    product_limit: Annotated[int, Query(ge=1, le=20, description="Max product suggestions to return")] = 5,
-    category_limit: Annotated[int, Query(ge=1, le=10, description="Max category suggestions to return")] = 3,
-    query_limit: Annotated[int | None, Query(ge=1, le=20, description="When set, overrides product_limit")] = None,
+    q: Annotated[str, Query(min_length=1, description="Partial text entered by the user")],
+    channel: Annotated[str, Query(description="Client channel — 'web' or 'mobile'")],
+    language: Annotated[str, Query(description="Response language — 'en' or 'ar'")],
+    query_limit: Annotated[int, Query(ge=1, le=50, description="Max query suggestions to return")] = 5,
+    product_limit: Annotated[int, Query(ge=1, le=50, description="Max product suggestions to return")] = 5,
 ) -> SuggestionsResponse:
     _t0 = time.perf_counter()
+
+    _validate_enum(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
+    _validate_enum(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
 
     logger.info(
         "GET /v1/search/suggestions — received",
@@ -209,22 +407,21 @@ async def v1_suggestions(
             "language": language,
             "input_data": {
                 "q": q,
+                "channel": channel,
                 "language": language,
-                "product_limit": product_limit,
-                "category_limit": category_limit,
                 "query_limit": query_limit,
+                "product_limit": product_limit,
             },
         },
     )
 
-    eff_product_limit = query_limit or product_limit
     try:
         result = await search_service.get_suggestions(
             index=_cfg.opensearch_index_name,
             query=q,
             language=language,
-            product_limit=eff_product_limit,
-            category_limit=category_limit,
+            query_limit=query_limit,
+            product_limit=product_limit,
         )
         elapsed_ms = (time.perf_counter() - _t0) * 1000
         logger.info(
@@ -234,13 +431,15 @@ async def v1_suggestions(
                 "search_query": q,
                 "latency": f"{elapsed_ms:.1f}ms",
                 "response_payload": {
+                    "queries": len(result.query_suggestions),
                     "products": len(result.product_suggestions),
-                    "categories": len(result.category_suggestions),
                     "api_latency_ms": round(elapsed_ms, 1),
                 },
             },
         )
         return result
+    except HTTPException:
+        raise
     except IndexNotFoundError as exc:
         logger.warning(f"GET /v1/search/suggestions — index not found: {exc}", extra={"status": "error", "error_details": str(exc)})
         raise _api_error(404, "INDEX_NOT_FOUND", str(exc))

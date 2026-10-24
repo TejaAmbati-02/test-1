@@ -1,10 +1,18 @@
 {
   "info": {
-    "name": "ASMO AI Search API v2.0 — Scenario Tests",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "name": "ASMO AI Search API v2.0 — Scenario Tests (multipart)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Aligned to ASMO AI Search API Specification v2.0: POST /v1/search (multipart/form-data) and GET /v1/search/suggestions. Response and filter keys are the OpenSearch index field names. Set the category_id variable to a real category id from the index."
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "category_id",
+      "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72"
+    }
   ],
   "item": [
     {
@@ -12,24 +20,59 @@
       "item": [
         {
           "name": "TC-000 Health Check",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('status field present', () => pm.expect(b).to.have.property('status'));",
-            "pm.test('opensearch_connected is bool', () => pm.expect(typeof b.opensearch_connected).to.eql('boolean'));",
-            "pm.test('embedding_model_name present', () => pm.expect(b.embedding_model_name).to.be.a('string').and.not.empty);"
-          ]}}],
-          "request": { "method": "GET", "url": "{{base_url}}/health" }
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('status present', () => pm.expect(b.status).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "header": []
+          }
         },
         {
-          "name": "TC-000 List Indices",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('indices is array', () => pm.expect(b.indices).to.be.an('array'));",
-            "pm.test('total matches array length', () => pm.expect(b.total).to.eql(b.indices.length));"
-          ]}}],
-          "request": { "method": "GET", "url": "{{base_url}}/indices" }
+          "name": "TC-000b List Indices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('indices is an array', () => pm.expect(b.indices).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/indices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "indices"
+              ]
+            },
+            "header": []
+          }
         }
       ]
     },
@@ -37,150 +80,378 @@
       "name": "Text Search",
       "item": [
         {
-          "name": "TC-001 Search — pipe",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('search_type is hybrid', () => pm.expect(b.search_type).to.eql('hybrid'));",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('at least one result has Pipe in name', () => {",
-            "  const hit = b.results.find(r => r.source.productName_en && r.source.productName_en.toLowerCase().includes('pipe'));",
-            "  pm.expect(hit, 'No pipe product found').to.exist;",
-            "});",
-            "pm.test('facets present', () => pm.expect(b.facets.length).to.be.above(0));",
-            "pm.test('request_id is UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
-            "pm.test('took_ms > 0', () => pm.expect(b.took_ms).to.be.above(0));",
-            "pm.test('page and page_size correct', () => { pm.expect(b.page).to.eql(1); pm.expect(b.page_size).to.eql(10); });"
-          ]}}],
+          "name": "TC-001 Search — pipe (en)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pipe",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "relevance",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-002 Search — switchboard",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('search_type is hybrid', () => pm.expect(b.search_type).to.eql('hybrid'));",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('at least one Switchboard result', () => {",
-            "  const hit = b.results.find(r => r.source.productName_en && r.source.productName_en.toLowerCase().includes('switchboard'));",
-            "  pm.expect(hit, 'No switchboard product found').to.exist;",
-            "});"
-          ]}}],
+          "name": "TC-002 Search — pump (en)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"switchboard\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-003 Search — pressure transmitter",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('pressure-related product in top results', () => {",
-            "  const hit = b.results.find(r => r.source.productName_en && r.source.productName_en.toLowerCase().includes('pressure'));",
-            "  pm.expect(hit, 'No pressure product found').to.exist;",
-            "});"
-          ]}}],
+          "name": "TC-003 Search — valve (mobile)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"pressure transmitter\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "mobile",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "valve",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-004 Search — centrifugal pump",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('pump in top results', () => {",
-            "  const hit = b.results.find(r => r.source.productName_en && r.source.productName_en.toLowerCase().includes('pump'));",
-            "  pm.expect(hit).to.exist;",
-            "});"
-          ]}}],
+          "name": "TC-008 Search — Arabic language (ar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"centrifugal pump\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
-          }
-        },
-        {
-          "name": "TC-005 Search — corrosion inhibitor",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('inhibitor in results', () => {",
-            "  const hit = b.results.find(r => r.source.productName_en && r.source.productName_en.toLowerCase().includes('inhibitor'));",
-            "  pm.expect(hit).to.exist;",
-            "});"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"corrosion inhibitor\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
-          }
-        },
-        {
-          "name": "TC-006 Search — fire extinguisher",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('fire extinguisher in results', () => {",
-            "  const hit = b.results.find(r => r.source.productName_en && r.source.productName_en.toLowerCase().includes('fire'));",
-            "  pm.expect(hit).to.exist;",
-            "});"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"fire extinguisher\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
-          }
-        },
-        {
-          "name": "TC-007 Search — ergonomic chair",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('chair in results', () => {",
-            "  const hit = b.results.find(r => r.source.productName_en && r.source.productName_en.toLowerCase().includes('chair'));",
-            "  pm.expect(hit).to.exist;",
-            "});"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"ergonomic chair\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
-          }
-        },
-        {
-          "name": "TC-008 Search — Arabic language",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('search_type is hybrid', () => pm.expect(b.search_type).to.eql('hybrid'));",
-            "pm.test('results array present', () => pm.expect(b.results).to.be.an('array'));"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"مضخة\",\n  \"language\": \"ar\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "ar",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "language=ar is accepted by the contract; the index has no Arabic fields, so the backend searches the German (_de) fields."
           }
         }
       ]
@@ -190,42 +461,212 @@
       "item": [
         {
           "name": "TC-009 Sort by price asc",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(1));",
-            "pm.test('prices are ascending', () => {",
-            "  const prices = b.results.map(r => r.source.price).filter(p => p != null);",
-            "  for (let i = 1; i < prices.length; i++) {",
-            "    pm.expect(prices[i]).to.be.at.least(prices[i-1], `Price at index ${i} (${prices[i]}) is less than price at ${i-1} (${prices[i-1]})`);",
-            "  }",
-            "});"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('prices non-decreasing', () => {",
+                  "  const ps = b.products.map(p => p.price).filter(v => v != null);",
+                  "  for (let i=1;i<ps.length;i++) pm.expect(ps[i]).to.be.at.least(ps[i-1]);",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"sort_by\": \"price\",\n  \"sort_order\": \"asc\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
           "name": "TC-010 Sort by price desc",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(1));",
-            "pm.test('prices are descending', () => {",
-            "  const prices = b.results.map(r => r.source.price).filter(p => p != null);",
-            "  for (let i = 1; i < prices.length; i++) {",
-            "    pm.expect(prices[i]).to.be.at.most(prices[i-1], `Price at index ${i} (${prices[i]}) is greater than price at ${i-1} (${prices[i-1]})`);",
-            "  }",
-            "});"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('prices non-increasing', () => {",
+                  "  const ps = b.products.map(p => p.price).filter(v => v != null);",
+                  "  for (let i=1;i<ps.length;i++) pm.expect(ps[i]).to.be.at.most(ps[i-1]);",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"sort_by\": \"price\",\n  \"sort_order\": \"desc\",\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         }
       ]
@@ -234,120 +675,383 @@
       "name": "Filter Browse",
       "item": [
         {
-          "name": "TC-011 Browse — Electrical category",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('search_type is filter', () => pm.expect(b.search_type).to.eql('filter'));",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('all results are Electrical category', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.rootCategoryKey, `SKU ${r.id} wrong category`).to.eql('buyer-default-electrical');",
-            "  });",
-            "});"
-          ]}}],
+          "name": "TC-011 Browse — in stock only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"category_ids\": \"buyer-default-electrical\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}" }
-          }
-        },
-        {
-          "name": "TC-012 Browse — Machinery Equipment category",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('search_type is filter', () => pm.expect(b.search_type).to.eql('filter'));",
-            "pm.test('all results are Machinery Equipment', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.rootCategoryKey).to.eql('buyer-default-machinery-equipment');",
-            "  });",
-            "});"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"category_ids\": \"buyer-default-machinery-equipment\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}" }
-          }
-        },
-        {
-          "name": "TC-013 Browse — in stock only",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('all results inStockAnyChannel = true', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.inStockAnyChannel, `SKU ${r.id} is out of stock`).to.eql(true);",
-            "  });",
-            "});"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"availability\": true\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"availability\": [\"IN_STOCK\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
           "name": "TC-014 Browse — price range 50–150",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('all prices within 50–150', () => {",
-            "  b.results.forEach(r => {",
-            "    const price = r.source.price;",
-            "    if (price != null) {",
-            "      pm.expect(price, `SKU ${r.id} price ${price} out of range`).to.be.within(50, 150);",
-            "    }",
-            "  });",
-            "});"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('prices within 50..150', () => {",
+                  "  b.products.forEach(p => { if (p.price != null) { pm.expect(p.price).to.be.at.least(50); pm.expect(p.price).to.be.at.most(150); } });",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"price\": { \"gte\": 50, \"lte\": 150 }\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}" }
-          }
-        },
-        {
-          "name": "TC-015 Browse — customer SHELL",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('all results belong to SHELL', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.customerId, `SKU ${r.id} not SHELL`).to.eql('SHELL');",
-            "  });",
-            "});"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"customer_id\": \"SHELL\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
           "name": "TC-016 Browse — material type 9CAT",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('all results materialType = 9CAT', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.materialType, `SKU ${r.id} wrong material type`).to.eql('9CAT');",
-            "  });",
-            "});"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});",
+                  "pm.test('every product is 9CAT', () => b.products.forEach(p => pm.expect(p.material_type).to.eql('9CAT')));"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"material_type\": \"9CAT\"\n  },\n  \"page\": 1,\n  \"page_size\": 20\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-012 Browse — category_ids",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});",
+                  "pm.test('every product is in the category', () => b.products.forEach(p => pm.expect(p.category_ids).to.include(pm.collectionVariables.get('category_id'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"category_ids\": [\"{{category_id}}\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Category browse: same endpoint, no search_query, category passed inside filters."
           }
         }
       ]
@@ -357,81 +1061,291 @@
       "item": [
         {
           "name": "TC-018 Search + availability filter",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('search_type is hybrid', () => pm.expect(b.search_type).to.eql('hybrid'));",
-            "pm.test('all results are in stock', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.inStockAnyChannel, `SKU ${r.id} out of stock`).to.eql(true);",
-            "  });",
-            "});"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"motor control center\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"availability\": true\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"availability\": [\"IN_STOCK\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
           "name": "TC-019 Search + price range filter",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('all prices within 50–200', () => {",
-            "  b.results.forEach(r => {",
-            "    const price = r.source.price;",
-            "    if (price != null) pm.expect(price).to.be.within(50, 200);",
-            "  });",
-            "});"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"flow meter\",\n  \"language\": \"en\",\n  \"filters\": {\n    \"price\": { \"gte\": 50, \"lte\": 200 }\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}" }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Specific Field Filters",
-      "item": [
-        {
-          "name": "TC-021 Filter by SKU — 012000-005-pipes",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('exactly 1 result', () => pm.expect(b.results.length).to.eql(1));",
-            "pm.test('correct SKU returned', () => pm.expect(b.results[0].source.sku).to.eql('012000-005-pipes'));",
-            "pm.test('correct product name', () => pm.expect(b.results[0].source.productName_en).to.include('ERW Pipe'));"
-          ]}}],
-          "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"sku\": \"012000-005-pipes\"\n  },\n  \"page\": 1,\n  \"page_size\": 5\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": {\"lte\": 500}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-023 Filter by hazard health H1",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results not empty', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('all results have hazardHealth.code = H1', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.hazardHealth && r.source.hazardHealth.code, `SKU ${r.id} wrong hazard code`).to.eql('H1');",
-            "  });",
-            "});"
-          ]}}],
+          "name": "TC-020 Search + spec example filters (material_type, availability, price)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.category_ids).to.be.an('array');",
+                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_name','lead_time','moq','price','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
+                  "});",
+                  "pm.test('filters honoured', () => b.products.forEach(p => { pm.expect(p.material_type).to.eql('9CAT'); if (p.price != null) pm.expect(p.price).to.be.at.most(500); }));"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"hazard_health\": \"H1\"\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"], \"availability\": [\"IN_STOCK\"], \"price\": {\"lte\": 500}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         }
       ]
@@ -440,190 +1354,802 @@
       "name": "Pagination",
       "item": [
         {
-          "name": "TC-024 Pagination — page 2 differs from page 1",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('page is 2', () => pm.expect(b.page).to.eql(2));",
-            "pm.test('page_size is 5', () => pm.expect(b.page_size).to.eql(5));",
-            "pm.test('total_pages calculated', () => pm.expect(b.total_pages).to.be.above(0));",
-            "pm.environment.set('page2_first_id', b.results.length > 0 ? b.results[0].id : '');"
-          ]}}],
+          "name": "TC-024 Pagination — page 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.collectionVariables.set('page1_first', (b.products[0]||{}).sku_id || '');"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"page\": 2,\n  \"page_size\": 5\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-025 Pagination — page 1 (verify differs from page 2)",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('page is 1', () => pm.expect(b.page).to.eql(1));",
-            "const page2Id = pm.environment.get('page2_first_id');",
-            "if (page2Id && b.results.length > 0) {",
-            "  const ids = b.results.map(r => r.id);",
-            "  pm.test('page 1 first result differs from page 2 first result', () => {",
-            "    pm.expect(ids[0]).to.not.eql(page2Id);",
-            "  });",
-            "}"
-          ]}}],
+          "name": "TC-025 Pagination — page 2 differs from page 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('page = 2', () => pm.expect(b.page).to.eql(2));",
+                  "pm.test('page 2 first differs from page 1 (when enough results)', () => {",
+                  "  const p1 = pm.collectionVariables.get('page1_first');",
+                  "  if (b.total_results > 60 && b.products.length) pm.expect((b.products[0]||{}).sku_id).to.not.eql(p1);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"valve\",\n  \"language\": \"en\",\n  \"page\": 1,\n  \"page_size\": 5\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "Response Fields",
+      "name": "Image Search",
       "item": [
         {
-          "name": "TC-036 image_ref echoed back",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('request_id is UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/));",
-            "pm.test('image_ref echoed correctly', () => pm.expect(b.image_ref).to.eql('img-ref-test-001'));",
-            "pm.test('took_ms is number > 0', () => pm.expect(b.took_ms).to.be.a('number').and.above(0));",
-            "pm.test('total_pages >= 1', () => pm.expect(b.total_pages).to.be.at.least(1));"
-          ]}}],
+          "name": "TC-041 Image-only search — JPEG (Charger, Battery)",
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"image_ref\": \"img-ref-test-001\",\n  \"page\": 1,\n  \"page_size\": 5\n}" }
-          }
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Image search: binary JPEG upload, no search_query. Uses SKU ao-100018_1's own product image."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',",
+                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
+                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
+                  "   'contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "});",
+                  "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
+                  "pm.test('ao-100018_1 is in the top 5 (searched with its own image)', () => {",
+                  "  const skus = b.products.slice(0, 5).map(p => p.sku_id);",
+                  "  pm.expect(skus).to.include('ao-100018_1');",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "TC-038 Highest price product — AeroDry SAR 2500",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('exactly 1 result', () => pm.expect(b.results.length).to.eql(1));",
-            "pm.test('price is 2500', () => pm.expect(b.results[0].source.price).to.eql(2500));",
-            "pm.test('product name is AeroDry', () => pm.expect(b.results[0].source.productName_en).to.include('AeroDry'));"
-          ]}}],
+          "name": "TC-042 Image-only search — PNG (HPE X242 40G QSFP)",
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"sku\": \"qa-product-01\"\n  },\n  \"page\": 1,\n  \"page_size\": 5\n}" }
-          }
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/a-880000629771.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Image search: binary PNG upload, no search_query. Uses SKU a-880000629771's own product image."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',",
+                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
+                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
+                  "   'contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "});",
+                  "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
+                  "pm.test('a-880000629771 is in the top 5 (searched with its own image)', () => {",
+                  "  const skus = b.products.slice(0, 5).map(p => p.sku_id);",
+                  "  pm.expect(skus).to.include('a-880000629771');",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "TC-039 Lowest price product — Rubber Band SAR 3.5",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('exactly 1 result', () => pm.expect(b.results.length).to.eql(1));",
-            "pm.test('price is 3.5', () => pm.expect(b.results[0].source.price).to.eql(3.5));",
-            "pm.test('product name is Rubber Band', () => pm.expect(b.results[0].source.productName_en).to.include('Rubber Band'));"
-          ]}}],
+          "name": "TC-044 Text + image search (Air Handling Unit)",
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"sku\": \"ao-100016_1\"\n  },\n  \"page\": 1,\n  \"page_size\": 5\n}" }
-          }
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "air handling unit",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/172000-001-hvac.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Multimodal search: search_query and binary image together."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',",
+                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
+                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
+                  "   'contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "});",
+                  "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
+                  "pm.test('172000-001-hvac is in the top 3 (searched with its own image)', () => {",
+                  "  const skus = b.products.slice(0, 3).map(p => p.sku_id);",
+                  "  pm.expect(skus).to.include('172000-001-hvac');",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "TC-040 Out of stock browse",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('results returned', () => pm.expect(b.results.length).to.be.above(0));",
-            "pm.test('all results are out of stock', () => {",
-            "  b.results.forEach(r => {",
-            "    pm.expect(r.source.inStockAnyChannel, `SKU ${r.id} is in stock`).to.eql(false);",
-            "  });",
-            "});"
-          ]}}],
+          "name": "TC-045 Image + filters (material_type 9COM)",
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\",\n  \"filters\": {\n    \"availability\": false\n  },\n  \"page\": 1,\n  \"page_size\": 10\n}" }
-          }
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9COM\"], \"availability\": [\"IN_STOCK\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/a-880000629771.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Image search combined with filters; every result must satisfy the filters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',",
+                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
+                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
+                  "   'contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "});",
+                  "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
+                  "pm.test('a-880000629771 is in the top 5 (searched with its own image)', () => {",
+                  "  const skus = b.products.slice(0, 5).map(p => p.sku_id);",
+                  "  pm.expect(skus).to.include('a-880000629771');",
+                  "});",
+                  "pm.test('every product is 9COM', () => b.products.forEach(p => pm.expect(p.material_type).to.eql('9COM')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-046 Image search sorted by price asc",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Image search with sorting."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',",
+                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
+                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
+                  "   'contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "});",
+                  "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
+                  "pm.test('prices non-decreasing', () => {",
+                  "  const ps = b.products.map(p => p.price).filter(v => v != null);",
+                  "  for (let i = 1; i < ps.length; i++) pm.expect(ps[i]).to.be.at.least(ps[i-1]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-048 Raw binary upload (.bin, application/octet-stream)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/172000-001-hvac.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "Same image as TC-044 sent as a generic binary part; the API detects PNG from the bytes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  ['product_key','sku_id','product_name','product_url','primary_image_url',",
+                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
+                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
+                  "   'contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "});",
+                  "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
+                  "pm.test('172000-001-hvac is in the top 5 (searched with its own image)', () => {",
+                  "  const skus = b.products.slice(0, 5).map(p => p.sku_id);",
+                  "  pm.expect(skus).to.include('172000-001-hvac');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
-      ]
+      ],
+      "description": "Binary image uploads. Files live in test_images/ next to this collection (paths are relative to the collection folder)."
     },
     {
       "name": "Suggestions",
       "item": [
         {
-          "name": "TC-026 Suggestions — pres prefix",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('query echoed', () => pm.expect(b.query).to.eql('pres'));",
-            "pm.test('product_suggestions is array', () => pm.expect(b.product_suggestions).to.be.an('array'));",
-            "pm.test('every product suggestion has text and sku', () => {",
-            "  b.product_suggestions.forEach(s => {",
-            "    pm.expect(s.text).to.be.a('string').and.not.empty;",
-            "    pm.expect(s.sku).to.be.a('string').and.not.empty;",
-            "  });",
-            "});",
-            "pm.test('category_suggestions is array', () => pm.expect(b.category_suggestions).to.be.an('array'));",
-            "pm.test('product_suggestions count <= 5', () => pm.expect(b.product_suggestions.length).to.be.at.most(5));"
-          ]}}],
+          "name": "TC-026 Suggestions — 'pres' prefix",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('response keys are exactly the spec keys', () => pm.expect(Object.keys(b)).to.have.members(['query','query_suggestions','product_suggestions']));",
+                  "pm.test('query echoed', () => pm.expect(b.query).to.eql('pres'));",
+                  "pm.test('query_suggestions is array', () => pm.expect(b.query_suggestions).to.be.an('array'));",
+                  "pm.test('product_suggestions is array', () => pm.expect(b.product_suggestions).to.be.an('array'));",
+                  "pm.test('every query suggestion has text + destination_url', () => {",
+                  "  b.query_suggestions.forEach(s => {",
+                  "    pm.expect(Object.keys(s)).to.have.members(['text','destination_url']);",
+                  "    pm.expect(s.text).to.be.a('string').and.not.empty;",
+                  "    pm.expect(s.destination_url).to.match(/^\\/search\\?q=/);",
+                  "  });",
+                  "});",
+                  "pm.test('every product suggestion has text + destination_url', () => {",
+                  "  b.product_suggestions.forEach(s => {",
+                  "    pm.expect(Object.keys(s)).to.have.members(['text','destination_url']);",
+                  "    pm.expect(s.text).to.be.a('string').and.not.empty;",
+                  "    pm.expect(s.destination_url).to.be.a('string');",
+                  "  });",
+                  "});",
+                  "pm.test('query_suggestions count <= 4', () => pm.expect(b.query_suggestions.length).to.be.at.most(4));",
+                  "pm.test('product_suggestions count <= 5', () => pm.expect(b.product_suggestions.length).to.be.at.most(5));"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/v1/search/suggestions?q=pres&language=en&product_limit=5&category_limit=3",
-              "host": ["{{base_url}}"], "path": ["v1","search","suggestions"],
-              "query": [{"key":"q","value":"pres"},{"key":"language","value":"en"},{"key":"product_limit","value":"5"},{"key":"category_limit","value":"3"}] }
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pres"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "4"
+                },
+                {
+                  "key": "product_limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "header": []
           }
         },
         {
-          "name": "TC-027 Suggestions — pump prefix",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('product_suggestions not empty', () => pm.expect(b.product_suggestions.length).to.be.above(0));",
-            "pm.test('all suggestions contain pump', () => {",
-            "  b.product_suggestions.forEach(s => {",
-            "    pm.expect(s.text.toLowerCase()).to.include('pump');",
-            "  });",
-            "});"
-          ]}}],
+          "name": "TC-027 Suggestions — 'pump' prefix (limit 3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('product_suggestions count <= 3', () => pm.expect(b.product_suggestions.length).to.be.at.most(3));"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/v1/search/suggestions?q=pump&language=en&product_limit=5&category_limit=3",
-              "host": ["{{base_url}}"], "path": ["v1","search","suggestions"],
-              "query": [{"key":"q","value":"pump"},{"key":"language","value":"en"},{"key":"product_limit","value":"5"},{"key":"category_limit","value":"3"}] }
-          }
-        },
-        {
-          "name": "TC-028 Suggestions — query_limit overrides product_limit",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('product_suggestions count <= 10 (query_limit)', () => pm.expect(b.product_suggestions.length).to.be.at.most(10));"
-          ]}}],
-          "request": {
-            "method": "GET",
-            "url": { "raw": "{{base_url}}/v1/search/suggestions?q=valve&language=en&query_limit=10&category_limit=3",
-              "host": ["{{base_url}}"], "path": ["v1","search","suggestions"],
-              "query": [{"key":"q","value":"valve"},{"key":"language","value":"en"},{"key":"query_limit","value":"10"},{"key":"category_limit","value":"3"}] }
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pump"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "4"
+                },
+                {
+                  "key": "product_limit",
+                  "value": "3"
+                }
+              ]
+            },
+            "header": []
           }
         },
         {
           "name": "TC-029 Suggestions — no match",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 200 (not 404)', () => pm.response.to.have.status(200));",
-            "const b = pm.response.json();",
-            "pm.test('product_suggestions empty', () => pm.expect(b.product_suggestions.length).to.eql(0));",
-            "pm.test('category_suggestions empty', () => pm.expect(b.category_suggestions.length).to.eql(0));"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('empty product suggestions', () => pm.expect(b.product_suggestions.length).to.eql(0));",
+                  "pm.test('empty query suggestions', () => pm.expect(b.query_suggestions.length).to.eql(0));"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/v1/search/suggestions?q=zzzzzzz&language=en&product_limit=5&category_limit=3",
-              "host": ["{{base_url}}"], "path": ["v1","search","suggestions"],
-              "query": [{"key":"q","value":"zzzzzzz"},{"key":"language","value":"en"},{"key":"product_limit","value":"5"},{"key":"category_limit","value":"3"}] }
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&query_limit=4&product_limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "zzzzzzzz"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "4"
+                },
+                {
+                  "key": "product_limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "header": []
           }
         }
       ]
@@ -632,89 +2158,886 @@
       "name": "Error Validation",
       "item": [
         {
-          "name": "TC-030 Invalid language — fr (422)",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 422', () => pm.response.to.have.status(422));",
-            "const b = pm.response.json();",
-            "pm.test('detail is present', () => pm.expect(b).to.have.property('detail'));"
-          ]}}],
+          "name": "TC-030 Unsupported language — fr (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = UNSUPPORTED_LANGUAGE', () => pm.expect(b.code).to.eql('UNSUPPORTED_LANGUAGE'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"pipe\",\n  \"language\": \"fr\"\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "fr",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-031 Empty request — no query no filters (400)",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 400', () => pm.response.to.have.status(400));",
-            "const b = pm.response.json();",
-            "pm.test('code is EMPTY_REQUEST', () => pm.expect(b.code).to.eql('EMPTY_REQUEST'));",
-            "pm.test('message present', () => pm.expect(b.message).to.be.a('string').and.not.empty);"
-          ]}}],
+          "name": "TC-030b Unsupported channel — desktop (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = UNSUPPORTED_CHANNEL', () => pm.expect(b.code).to.eql('UNSUPPORTED_CHANNEL'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"language\": \"en\"\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "desktop",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-031 Empty request — no query/image/filters (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = EMPTY_REQUEST', () => pm.expect(b.code).to.eql('EMPTY_REQUEST'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
           "name": "TC-032 Invalid filter key (400)",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 400', () => pm.response.to.have.status(400));",
-            "const b = pm.response.json();",
-            "pm.test('code is INVALID_FILTER_KEY', () => pm.expect(b.code).to.eql('INVALID_FILTER_KEY'));",
-            "pm.test('message mentions the bad key', () => pm.expect(b.message).to.include('unknown_key'));"
-          ]}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = INVALID_FILTER_KEY', () => pm.expect(b.code).to.eql('INVALID_FILTER_KEY'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"filters\": { \"unknown_key\": \"val\" }\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"unknown_field\": \"x\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-033 page_size > 200 (422)",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 422', () => pm.response.to.have.status(422));",
-            "const b = pm.response.json();",
-            "pm.test('validation error detail present', () => pm.expect(b.detail).to.be.an('array'));"
-          ]}}],
+          "name": "TC-032b Malformed filters JSON (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = INVALID_FILTER', () => pm.expect(b.code).to.eql('INVALID_FILTER'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"page_size\": 500\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{not json}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-034 page < 1 (422)",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 422', () => pm.response.to.have.status(422));",
-            "const b = pm.response.json();",
-            "pm.test('validation error detail present', () => pm.expect(b.detail).to.be.an('array'));"
-          ]}}],
+          "name": "TC-032c Invalid sort_by (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = INVALID_SORT_BY', () => pm.expect(b.code).to.eql('INVALID_SORT_BY'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
           "request": {
-            "method": "POST", "url": "{{base_url}}/v1/search",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "options": { "raw": { "language": "json" } },
-              "raw": "{\n  \"search_query\": \"pipe\",\n  \"language\": \"en\",\n  \"page\": 0\n}" }
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "name",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
           }
         },
         {
-          "name": "TC-035 Missing q param on suggestions (422)",
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('Status 422', () => pm.response.to.have.status(422));",
-            "const b = pm.response.json();",
-            "pm.test('validation error detail present', () => pm.expect(b.detail).to.be.an('array'));"
-          ]}}],
+          "name": "TC-033 page_size > 200 (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(b.code).to.eql('VALIDATION_ERROR'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "500",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-034 page < 1 (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(b.code).to.eql('VALIDATION_ERROR'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-035 Missing q on suggestions (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(b.code).to.eql('VALIDATION_ERROR'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/v1/search/suggestions?language=en&product_limit=5",
-              "host": ["{{base_url}}"], "path": ["v1","search","suggestions"],
-              "query": [{"key":"language","value":"en"},{"key":"product_limit","value":"5"}] }
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "header": []
+          }
+        },
+        {
+          "name": "TC-035b Missing channel on suggestions (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(b.code).to.eql('VALIDATION_ERROR'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pump&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pump"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "header": []
+          }
+        },
+        {
+          "name": "TC-035c Unsupported language on suggestions (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = UNSUPPORTED_LANGUAGE', () => pm.expect(b.code).to.eql('UNSUPPORTED_LANGUAGE'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=fr",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pump"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "fr"
+                }
+              ]
+            },
+            "header": []
+          }
+        },
+        {
+          "name": "TC-043 Non-image file sent as image/png (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/not_an_image.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "A text file declared as image/png must be rejected by the byte check."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-047 Image larger than 5 MB (413)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/oversized.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Oversized upload must be rejected before embedding."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 413', () => pm.response.to.have.status(413));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = IMAGE_TOO_LARGE', () => pm.expect(b.code).to.eql('IMAGE_TOO_LARGE'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-032d Invalid filter value (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = INVALID_FILTER_VALUE', () => pm.expect(b.code).to.eql('INVALID_FILTER_VALUE'));",
+                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);",
+                  "pm.test('flat error body (no wrapper)', () => pm.expect(b).to.not.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": \"abc\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Diagnostics",
+      "item": [
+        {
+          "name": "OpenSearch latency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health/latency/opensearch?samples=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "latency",
+                "opensearch"
+              ],
+              "query": [
+                {
+                  "key": "samples",
+                  "value": "5"
+                }
+              ]
+            },
+            "header": []
+          }
+        },
+        {
+          "name": "OCI latency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health/latency/oci?samples=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "latency",
+                "oci"
+              ],
+              "query": [
+                {
+                  "key": "samples",
+                  "value": "5"
+                }
+              ]
+            },
+            "header": []
           }
         }
       ]

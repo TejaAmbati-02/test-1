@@ -4,17 +4,18 @@ import asyncio
 import time
 from typing import Any
 
+from urllib.parse import quote
+
 from models.response import (
-    CategorySuggestion,
     FacetTermValue,
-    ProductResult,
+    PriceFacet,
+    ProductItem,
     ProductSuggestion,
     QuerySuggestion,
-    RangeFacet,
     SearchApiResponse,
-    SearchHit,
+    SearchFacets,
+    SellerDetail,
     SuggestionsResponse,
-    TermsFacet
 )
 from config import settings as _cfg
 from utils.logger import logger
@@ -22,79 +23,115 @@ from services.embedder import EmbeddingService, embedding_service
 from services.opensearch import OpenSearchClientService, os_client
 
 PIPELINE_ID = "hybrid-rrf-pipeline"
-CURRENCY_FIELD = _cfg.currency_field
 
+# Filter keys are the OpenSearch index field names themselves (§4: "Filter keys
+# should match the OpenSearch index field names"). The value is the field the
+# clause runs against — the same name, or its ``.keyword`` sub-field for text
+# fields so exact-match term filters work.
 FILTER_KEY_MAP: dict[str, str] = {
-    "category_ids":"rootCategoryKey",
-    "sub_category":"subCategoryKey",
-    "material_type":"materialType",
-    "customer_material_number":"customerMaterialNumber",
-    "unit_of_measure":"unitOfMeasure",
-    "availability":"inStockAnyChannel",
-    "price":"price",
-    "currency":"currencyType",
-    "sku":"sku",
-    "product_group":"productGroup",
-    "manufacturer_number":"manufacturerNumber",
-    "product_manufacturer_number":"productManufacturerNumber",
-    "erp_material_number":"erpMaterialNumber",
-    "chemical_hazard_bulletin":"chemicalHazardBulletin",
-    "product_key":"productKey",
-    "variant_key":"variantKey",
-    "customer_id":"customerId",
-    "hazard_health":"hazardHealth.code",
-    "hazard_flame":"hazardFlame.code",
-    "hazard_reactive":"hazardReactive.code",
-    "root_category":"rootCategoryKey",
+    "category_ids": "category_ids",
+    "sub_category_id": "sub_category_id",
+    "product_type_id": "product_type_id",
+    "product_type": "product_type.keyword",
+    "material_type": "material_type",
+    "availability": "availability",
+    "price": "price",
+    "moq": "moq",
+    "currency": "currency",
+    "sold_by": "sold_by.keyword",
+    "supplier_count": "supplier_count",
+    "contract_indicator": "contract_indicator",
+    "sku_id": "sku_id",
+    "product_key": "product_key",
+    "asmo_material_number": "asmo_material_number",
+    "aramco_material_number": "aramco_material_number",
 }
-ALLOWED_FILTER_KEYS:frozenset[str] = frozenset(FILTER_KEY_MAP)
+ALLOWED_FILTER_KEYS: frozenset[str] = frozenset(FILTER_KEY_MAP)
 
-FACET_CONFIG:list[tuple[str, str, str]] = [
-    ("category_ids","rootCategoryKey","terms"),
-    ("price","price","range"),
-    ("material_type","materialType","terms"),
-    ("customer_material_number","customerMaterialNumber","terms"),
-    ("unit_of_measure","unitOfMeasure","terms"),
-    ("availability","inStockAnyChannel","terms"),
-    ("product_group","productGroup","terms"),
-    ("manufacturer_number","manufacturerNumber","terms")
+# Facets exposed to the frontend (§2.4). The contract defines exactly three:
+# two term facets (product_type, material_type) and one price range (min/max).
+# They are computed over the full matching population, not just the current page
+# (OpenSearch aggregations run across the whole query result set, not from/size).
+FACET_TERMS: dict[str, str] = {
+    "product_type": "product_type.keyword",
+    "material_type": "material_type",
+}
+PRICE_FIELD = "price"
+
+# Nested image field written by the ingest pipeline: [{image_url, image_vector}, ...].
+IMAGE_PATH = "images"
+IMAGE_VECTOR_FIELD = "images.image_vector"
+
+# Text fields searched by the BM25 half of the hybrid query.
+KEYWORD_FIELDS = [
+    "product_name", "product_description", "content",
+    "category_name", "sub_category_name", "product_type",
 ]
 
 
 def _build_aggs() -> dict[str, Any]:
-    aggs:dict[str, Any] = {}
-    for api_key, os_field, agg_type in FACET_CONFIG:
-        if agg_type == "terms":
-            aggs[api_key] = {"terms":{"field": os_field, "size": 50}}
-        else:
-            # Range facets (price) are bucketed per currency so each currency
-            # reports its own min/max instead of mixing them into one range.
-            aggs[api_key] = {
-                "terms": {"field": CURRENCY_FIELD, "size": 20},
-                "aggs": {"price_stats": {"stats": {"field": os_field}}},
-            }
+    aggs: dict[str, Any] = {
+        api_key: {"terms": {"field": os_field, "size": 50}}
+        for api_key, os_field in FACET_TERMS.items()
+    }
+    aggs["price"] = {"stats": {"field": PRICE_FIELD}}
     return aggs
 
 
-def _parse_facets(aggs_raw: dict[str, Any]) -> list[TermsFacet | RangeFacet]:
-    facets: list[TermsFacet | RangeFacet] = []
-    for api_key, _, agg_type in FACET_CONFIG:
-        bucket = aggs_raw.get(api_key, {})
-        if agg_type == "terms":
-            values = [
-                FacetTermValue(value=str(b["key"]), count=b["doc_count"])
-                for b in bucket.get("buckets", [])
-            ]
-            if values:
-                facets.append(TermsFacet(key=api_key, values=values))
-        else:
-            # One RangeFacet per currency bucket, each carrying its own code.
-            for b in bucket.get("buckets", []):
-                stats = b.get("price_stats", {})
-                mn, mx = stats.get("min"), stats.get("max")
-                if mn is not None and mx is not None:
-                    facets.append(RangeFacet(key=api_key, min=mn, max=mx, currency=str(b["key"])))
-    return facets
+def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
+    def terms(api_key: str) -> list[FacetTermValue]:
+        return [
+            FacetTermValue(value=str(b["key"]), count=b["doc_count"])
+            for b in aggs_raw.get(api_key, {}).get("buckets", [])
+        ]
+
+    price_stats = aggs_raw.get("price", {})
+    pmin, pmax = price_stats.get("min"), price_stats.get("max")
+    # OpenSearch stats returns null min/max when zero documents matched.
+    price = PriceFacet(min=pmin, max=pmax) if pmin is not None else None
+
+    return SearchFacets(
+        product_type=terms("product_type"),
+        material_type=terms("material_type"),
+        price=price,
+    )
+
+
+def _seller_detail(seller: dict[str, Any]) -> SellerDetail:
+    return SellerDetail(
+        seller_name=seller.get("seller_name"),
+        lead_time=seller.get("lead_time"),
+        moq=seller.get("moq"),
+        price=seller.get("price"),
+        currency=seller.get("currency"),
+    )
+
+
+def _to_product(src: dict[str, Any]) -> ProductItem:
+    """Map a raw OpenSearch _source document to the frontend product contract (§2.4).
+
+    Index field names equal the contract keys, so each key is read as-is.
+    """
+    return ProductItem(
+        product_key=src.get("product_key"),
+        sku_id=src.get("sku_id"),
+        product_name=src.get("product_name"),
+        product_url=src.get("product_url"),
+        primary_image_url=src.get("primary_image_url"),
+        asmo_material_number=src.get("asmo_material_number"),
+        aramco_material_number=src.get("aramco_material_number"),
+        product_type=src.get("product_type"),
+        material_type=src.get("material_type"),
+        seller_details=[_seller_detail(s) for s in src.get("seller_details") or []],
+        moq=src.get("moq"),
+        price=src.get("price"),
+        currency=src.get("currency"),
+        sold_by=src.get("sold_by"),
+        supplier_count=src.get("supplier_count"),
+        # Indexed as "" until a source is agreed; anything falsy means no contract.
+        contract_indicator=bool(src.get("contract_indicator")),
+        category_ids=src.get("category_ids") or [],
+    )
 
 
 class SearchService:
@@ -130,22 +167,6 @@ class SearchService:
             raise
 
     @staticmethod
-    def _parse_hits(raw: dict[str, Any], index: str) -> tuple[int, int, list[SearchHit]]:
-        took_ms = raw.get("took", 0)
-        total = raw["hits"]["total"]["value"]
-        hits = [
-            SearchHit(
-                id=h["_id"],
-                index=h.get("_index", index),
-                score=float(h.get("_score") or 0.0),
-                source=h.get("_source", {}),
-                highlights=h.get("highlight"),
-            )
-            for h in raw["hits"]["hits"]
-        ]
-        return took_ms, total, hits
-
-    @staticmethod
     def _sort_clause(sort_by: str | None, sort_order: str) -> list[dict] | None:
         if sort_by == "price":
             return [{"price": {"order": sort_order}}]
@@ -159,6 +180,7 @@ class SearchService:
         sort_order: str,
         page: int,
         page_size: int,
+        request_id: str | None = None,
     ) -> SearchApiResponse:
         logger.info(
             "SearchService.filter_browse — starting",
@@ -170,7 +192,7 @@ class SearchService:
                 "from": (page - 1) * page_size,
                 "size": page_size,
                 # Never return the raw embedding vector — it's large and useless to clients.
-                "_source": {"excludes": [_cfg.opensearch_vector_field]},
+                "_source": {"excludes": [_cfg.opensearch_vector_field, IMAGE_PATH]},
                 "query": {"bool": {"filter": filters}} if filters else {"match_all": {}},
                 "aggs": _build_aggs(),
             }
@@ -186,11 +208,7 @@ class SearchService:
             total = raw["hits"]["total"]["value"]
             logger.debug(f"SearchService.filter_browse — parsing {len(raw['hits']['hits'])} hits from total={total}")
 
-            results = [
-                ProductResult(id=h["_id"], score=float(h.get("_score") or 0.0), source=h.get("_source", {}))
-                for h in raw["hits"]["hits"]
-            ]
-            total_pages = max(1, -(-total // page_size))
+            products = [_to_product(h.get("_source", {})) for h in raw["hits"]["hits"]]
 
             logger.debug("SearchService.filter_browse — parsing facets")
             facets = _parse_facets(raw.get("aggregations", {}))
@@ -199,17 +217,15 @@ class SearchService:
                 "SearchService.filter_browse — done",
                 extra={
                     "status": "success",
-                    "response_payload": {"total": total, "returned": len(results), "total_pages": total_pages, "facets": len(facets), "took_ms": took_ms},
+                    "response_payload": {"total_results": total, "returned": len(products), "took_ms": took_ms},
                 },
             )
             return SearchApiResponse(
-                search_type="filter",
-                total=total,
+                request_id=request_id,
+                total_results=total,
                 page=page,
                 page_size=page_size,
-                total_pages=total_pages,
-                took_ms=took_ms,
-                results=results,
+                products=products,
                 facets=facets,
             )
         except Exception as exc:
@@ -219,10 +235,11 @@ class SearchService:
             )
             raise
 
-    async def text_search_v1(
+    async def search_v1(
         self,
         index: str,
-        query: str,
+        query: str | None,
+        image: tuple[bytes, str] | None,
         vector_field: str,
         language: str,
         filters: list[dict],
@@ -232,64 +249,90 @@ class SearchService:
         page_size: int,
         retrieval_k: int,
         request_id: str | None = None,
-        image_ref: str | None = None,
     ) -> SearchApiResponse:
+        """Text, image or text + image search (§2.2), fused with RRF.
+
+        Sub-queries of the hybrid query:
+          * text  → BM25 multi_match + kNN on ``content_vector``;
+          * image → nested kNN on ``images.image_vector`` (each SKU scores by its
+            best-matching image).
+        """
+        mode = "text+image" if (query and image) else ("image" if image else "text")
         logger.info(
-            "SearchService.text_search_v1 — starting",
+            f"SearchService.search_v1 — starting (mode={mode})",
             extra={
                 "search_query": query,
                 "language": language,
                 "input_data": {
-                    "index": index, "page": page, "page_size": page_size,
+                    "index": index, "mode": mode, "page": page, "page_size": page_size,
                     "retrieval_k": retrieval_k, "filter_count": len(filters), "sort_by": sort_by,
                 },
             },
         )
         try:
-            logger.debug(f"SearchService.text_search_v1 — encoding query vector for '{query}'")
+            # Embed text and image concurrently — they are independent OCI calls.
             _t_embed0 = time.perf_counter()
-            query_vector = await self._emb.encode_query(query)
+            embed_jobs = []
+            if query:
+                embed_jobs.append(self._emb.encode_query(query))
+            if image:
+                embed_jobs.append(self._emb.encode_image(*image))
+            vectors = await asyncio.gather(*embed_jobs)
+            query_vector = vectors[0] if query else None
+            image_vector = vectors[-1] if image else None
             embed_ms = (time.perf_counter() - _t_embed0) * 1000
             logger.debug(
-                "SearchService.text_search_v1 — query vector encoded",
-                extra={"input_data": {"dim": len(query_vector), "preview": [round(v, 5) for v in query_vector[:5]]}},
+                "SearchService.search_v1 — vectors encoded",
+                extra={"input_data": {"text_dim": len(query_vector or []), "image_dim": len(image_vector or [])}},
             )
 
-            lang = language if language in ("en", "de") else "en"
-            name_field = f"productName_{lang}"
-            desc_field = f"productDescription_{lang}"
-            kw_fields = [name_field, desc_field, "content", "rootCategoryName", "subCategoryName"]
-            logger.debug(f"SearchService.text_search_v1 — resolved language='{lang}', keyword fields={kw_fields}")
+            subqueries: list[dict[str, Any]] = []
+            if query:
+                # The index holds English text only, so every language searches the same fields.
+                subqueries.append({"multi_match": {"query": query, "fields": KEYWORD_FIELDS, "type": "best_fields", "lenient": True}})
+                subqueries.append({"knn": {vector_field: {"vector": query_vector, "k": retrieval_k}}})
+            if image:
+                subqueries.append({
+                    "nested": {
+                        "path": IMAGE_PATH,
+                        "score_mode": "max",
+                        "query": {"knn": {IMAGE_VECTOR_FIELD: {"vector": image_vector, "k": retrieval_k}}},
+                    }
+                })
+            logger.debug(f"SearchService.search_v1 — hybrid query with {len(subqueries)} sub-queries")
 
-            logger.debug("SearchService.text_search_v1 — building hybrid query (BM25 + kNN)")
-            hybrid_query: dict[str, Any] = {
-                "hybrid": {
-                    "queries": [
-                        {"multi_match": {"query": query, "fields": kw_fields, "type": "best_fields", "lenient": True}},
-                        {"knn": {vector_field: {"vector": query_vector, "k": retrieval_k}}},
-                    ]
-                }
+            # A hybrid query must be the top-level query, so filters go in its own
+            # `filter` (applied to every sub-query) rather than an outer bool.
+            hybrid: dict[str, Any] = {
+                "queries": subqueries,
+                # Each sub-query must retrieve deep enough to cover the requested page.
+                "pagination_depth": max(retrieval_k, page * page_size),
             }
+            if filters:
+                hybrid["filter"] = {"bool": {"filter": filters}}
+
             # RRF-fused results, paginated natively by OpenSearch (from/size) — no rerank step.
             body: dict[str, Any] = {
                 "from": (page - 1) * page_size,
                 "size": page_size,
-                # Never return the raw embedding vector — it's large and useless to clients.
-                "_source": {"excludes": [vector_field]},
-                "query": {"bool": {"must": [hybrid_query], "filter": filters}} if filters else hybrid_query,
+                # Never return embedding vectors — they are large and useless to clients.
+                "_source": {"excludes": [vector_field, IMAGE_PATH]},
+                "query": {"hybrid": hybrid},
                 "aggs": _build_aggs(),
             }
             sort = self._sort_clause(sort_by, sort_order)
             if sort:
                 body["sort"] = sort
-                logger.debug(f"SearchService.text_search_v1 — sort applied: {sort}")
+                logger.debug(f"SearchService.search_v1 — sort applied: {sort}")
 
-            logger.info(f"SearchService.text_search_v1 — executing hybrid RRF search via pipeline '{PIPELINE_ID}'")
+            logger.info(f"SearchService.search_v1 — executing hybrid RRF search via pipeline '{PIPELINE_ID}'")
             _t_search0 = time.perf_counter()
             raw = await self._os.search(index, body, pipeline_id=PIPELINE_ID)
             search_wall_ms = (time.perf_counter() - _t_search0) * 1000
 
-            took_ms, total, hits = self._parse_hits(raw, index)
+            took_ms = raw.get("took", 0)
+            total = raw["hits"]["total"]["value"]
+            raw_hits = raw["hits"]["hits"]
 
             # Phase breakdown so slow searches can be attributed precisely:
             #   embed_ms       = OCI GenAI embedding round-trip (Riyadh, on-demand)
@@ -298,7 +341,7 @@ class SearchService:
             #   os_network_ms  = search_wall_ms - took_ms  (round-trip + (de)serialization)
             os_network_ms = round(search_wall_ms - took_ms, 1)
             logger.info(
-                f"SearchService.text_search_v1 — PHASE BREAKDOWN: embed={embed_ms:.1f}ms "
+                f"SearchService.search_v1 — PHASE BREAKDOWN: embed={embed_ms:.1f}ms "
                 f"os_wall={search_wall_ms:.1f}ms os_server(took)={took_ms}ms os_network={os_network_ms}ms",
                 extra={
                     "status": "success",
@@ -313,46 +356,36 @@ class SearchService:
                 },
             )
             logger.info(
-                f"SearchService.text_search_v1 — RRF returned {len(hits)} hits for page {page} of total={total} (took {took_ms}ms)",
-            )
-            logger.debug(
-                "SearchService.text_search_v1 — hit ids/scores",
-                extra={"input_data": {"hit_ids": [h.id for h in hits], "top_scores": [round(h.score, 4) for h in hits[:5]]}},
+                f"SearchService.search_v1 — RRF returned {len(raw_hits)} hits for page {page} of total={total} (took {took_ms}ms)",
             )
 
-            logger.debug("SearchService.text_search_v1 — parsing facets from aggregations")
+            logger.debug("SearchService.search_v1 — parsing facets from aggregations")
             facets = _parse_facets(raw.get("aggregations", {}))
 
-            results = [ProductResult(id=h.id, score=h.score, source=h.source) for h in hits]
-            total_pages = max(1, -(-total // page_size))
+            products = [_to_product(h.get("_source", {})) for h in raw_hits]
 
             logger.info(
-                "SearchService.text_search_v1 — done",
+                "SearchService.search_v1 — done",
                 extra={
                     "status": "success",
                     "search_query": query,
                     "response_payload": {
-                        "total": total, "returned": len(results),
-                        "page": page, "total_pages": total_pages, "facets": len(facets), "took_ms": took_ms,
+                        "total_results": total, "returned": len(products),
+                        "page": page, "took_ms": took_ms,
                     },
                 },
             )
             return SearchApiResponse(
                 request_id=request_id,
-                image_ref=image_ref,
-                search_type="hybrid",
-                query=query,
-                total=total,
+                total_results=total,
                 page=page,
                 page_size=page_size,
-                total_pages=total_pages,
-                took_ms=took_ms,
-                results=results,
+                products=products,
                 facets=facets,
             )
         except Exception as exc:
             logger.error(
-                "SearchService.text_search_v1 — failed",
+                "SearchService.search_v1 — failed",
                 extra={
                     "status": "error",
                     "search_query": query,
@@ -367,86 +400,60 @@ class SearchService:
         index: str,
         query: str,
         language: str,
+        query_limit: int = 5,
         product_limit: int = 5,
-        category_limit: int = 3,
     ) -> SuggestionsResponse:
         logger.info(
             "SearchService.get_suggestions — starting",
-            extra={"search_query": query, "language": language, "input_data": {"product_limit": product_limit, "category_limit": category_limit}},
+            extra={"search_query": query, "language": language, "input_data": {"query_limit": query_limit, "product_limit": product_limit}},
         )
         try:
-            lang = language if language in ("en", "de") else "en"
-            name_field = f"productName_{lang}"
+            name_field = "product_name"
             logger.debug(f"SearchService.get_suggestions — using name field '{name_field}'")
 
             product_body: dict[str, Any] = {
-                "size": product_limit,
-                "_source": [name_field, "sku"],
+                # Enough hits to fill both the product and the query suggestions.
+                "size": max(product_limit, query_limit),
+                "_source": [name_field, "product_url"],
                 "query": {"match_phrase_prefix": {name_field: {"query": query, "max_expansions": 20}}},
             }
-            category_body: dict[str, Any] = {
-                "size": 0,
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match_phrase_prefix": {"rootCategoryName": {"query": query, "max_expansions": 10}}},
-                            {"match_phrase_prefix": {"subCategoryName": {"query": query, "max_expansions": 10}}},
-                        ]
-                    }
-                },
-                "aggs": {
-                    "root_cats": {"terms": {"field": "rootCategoryName.keyword", "size": category_limit}},
-                    "sub_cats":{"terms": {"field": "subCategoryName.keyword",  "size": category_limit}},
-                },
-            }
-
-            logger.debug("SearchService.get_suggestions — firing product + category queries in parallel")
-            prod_raw, cat_raw = await asyncio.gather(
-                self._os.search(index, product_body),
-                self._os.search(index, category_body),
-            )
-            logger.debug("SearchService.get_suggestions — parallel queries complete")
+            logger.debug("SearchService.get_suggestions — executing product query")
+            prod_raw = await self._os.search(index, product_body)
 
             product_suggestions: list[ProductSuggestion] = []
             for h in prod_raw["hits"]["hits"]:
                 src = h.get("_source", {})
                 text = src.get(name_field) or ""
-                sku = src.get("sku") or ""
-                if text and sku:
-                    product_suggestions.append(ProductSuggestion(text=text, sku=sku))
+                if text:
+                    product_suggestions.append(ProductSuggestion(
+                        text=text,
+                        destination_url=src.get("product_url") or "",
+                    ))
             logger.debug(f"SearchService.get_suggestions — parsed {len(product_suggestions)} product suggestions")
 
             # Query suggestions: distinct product-name phrases (order-preserving dedup).
             unique_queries = dict.fromkeys(
                 p.text for p in product_suggestions if p.text
             )
-            query_suggestions = [QuerySuggestion(text=t) for t in list(unique_queries)[:product_limit]]
+            query_suggestions = [
+                QuerySuggestion(text=t, destination_url=f"/search?q={quote(t)}")
+                for t in list(unique_queries)[:query_limit]
+            ]
+            product_suggestions = product_suggestions[:product_limit]
             logger.debug(f"SearchService.get_suggestions — parsed {len(query_suggestions)} query suggestions")
-
-            aggs = cat_raw.get("aggregations", {})
-            # Order-preserving dedup across both aggregations via dict.fromkeys.
-            unique_names = dict.fromkeys(
-                b.get("key", "")
-                for agg_key in ("root_cats", "sub_cats")
-                for b in aggs.get(agg_key, {}).get("buckets", [])
-                if b.get("key")
-            )
-            category_suggestions = [CategorySuggestion(text=name) for name in list(unique_names)[:category_limit]]
-            logger.debug(f"SearchService.get_suggestions — parsed {len(category_suggestions)} category suggestions")
 
             logger.info(
                 "SearchService.get_suggestions — done",
                 extra={
                     "status": "success",
                     "search_query": query,
-                    "response_payload": {"queries": len(query_suggestions), "products": len(product_suggestions), "categories": len(category_suggestions)},
+                    "response_payload": {"queries": len(query_suggestions), "products": len(product_suggestions)},
                 },
             )
             return SuggestionsResponse(
                 query=query,
                 query_suggestions=query_suggestions,
                 product_suggestions=product_suggestions,
-                category_suggestions=category_suggestions,
             )
         except Exception as exc:
             logger.error(

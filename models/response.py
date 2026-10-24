@@ -1,81 +1,99 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union
-
 from pydantic import BaseModel, Field
 
 
-class SearchHit(BaseModel):
-    id: str = Field(description="OpenSearch document _id")
-    index: str = Field(description="Index the document was retrieved from")
-    score: float = Field(description="Relevance score assigned by OpenSearch")
-    source: dict[str, Any] = Field(description="Full document source as stored in the index")
-    highlights: dict[str, list[str]] | None = Field(
-        default=None,
-        description="Per-field highlighted snippets returned by OpenSearch highlight query",
-    )
+# ---------------------------------------------------------------------------
+# Search API — response contract (ASMO AI Search API Specification v2.1, §2.4)
+# ---------------------------------------------------------------------------
+
+
+class SellerDetail(BaseModel):
+    """One seller offer for the SKU (source: seller_details[])."""
+
+    seller_name: str | None = Field(default=None, description="Seller name (source: seller_details[].seller_name)")
+    lead_time: int | None = Field(default=None, description="Lead time in days (source: seller_details[].lead_time)")
+    moq: int | None = Field(default=None, description="Minimum order quantity (source: seller_details[].moq)")
+    price: float | None = Field(default=None, description="Unit price (source: seller_details[].price)")
+    currency: str | None = Field(default=None, description="ISO 4217 currency code (source: seller_details[].currency)")
+
+
+class ProductItem(BaseModel):
+    """A single product in the search response, shaped per the frontend contract.
+
+    Every key matches the OpenSearch index field of the same name.
+    """
+
+    product_key: str | None = Field(default=None, description="Stable product identifier (source: product_key)")
+    sku_id: str | None = Field(default=None, description="SKU identifier (source: sku_id)")
+    product_name: str | None = Field(default=None, description="Product name (source: product_name)")
+    product_url: str | None = Field(default=None, description="Relative product detail page URL (source: product_url)")
+    primary_image_url: str | None = Field(default=None, description="Primary product image URL (source: primary_image_url)")
+    asmo_material_number: str | None = Field(default=None, description="ASMO material number (source: asmo_material_number)")
+    aramco_material_number: str | None = Field(default=None, description="Aramco material number (source: aramco_material_number)")
+    product_type: str | None = Field(default=None, description="Product type (source: product_type)")
+    material_type: str | None = Field(default=None, description="Material classification (source: material_type)")
+    seller_details: list[SellerDetail] = Field(default_factory=list, description="Every seller offer, cheapest first (source: seller_details)")
+    moq: int | None = Field(default=None, description="Minimum order quantity of the primary seller (source: moq)")
+    price: float | None = Field(default=None, description="Unit price of the primary seller (source: price)")
+    currency: str | None = Field(default=None, description="ISO 4217 currency code of the primary seller (source: currency)")
+    sold_by: str | None = Field(default=None, description="Primary seller name (source: sold_by)")
+    supplier_count: int | None = Field(default=None, description="Number of sellers offering this SKU (source: supplier_count)")
+    contract_indicator: bool = Field(default=False, description="True when the product has one or more contracts (source: contract_indicator)")
+    category_ids: list[str] = Field(default_factory=list, description="Category ids the product belongs to (source: category_ids)")
 
 
 class FacetTermValue(BaseModel):
     value: str = Field(description="Facet bucket value")
-    count: int = Field(description="Number of documents matching this value")
+    count: int = Field(description="Number of matching documents with this value")
 
 
-class TermsFacet(BaseModel):
-    key: str = Field(description="Filter key that corresponds to this facet, e.g. category_ids")
-    type: Literal["terms"] = Field(default="terms", description="Discriminator — always 'terms' for this variant")
-    values: list[FacetTermValue] = Field(description="Ordered list of term buckets with their document counts")
+class PriceFacet(BaseModel):
+    min: float | None = Field(default=None, description="Minimum price across the matching result population")
+    max: float | None = Field(default=None, description="Maximum price across the matching result population")
 
 
-class RangeFacet(BaseModel):
-    key: str = Field(description="Filter key that corresponds to this facet, e.g. price")
-    type: Literal["range"] = Field(default="range", description="Discriminator — always 'range' for this variant")
-    min: float = Field(description="Minimum value of this field across the result set")
-    max: float = Field(description="Maximum value of this field across the result set")
-    currency: str | None = Field(default=None, description="ISO 4217 currency code when the field represents a monetary amount")
+class SearchFacets(BaseModel):
+    """Facets keyed by field, computed over the full matching population (§2.4 facet rule)."""
 
-
-Facet = Annotated[Union[TermsFacet, RangeFacet], Field(discriminator="type")]
-
-
-class ProductResult(BaseModel):
-    id: str = Field(description="Product document ID in OpenSearch")
-    score: float = Field(description="Final relevance score after RRF fusion of BM25 and kNN")
-    source: dict[str, Any] = Field(description="Raw product document fields as stored in the index")
+    product_type: list[FacetTermValue] = Field(default_factory=list, description="Product-type term buckets")
+    material_type: list[FacetTermValue] = Field(default_factory=list, description="Material-type term buckets")
+    price: PriceFacet | None = Field(default=None, description="Price range (min/max) across the result set")
 
 
 class SearchApiResponse(BaseModel):
-    request_id: str | None = Field(default=None, description="UUID generated per request, useful for tracing and support")
-    image_ref: str | None = Field(default=None, description="Echoed back from the request when an image reference was provided")
-    search_type: str = Field(description="Indicates the search mode used: 'hybrid' for text queries, 'filter' for browse-only")
-    query: str | None = Field(default=None, description="The original query string submitted by the client")
-    total: int = Field(description="Total number of matching documents in the index before pagination")
-    page: int = Field(description="Current page number (1-indexed)")
-    page_size: int = Field(description="Number of results returned on this page")
-    total_pages: int = Field(description="Total number of pages available given the page_size")
-    took_ms: int = Field(description="Time in milliseconds spent executing the query in OpenSearch")
-    results: list[ProductResult] = Field(description="Ranked product results for the requested page")
-    facets: list[Facet] = Field(default=[], description="Aggregated facets computed across the full result set, ordered by configuration")
+    request_id: str | None = Field(default=None, description="Per-request identifier, useful for tracing and support")
+    total_results: int = Field(description="Total number of matching products before pagination")
+    page: int = Field(description="Current 1-based page number")
+    page_size: int = Field(description="Number of products returned per page")
+    products: list[ProductItem] = Field(description="Products for the requested page")
+    facets: SearchFacets = Field(default_factory=SearchFacets, description="Facets computed across the full result set")
+
+
+# ---------------------------------------------------------------------------
+# Suggestions API — response contract (§3.2)
+# ---------------------------------------------------------------------------
 
 
 class QuerySuggestion(BaseModel):
-    text: str = Field(description="Suggested search query string (distinct product-name phrase) matching the prefix")
+    text: str = Field(description="Suggested search query string matching the prefix")
+    destination_url: str = Field(description="Search results URL for the suggested query, e.g. /search?q=...")
 
 
 class ProductSuggestion(BaseModel):
     text: str = Field(description="Suggested product name to display in the autocomplete dropdown")
-    sku: str = Field(description="SKU of the suggested product")
-
-
-class CategorySuggestion(BaseModel):
-    text: str = Field(description="Category or sub-category name matching the typed prefix")
+    destination_url: str = Field(description="Product detail page URL (source: product_url)")
 
 
 class SuggestionsResponse(BaseModel):
-    query: str = Field(description="The prefix string that was used to generate these suggestions")
-    query_suggestions: list[QuerySuggestion] = Field(description="Suggested search query strings (distinct product-name phrases) matching the prefix")
-    product_suggestions: list[ProductSuggestion] = Field(description="Product name suggestions matching the prefix")
-    category_suggestions: list[CategorySuggestion] = Field(description="Category and sub-category suggestions matching the prefix")
+    query: str = Field(description="The prefix string used to generate these suggestions")
+    query_suggestions: list[QuerySuggestion] = Field(description="Suggested search query strings matching the prefix")
+    product_suggestions: list[ProductSuggestion] = Field(description="Product suggestions matching the prefix")
+
+
+# ---------------------------------------------------------------------------
+# Operational / diagnostic models (not part of the frontend contract)
+# ---------------------------------------------------------------------------
 
 
 class IndexInfo(BaseModel):
@@ -94,7 +112,7 @@ class HealthResponse(BaseModel):
     status: str = Field(description="Overall API health: 'ok' when all dependencies are reachable, 'degraded' otherwise")
     opensearch_connected: bool = Field(description="Whether the API successfully pinged the OpenSearch cluster")
     opensearch_cluster: str | None = Field(default=None, description="Cluster name returned by OpenSearch, null if unreachable")
-    embedding_model_loaded: bool = Field(description="Whether the sentence-transformer embedding model has been loaded into memory")
+    embedding_model_loaded: bool = Field(description="Whether the embedding model client has been initialized")
     embedding_model_name: str = Field(description="OCI GenAI model identifier used for query embedding")
 
 
@@ -110,11 +128,11 @@ class LatencyResponse(BaseModel):
     error: str | None = Field(default=None, description="Error message if a round-trip failed")
 
 
-class ErrorDetail(BaseModel):
-    code: str = Field(description="Machine-readable error code, e.g. INVALID_FILTER_KEY, EMPTY_REQUEST")
-    message: str = Field(description="Human-readable description of what went wrong")
-    detail: Any | None = Field(default=None, description="Optional additional context, such as the offending value or field name")
+# ---------------------------------------------------------------------------
+# Error contract (§5.1) — flat {code, message}
+# ---------------------------------------------------------------------------
 
 
 class ErrorResponse(BaseModel):
-    error: ErrorDetail = Field(description="Structured error payload returned on 4xx and 5xx responses")
+    code: str = Field(description="Stable, machine-readable backend error identifier, e.g. INVALID_FILTER_KEY")
+    message: str = Field(description="Human-readable description suitable for frontend handling or display")

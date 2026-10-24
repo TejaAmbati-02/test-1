@@ -9,7 +9,6 @@ import time
  
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,13 +19,13 @@ import uuid
  
 from config import settings
 from utils.logger import logger, setup_logging, set_log_context, clear_log_context
-from models.response import ErrorDetail, ErrorResponse, HealthResponse, LatencyResponse
+from models.response import HealthResponse, LatencyResponse
 from routers.search import index_router, v1_router
 from services.embedder import embedding_service
 from services.opensearch import os_client
 from services.search import search_service
  
-setup_logging()
+setup_logging(level=settings.log_level, to_file=settings.log_to_file)
  
 # How often the background heartbeat pings OpenSearch to keep the pooled TCP/TLS
 # connection warm. Must stay below the server/aiohttp idle-reap window (~15s) so the
@@ -301,32 +300,26 @@ async def http_exception_handler(_request: Request, exc: StarletteHTTPException)
         return JSONResponse(status_code=exc.status_code, content=detail)
     return JSONResponse(
         status_code=exc.status_code,
-        content=ErrorResponse(error=ErrorDetail(code="HTTP_ERROR", message=str(detail))).model_dump(),
+        content={"code": "HTTP_ERROR", "message": str(detail)},
     )
  
  
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
-    logger.warning(f"Request validation failed: {exc.errors()}")
-    return JSONResponse(
-        status_code=422,
-        content=ErrorResponse(
-            error=ErrorDetail(
-                code="VALIDATION_ERROR",
-                message="Request validation failed",
-                detail=jsonable_encoder(exc.errors()),
-            )
-        ).model_dump(),
-    )
+    # Missing/malformed form or query fields map to the contract's 400 Bad Request (§5).
+    errors = exc.errors()
+    logger.warning(f"Request validation failed: {errors}")
+    first = errors[0] if errors else {}
+    loc = ".".join(str(p) for p in first.get("loc", []) if p != "body")
+    msg = first.get("msg", "Request validation failed")
+    message = f"{loc}: {msg}" if loc else msg
+    return JSONResponse(status_code=400, content={"code": "VALIDATION_ERROR", "message": message})
  
  
 @app.exception_handler(Exception)
 async def global_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
     logger.exception(f"Unhandled exception: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content=ErrorResponse(error=ErrorDetail(code="INTERNAL_ERROR", message=str(exc))).model_dump(),
-    )
+    return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR", "message": str(exc)})
  
  
 if __name__ == "__main__":

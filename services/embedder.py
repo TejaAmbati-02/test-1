@@ -1,6 +1,7 @@
 from __future__ import annotations
  
 import asyncio
+import base64
 import math
 import time
 from collections import OrderedDict
@@ -167,7 +168,68 @@ class EmbeddingService:
                 extra={"status": "error", "error_details": str(exc), **oci_error_fields(exc)},
             )
             raise
- 
- 
+
+    def _embed_image_sync(self, data_uri: str) -> list[float]:
+        cfg = self._settings
+        details = oci.generative_ai_inference.models.EmbedTextDetails(
+            compartment_id=cfg.oci_compartment_id,
+            serving_mode=oci.generative_ai_inference.models.OnDemandServingMode(
+                serving_type="ON_DEMAND",
+                model_id=cfg.embedding_model_name,
+            ),
+            # Same multimodal path, model and input type the ingest pipeline uses
+            # for product images, so the vectors are directly comparable.
+            embed_contents=[
+                oci.generative_ai_inference.models.EmbedImageContent(
+                    image_url=oci.generative_ai_inference.models.ImageUrl(url=data_uri)
+                )
+            ],
+            input_type="IMAGE",
+            embedding_types=["float"],
+            output_dimensions=cfg.embedding_dimension,
+            is_echo=False,
+        )
+        oci_start = time.perf_counter()
+        response = self._client.embed_text(embed_text_details=details)
+        oci_elapsed_ms = round((time.perf_counter() - oci_start) * 1000, 2)
+        logger.info(
+            "EmbeddingService._embed_image_sync — OCI embed_text (IMAGE) time taken",
+            extra={"status": "success", "response_payload": {"oci_elapsed_ms": oci_elapsed_ms}},
+        )
+        vector = extract_embeddings(response.data)[0]
+        if cfg.embedding_normalize:
+            vector = self._l2_normalize(vector)
+        return vector
+
+    async def encode_image(self, data: bytes, mime: str) -> list[float]:
+        """Embed an uploaded image (raw bytes) with input_type IMAGE.
+
+        OCI takes images as base64 data URIs, so the binary upload is encoded
+        here exactly as the ingest pipeline encodes product images.
+        """
+        logger.debug(
+            "EmbeddingService.encode_image — starting",
+            extra={"input_data": {"bytes": len(data), "mime": mime, "client_loaded": self._client is not None}},
+        )
+        try:
+            if self._client is None:
+                logger.warning("EmbeddingService.encode_image — client not initialized, triggering load")
+                await self.load()
+            data_uri = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+            loop = asyncio.get_running_loop()
+            vector = await loop.run_in_executor(None, self._embed_image_sync, data_uri)
+            logger.info(
+                "EmbeddingService.encode_image — done",
+                extra={"status": "success", "input_data": {"output_dim": len(vector)}},
+            )
+            return vector
+        except Exception as exc:
+            logger.error(
+                "EmbeddingService.encode_image — encoding failed",
+                extra={"status": "error", "error_details": str(exc), **oci_error_fields(exc)},
+            )
+            raise
+
+
 embedding_service = EmbeddingService(_settings)
  

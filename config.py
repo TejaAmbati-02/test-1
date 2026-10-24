@@ -31,12 +31,15 @@ class Settings(BaseSettings):
     hybrid_keyword_weight: float = 0.5
     hybrid_retrieval_k: int = 100
  
-    # Per-document currency code field (e.g. "SAR", "USD"); drives the price facet
-    currency_field: str = "currencyType"
  
+    # Logging — every log line always prints to the console; LOG_TO_FILE=true
+    # also writes JSON lines to logs/asmo-<timestamp>.log.
+    log_level: str = "INFO"
+    log_to_file: bool = False
+
     api_title: str = "ASMO AI Search API"
-    api_version: str = "2.0.0"
-    api_description: str = "Hybrid BM25 + kNN search with RRF fusion"
+    api_version: str = "2.1.0"
+    api_description: str = "Frontend contract v2.1 — text/image/filter search with hybrid BM25 + kNN (RRF) and suggestions"
  
  
 settings = Settings()

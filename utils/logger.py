@@ -62,32 +62,37 @@ class JsonFormatter(logging.Formatter):
 
 class LoggingService:
     def __init__(self) -> None:
-        log_dir = Path(__file__).resolve().parent.parent / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_dir = log_dir
+        self.log_dir = Path(__file__).resolve().parent.parent / "logs"
         self._configured = False
         self.logger = logging.getLogger("app")
 
-    def setup(self, level: int | None = None) -> None:
+    def setup(self, level: str = "INFO", to_file: bool = False) -> None:
+        """Configure root logging.
+
+        Args:
+            level: DEBUG | INFO | WARNING | ERROR (from LOG_LEVEL); unknown names fall back to INFO.
+            to_file: When True (LOG_TO_FILE=true), also write JSON lines to
+                logs/asmo-<timestamp>.log. Console output is always on.
+        """
         if self._configured:
             return
 
-        # Level from LOG_LEVEL env var (DEBUG|INFO|WARNING|ERROR), defaults to INFO.
-        if level is None:
-            level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
-            level = getattr(logging, level_name, logging.INFO)
+        level = getattr(logging, str(level).upper(), logging.INFO)
 
         root = logging.getLogger()
         root.setLevel(level)
 
-        log_file = self.log_dir / f"asmo-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log"
-
-        # Rotating file handler — new file each midnight, keeps 7 days
-        fh = logging.handlers.TimedRotatingFileHandler(
-            log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8"
-        )
-        fh.setFormatter(JsonFormatter())
-        fh.setLevel(level)
+        log_file = None
+        if to_file:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            log_file = self.log_dir / f"asmo-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log"
+            # Rotating file handler — new file each midnight, keeps 7 days
+            fh = logging.handlers.TimedRotatingFileHandler(
+                log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8"
+            )
+            fh.setFormatter(JsonFormatter())
+            fh.setLevel(level)
+            root.addHandler(fh)
 
         # Console handler — human-readable for dev
         ch = logging.StreamHandler(sys.stdout)
@@ -97,14 +102,16 @@ class LoggingService:
         ))
         ch.setLevel(level)
 
-        root.addHandler(fh)
         root.addHandler(ch)
 
         for name in ("urllib3", "httpx", "httpcore", "elastic_transport", "oci", "circuitbreaker"):
             logging.getLogger(name).setLevel(logging.WARNING)
 
         self._configured = True
-        root.info(f"Logging initialised — file: {log_file}")
+        root.info(
+            f"Logging initialised — level={logging.getLevelName(level)} "
+            + (f"console + file: {log_file}" if log_file else "console only (LOG_TO_FILE=false)")
+        )
 
     def get_logger(self, name: str) -> logging.Logger:
         return logging.getLogger(name)
