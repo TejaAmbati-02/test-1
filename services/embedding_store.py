@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -73,6 +74,8 @@ class EmbeddingStore:
         self._client: redis.Redis | None = None
         # Flips to False if the server lacks per-field expiry (HEXPIRE, Redis < 7.4).
         self._field_ttl = True
+        # Strong refs to in-flight background writes so they are not garbage-collected.
+        self._pending: set[asyncio.Task] = set()
 
     @property
     def enabled(self) -> bool:
@@ -139,6 +142,23 @@ class EmbeddingStore:
             logger.info(f"EmbeddingStore — created collection '{self.collection}'")
         await self._expire_entry(client, key, ttl)
 
+    def _store_in_background(self, key: str, record: dict[str, Any]) -> None:
+        """Write an entry without making the search wait on the Redis round trips.
+
+        The id is content-addressed, so it is returned to the client right away;
+        if the write fails, a later lookup by that id is a plain cache miss.
+        """
+        async def write() -> None:
+            try:
+                await self._set(key, record)
+                logger.info("EmbeddingStore — stored new embedding", extra={"input_data": {"key": key}})
+            except Exception as exc:
+                logger.warning(f"EmbeddingStore — Redis write failed for {key}: {exc}")
+
+        task = asyncio.create_task(write())
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)
+
     async def _expire_entry(self, client: redis.Redis, key: str, ttl: int) -> None:
         """Expire just this entry after `ttl` seconds; fall back to the whole collection on Redis < 7.4."""
         if self._field_ttl:
@@ -170,12 +190,7 @@ class EmbeddingStore:
             return QueryEmbedding(None, query, await self._emb.encode_query(query), False)
 
         vector = await self._emb.encode_query(query)
-        try:
-            await self._set(key, {"type": "query", "query": query, "embedding": vector})
-            logger.info("EmbeddingStore.query_embedding — stored new embedding", extra={"input_data": {"key": key}})
-        except Exception as exc:
-            logger.warning(f"EmbeddingStore.query_embedding — Redis write failed: {exc}")
-            key = None
+        self._store_in_background(key, {"type": "query", "query": query, "embedding": vector})
         return QueryEmbedding(key, query, vector, False)
 
     async def image_embedding(self, data: bytes, mime: str) -> ImageEmbedding:
@@ -193,17 +208,12 @@ class EmbeddingStore:
             return ImageEmbedding(None, data, mime, await self._emb.encode_image(data, mime), False)
 
         vector = await self._emb.encode_image(data, mime)
-        try:
-            await self._set(key, {
-                "type": "image",
-                "image_base64": base64.b64encode(data).decode("ascii"),
-                "mime": mime,
-                "embedding": vector,
-            })
-            logger.info("EmbeddingStore.image_embedding — stored new embedding", extra={"input_data": {"key": key}})
-        except Exception as exc:
-            logger.warning(f"EmbeddingStore.image_embedding — Redis write failed: {exc}")
-            key = None
+        self._store_in_background(key, {
+            "type": "image",
+            "image_base64": base64.b64encode(data).decode("ascii"),
+            "mime": mime,
+            "embedding": vector,
+        })
         return ImageEmbedding(key, data, mime, vector, False)
 
     # --- Embedding by id --------------------------------------------------------

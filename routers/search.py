@@ -357,11 +357,19 @@ async def v1_search(request: Request) -> SearchApiResponse:
     )
     logger.info(f"POST /v1/search — dispatching: mode={mode} filters={len(os_filters)}")
 
+    embed_ms: float | None = None
     try:
         if has_query or has_image:
+            _t_emb = time.perf_counter()
             query_emb, image_emb = await _resolve_embeddings(
                 search_query.strip() if search_query and search_query.strip() else None,
                 query_id, image_input, image_id,
+            )
+            embed_ms = (time.perf_counter() - _t_emb) * 1000
+            logger.info(
+                f"POST /v1/search — embeddings resolved in {embed_ms:.1f}ms "
+                f"(query cached={query_emb.cached if query_emb else None}, "
+                f"image cached={image_emb.cached if image_emb else None})"
             )
             result = await search_service.search_v1(
                 index=_cfg.opensearch_index_name,
@@ -393,7 +401,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
 
         elapsed_ms = (time.perf_counter() - _t0) * 1000
         logger.info(
-            f"POST /v1/search — completed in {elapsed_ms:.1f}ms",
+            f"POST /v1/search — completed in {elapsed_ms:.1f}ms"
+            + (f" (embeddings {embed_ms:.1f}ms, search {elapsed_ms - embed_ms:.1f}ms)" if embed_ms is not None else ""),
             extra={
                 "status": "success",
                 "latency": f"{elapsed_ms:.1f}ms",
@@ -405,6 +414,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
                     "total_results": result.total_results,
                     "returned": len(result.products),
                     "api_latency_ms": round(elapsed_ms, 1),
+                    "embedding_ms": round(embed_ms, 1) if embed_ms is not None else None,
                 },
             },
         )

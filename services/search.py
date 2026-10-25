@@ -141,6 +141,24 @@ class SearchService:
     ) -> None:
         self._os = os_client
         self._emb = embedding_svc
+        # index -> whether `images` is mapped as nested; looked up once per index.
+        self._images_nested: dict[str, bool] = {}
+
+    async def _image_clause(self, index: str, image_vector: list[float], k: int) -> dict[str, Any]:
+        """kNN clause on ``images.image_vector`` that matches the index's actual mapping.
+
+        A ``nested`` query fails on an index where ``images`` is a plain object
+        ("nested object under path [images] is not of nested type"), so the
+        mapping decides between a nested kNN (best image per SKU) and a plain one.
+        """
+        if index not in self._images_nested:
+            field_type = await self._os.field_type(index, IMAGE_PATH)
+            self._images_nested[index] = field_type == "nested"
+            logger.info(f"SearchService — '{IMAGE_PATH}' on '{index}' is mapped as {field_type!r}")
+        knn = {"knn": {IMAGE_VECTOR_FIELD: {"vector": image_vector, "k": k}}}
+        if self._images_nested[index]:
+            return {"nested": {"path": IMAGE_PATH, "score_mode": "max", "query": knn}}
+        return knn
 
     async def setup_pipeline(self) -> None:
         logger.info(f"SearchService.setup_pipeline — checking for existing pipeline '{PIPELINE_ID}'")
@@ -254,8 +272,8 @@ class SearchService:
 
         Sub-queries of the hybrid query:
           * text  → BM25 multi_match + kNN on ``content_vector``;
-          * image → nested kNN on ``images.image_vector`` (each SKU scores by its
-            best-matching image).
+          * image → kNN on ``images.image_vector`` — nested (each SKU scores by
+            its best-matching image) when the index maps ``images`` as nested.
 
         Embeddings are resolved by the caller (Redis cache or OCI) and passed in:
         ``query`` + ``query_vector`` for text, ``image_vector`` for an image.
@@ -285,13 +303,7 @@ class SearchService:
                 subqueries.append({"multi_match": {"query": query, "fields": KEYWORD_FIELDS, "type": "best_fields", "lenient": True}})
                 subqueries.append({"knn": {vector_field: {"vector": query_vector, "k": retrieval_k}}})
             if image:
-                subqueries.append({
-                    "nested": {
-                        "path": IMAGE_PATH,
-                        "score_mode": "max",
-                        "query": {"knn": {IMAGE_VECTOR_FIELD: {"vector": image_vector, "k": retrieval_k}}},
-                    }
-                })
+                subqueries.append(await self._image_clause(index, image_vector, retrieval_k))
             logger.debug(f"SearchService.search_v1 — hybrid query with {len(subqueries)} sub-queries")
 
             # A hybrid query must be the top-level query, so filters go in its own
