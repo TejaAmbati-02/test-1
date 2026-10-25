@@ -256,6 +256,9 @@ class SearchService:
           * text  → BM25 multi_match + kNN on ``content_vector``;
           * image → nested kNN on ``images.image_vector`` (each SKU scores by its
             best-matching image).
+          * text + image → the image kNN alone ranks; the text only narrows the
+            results to products containing every query word (it is not fused in,
+            so it cannot outvote the image).
 
         Embeddings are resolved by the caller (Redis cache or OCI) and passed in:
         ``query`` + ``query_vector`` for text, ``image_vector`` for an image.
@@ -280,7 +283,15 @@ class SearchService:
             )
 
             subqueries: list[dict[str, Any]] = []
-            if query:
+            filters = list(filters)
+            if query and image:
+                # Every query word must appear in one of the text fields (the
+                # catch-all `content` field holds all of them).
+                filters.append({"multi_match": {
+                    "query": query, "fields": KEYWORD_FIELDS, "type": "best_fields",
+                    "operator": "and", "lenient": True,
+                }})
+            elif query:
                 # The index holds English text only, so every language searches the same fields.
                 subqueries.append({"multi_match": {"query": query, "fields": KEYWORD_FIELDS, "type": "best_fields", "lenient": True}})
                 subqueries.append({"knn": {vector_field: {"vector": query_vector, "k": retrieval_k}}})
