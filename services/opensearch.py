@@ -136,17 +136,6 @@ class OpenSearchClientService:
             )
             return False
 
-    async def field_type(self, index: str, field: str) -> str | None:
-        """Mapped type of a top-level field ("nested", "object", "knn_vector", ...); None if unmapped."""
-        client = await self.get_client()
-        mapping = await client.indices.get_mapping(index=index)
-        for idx_mapping in mapping.values():
-            prop = idx_mapping.get("mappings", {}).get("properties", {}).get(field)
-            if prop is not None:
-                # Object fields with sub-properties carry no explicit "type".
-                return prop.get("type", "object")
-        return None
-
     async def pipeline_exists(self, pipeline_id: str) -> bool:
         logger.debug(f"OpenSearchClientService.pipeline_exists — checking '{pipeline_id}'")
         try:
