@@ -1,0 +1,3600 @@
+{
+  "name": "ASMO AI Search API v2.0 — Scenario Tests (multipart)",
+  "version": "1",
+  "items": [
+    {
+      "type": "folder",
+      "name": "Health & Infra",
+      "seq": 1,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-000 Health Check",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/health",
+            "method": "GET",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('status present', () => expect(b.status).to.be.a('string'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-000b List Indices",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/indices",
+            "method": "GET",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('indices is an array', () => expect(b.indices).to.be.an('array'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Text Search",
+      "seq": 2,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-001 Search — pipe (en)",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pipe",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "relevance",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "desc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-002 Search — pump (en)",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-003 Search — valve (mobile)",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "mobile",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "valve",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-008 Search — Arabic language (ar)",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "ar",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "language=ar is accepted by the contract; the index has no Arabic fields, so the backend searches the German (_de) fields.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Sort",
+      "seq": 3,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-009 Sort by price asc",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "asc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('prices non-decreasing', () => {\n  const ps = b.products.map(p => p.price).filter(v => v != null);\n  for (let i=1;i<ps.length;i++) expect(ps[i]).to.be.at.least(ps[i-1]);\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-010 Sort by price desc",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "desc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('prices non-increasing', () => {\n  const ps = b.products.map(p => p.price).filter(v => v != null);\n  for (let i=1;i<ps.length;i++) expect(ps[i]).to.be.at.most(ps[i-1]);\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Filter Browse",
+      "seq": 4,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-011 Browse — in stock only",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"availability\": [\"IN_STOCK\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-014 Browse — price range 50–150",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "asc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('prices within 50..150', () => {\n  b.products.forEach(p => { if (p.price != null) { expect(p.price).to.be.at.least(50); expect(p.price).to.be.at.most(150); } });\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-016 Browse — material type 9CAT",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});\ntest('every product is 9CAT', () => b.products.forEach(p => expect(p.material_type).to.eql('9CAT')));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-012 Browse — category_ids",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"category_ids\": [\"{{category_id}}\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});\ntest('every product is in the category', () => b.products.forEach(p => expect(p.category_ids).to.include(bru.getVar('category_id'))));",
+            "docs": "Category browse: same endpoint, no search_query, category passed inside filters.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Combined Search + Filters",
+      "seq": 5,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-018 Search + availability filter",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"availability\": [\"IN_STOCK\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-019 Search + price range filter",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": {\"lte\": 500}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-020 Search + spec example filters (material_type, availability, price)",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"], \"availability\": [\"IN_STOCK\"], \"price\": {\"lte\": 500}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_name','lead_time','moq','price','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});\ntest('filters honoured', () => b.products.forEach(p => { expect(p.material_type).to.eql('9CAT'); if (p.price != null) expect(p.price).to.be.at.most(500); }));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Pagination",
+      "seq": 6,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-024 Pagination — page 1",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('page = 1', () => expect(b.page).to.eql(1));\nbru.setVar('page1_first', (b.products[0]||{}).sku_id || '');",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-025 Pagination — page 2 differs from page 1",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "2",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('page = 2', () => expect(b.page).to.eql(2));\ntest('page 2 first differs from page 1 (when enough results)', () => {\n  const p1 = bru.getVar('page1_first');\n  if (b.total_results > 60 && b.products.length) expect((b.products[0]||{}).sku_id).to.not.eql(p1);\n});",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Image Search",
+      "seq": 7,
+      "root": {
+        "docs": "Binary image uploads. Files live in test_images/ next to this collection (paths are relative to the collection folder)."
+      },
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-041 Image-only search — JPEG (Charger, Battery)",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.jpg"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/jpeg"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('facets is a keyed object', () => {\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('products expose spec fields', () => {\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(b.products[0]).to.have.property(k));\n});\ntest('no image vectors leak into products', () => b.products.forEach(p => expect(p).to.not.have.property('images')));\ntest('ao-100018_1 is in the top 5 (searched with its own image)', () => {\n  const skus = b.products.slice(0, 5).map(p => p.sku_id);\n  expect(skus).to.include('ao-100018_1');\n});",
+            "docs": "Image search: binary JPEG upload, no search_query. Uses SKU ao-100018_1's own product image.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-042 Image-only search — PNG (HPE X242 40G QSFP)",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/a-880000629771.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('facets is a keyed object', () => {\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('products expose spec fields', () => {\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(b.products[0]).to.have.property(k));\n});\ntest('no image vectors leak into products', () => b.products.forEach(p => expect(p).to.not.have.property('images')));\ntest('a-880000629771 is in the top 5 (searched with its own image)', () => {\n  const skus = b.products.slice(0, 5).map(p => p.sku_id);\n  expect(skus).to.include('a-880000629771');\n});",
+            "docs": "Image search: binary PNG upload, no search_query. Uses SKU a-880000629771's own product image.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-044 Text + image search (Air Handling Unit)",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "air handling unit",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('facets is a keyed object', () => {\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('products expose spec fields', () => {\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(b.products[0]).to.have.property(k));\n});\ntest('no image vectors leak into products', () => b.products.forEach(p => expect(p).to.not.have.property('images')));\ntest('172000-001-hvac is in the top 3 (searched with its own image)', () => {\n  const skus = b.products.slice(0, 3).map(p => p.sku_id);\n  expect(skus).to.include('172000-001-hvac');\n});",
+            "docs": "Multimodal search: search_query and binary image together.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-045 Image + filters (material_type 9COM)",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9COM\"], \"availability\": [\"IN_STOCK\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/a-880000629771.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('facets is a keyed object', () => {\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('products expose spec fields', () => {\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(b.products[0]).to.have.property(k));\n});\ntest('no image vectors leak into products', () => b.products.forEach(p => expect(p).to.not.have.property('images')));\ntest('a-880000629771 is in the top 5 (searched with its own image)', () => {\n  const skus = b.products.slice(0, 5).map(p => p.sku_id);\n  expect(skus).to.include('a-880000629771');\n});\ntest('every product is 9COM', () => b.products.forEach(p => expect(p.material_type).to.eql('9COM')));",
+            "docs": "Image search combined with filters; every result must satisfy the filters.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-046 Image search sorted by price asc",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "asc",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.jpg"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/jpeg"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('facets is a keyed object', () => {\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('products expose spec fields', () => {\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(b.products[0]).to.have.property(k));\n});\ntest('no image vectors leak into products', () => b.products.forEach(p => expect(p).to.not.have.property('images')));\ntest('prices non-decreasing', () => {\n  const ps = b.products.map(p => p.price).filter(v => v != null);\n  for (let i = 1; i < ps.length; i++) expect(ps[i]).to.be.at.least(ps[i-1]);\n});",
+            "docs": "Image search with sorting.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-048 Generic binary content type (application/octet-stream)",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('facets is a keyed object', () => {\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('products expose spec fields', () => {\n  ['product_key','sku_id','product_name','product_url','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(b.products[0]).to.have.property(k));\n});\ntest('no image vectors leak into products', () => b.products.forEach(p => expect(p).to.not.have.property('images')));\ntest('172000-001-hvac is in the top 5 (searched with its own image)', () => {\n  const skus = b.products.slice(0, 5).map(p => p.sku_id);\n  expect(skus).to.include('172000-001-hvac');\n});",
+            "docs": "PNG bytes sent with Content-Type application/octet-stream; the API detects PNG from the bytes.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Suggestions",
+      "seq": 8,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-026 Suggestions — 'pres' prefix",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pres",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "query_limit",
+                "value": "4",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "product_limit",
+                "value": "5",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('response keys are exactly the spec keys', () => expect(Object.keys(b)).to.have.members(['query','query_suggestions','product_suggestions']));\ntest('query echoed', () => expect(b.query).to.eql('pres'));\ntest('query_suggestions is array', () => expect(b.query_suggestions).to.be.an('array'));\ntest('product_suggestions is array', () => expect(b.product_suggestions).to.be.an('array'));\ntest('every query suggestion has text + destination_url', () => {\n  b.query_suggestions.forEach(s => {\n    expect(Object.keys(s)).to.have.members(['text','destination_url']);\n    expect(s.text).to.be.a('string').and.not.empty;\n    expect(s.destination_url).to.match(/^\\/search\\?q=/);\n  });\n});\ntest('every product suggestion has text + destination_url', () => {\n  b.product_suggestions.forEach(s => {\n    expect(Object.keys(s)).to.have.members(['text','destination_url']);\n    expect(s.text).to.be.a('string').and.not.empty;\n    expect(s.destination_url).to.be.a('string');\n  });\n});\ntest('query_suggestions count <= 4', () => expect(b.query_suggestions.length).to.be.at.most(4));\ntest('product_suggestions count <= 5', () => expect(b.product_suggestions.length).to.be.at.most(5));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-027 Suggestions — 'pump' prefix (limit 3)",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pump",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "query_limit",
+                "value": "4",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "product_limit",
+                "value": "3",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('product_suggestions count <= 3', () => expect(b.product_suggestions.length).to.be.at.most(3));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-029 Suggestions — no match",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&query_limit=4&product_limit=5",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "zzzzzzzz",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "query_limit",
+                "value": "4",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "product_limit",
+                "value": "5",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('empty product suggestions', () => expect(b.product_suggestions.length).to.eql(0));\ntest('empty query suggestions', () => expect(b.query_suggestions.length).to.eql(0));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Error Validation",
+      "seq": 9,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-030 Unsupported language — fr (400)",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "fr",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_LANGUAGE', () => expect(b.code).to.eql('UNSUPPORTED_LANGUAGE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-030b Unsupported channel — desktop (400)",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "desktop",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_CHANNEL', () => expect(b.code).to.eql('UNSUPPORTED_CHANNEL'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-031 Empty request — no query/image/filters (400)",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = EMPTY_REQUEST', () => expect(b.code).to.eql('EMPTY_REQUEST'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-032 Invalid filter key (400)",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"unknown_field\": \"x\"}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = INVALID_FILTER_KEY', () => expect(b.code).to.eql('INVALID_FILTER_KEY'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-032b Malformed filters JSON (400)",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{not json}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = INVALID_FILTER', () => expect(b.code).to.eql('INVALID_FILTER'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-032c Invalid sort_by (400)",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "name",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = INVALID_SORT_BY', () => expect(b.code).to.eql('INVALID_SORT_BY'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-033 page_size > 200 (400)",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "500",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = VALIDATION_ERROR', () => expect(b.code).to.eql('VALIDATION_ERROR'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-034 page < 1 (400)",
+          "seq": 8,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "0",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = VALIDATION_ERROR', () => expect(b.code).to.eql('VALIDATION_ERROR'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-035 Missing q on suggestions (400)",
+          "seq": 9,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = VALIDATION_ERROR', () => expect(b.code).to.eql('VALIDATION_ERROR'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-035b Missing channel on suggestions (400)",
+          "seq": 10,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pump&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pump",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = VALIDATION_ERROR', () => expect(b.code).to.eql('VALIDATION_ERROR'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-035c Unsupported language on suggestions (400)",
+          "seq": 11,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=fr",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pump",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "fr",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_LANGUAGE', () => expect(b.code).to.eql('UNSUPPORTED_LANGUAGE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-043 Non-image file sent as image/png (400)",
+          "seq": 12,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/not_an_image.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);",
+            "docs": "A text file declared as image/png must be rejected by the byte check.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-047 Image larger than 5 MB (413)",
+          "seq": 13,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/oversized.jpg"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/jpeg"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 413', () => expect(res.getStatus()).to.equal(413));\nconst b = res.getBody();\ntest('code = IMAGE_TOO_LARGE', () => expect(b.code).to.eql('IMAGE_TOO_LARGE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);",
+            "docs": "Oversized upload must be rejected before embedding.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-032d Invalid filter value (400)",
+          "seq": 14,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": \"abc\"}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = INVALID_FILTER_VALUE', () => expect(b.code).to.eql('INVALID_FILTER_VALUE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);\ntest('flat error body (no wrapper)', () => expect(b).to.not.have.property('error'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Diagnostics",
+      "seq": 10,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "OpenSearch latency",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/health/latency/opensearch?samples=5",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "samples",
+                "value": "5",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "OCI latency",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/health/latency/oci?samples=5",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "samples",
+                "value": "5",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Redis (Embedding Cache)",
+      "seq": 11,
+      "root": {
+        "docs": "Set collection variable redis_enabled to match REDIS_ENABLED in the API's .env (true / false). Run the folder in order: TC-050 and TC-053 save the ids that later requests reuse."
+      },
+      "items": [
+        {
+          "type": "http-request",
+          "name": "Redis latency",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/health/latency/redis?samples=5",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "samples",
+                "value": "5",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\ntest('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\nif (redisOn) {\n  test('Redis reachable', () => expect(b.ok).to.eql(true));\n} else {\n  test('reported as disabled', () => { expect(b.ok).to.eql(false); expect(b.error).to.include('disabled'); });\n}",
+            "docs": "Round-trip PING to Redis. With redis_enabled=false the API reports ok=false and that Redis is disabled.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-049 Health reports Redis status",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/health",
+            "method": "GET",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\ntest('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\nif (redisOn) {\n  test('redis_connected = true', () => expect(b.redis_connected).to.eql(true));\n} else {\n  test('redis_connected = null (disabled)', () => expect(b.redis_connected).to.eql(null));\n}",
+            "docs": "redis_connected is true when Redis is enabled and reachable, null when disabled.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-050 Text search returns query_embedding_id",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "gate valve",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\ntest('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('image_embedding_id is null', () => expect(b.image_embedding_id).to.eql(null));\nif (redisOn) {\n  test('query_embedding_id returned', () => expect(b.query_embedding_id).to.match(/^asmo:emb:query:[0-9a-f]{64}$/));\n  bru.setVar('query_embedding_id', b.query_embedding_id);\n} else {\n  test('query_embedding_id is null (Redis disabled)', () => expect(b.query_embedding_id).to.eql(null));\n  // A well-formed id that later requests send; with Redis disabled they must get 503.\n  bru.setVar('query_embedding_id', 'asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000');\n}",
+            "docs": "First text search: the query embedding is stored in Redis and its id returned (saved as query_embedding_id).",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-051 Same query again (different case/spaces) returns the same id",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "  Gate   VALVE ",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\ntest('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\nif (redisOn) {\n  test('same query_embedding_id as before', () => expect(b.query_embedding_id).to.eql(bru.getVar('query_embedding_id')));\n} else {\n  test('query_embedding_id is null (Redis disabled)', () => expect(b.query_embedding_id).to.eql(null));\n}",
+            "docs": "Same query after normalisation (trim, collapse spaces, lower-case) is served from Redis.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-052 Search by query_embedding_id only (no search_query)",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\nconst b = res.getBody();\nif (redisOn) {\n  test('Status 200', () => expect(res.getStatus()).to.equal(200));\n  test('products is an array', () => expect(b.products).to.be.an('array'));\n  test('query_embedding_id echoed back', () => expect(b.query_embedding_id).to.eql(bru.getVar('query_embedding_id')));\n} else {\n  test('Status 503 (Redis disabled)', () => expect(res.getStatus()).to.equal(503));\n  test('code = EMBEDDING_STORE_UNAVAILABLE', () => expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));\n}",
+            "docs": "Reuses the stored query text and embedding. Redis disabled → 503.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-053 Image search returns image_embedding_id",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.jpg"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/jpeg"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\ntest('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('query_embedding_id is null', () => expect(b.query_embedding_id).to.eql(null));\nif (redisOn) {\n  test('image_embedding_id returned', () => expect(b.image_embedding_id).to.match(/^asmo:emb:image:[0-9a-f]{64}$/));\n  bru.setVar('image_embedding_id', b.image_embedding_id);\n} else {\n  test('image_embedding_id is null (Redis disabled)', () => expect(b.image_embedding_id).to.eql(null));\n  // A well-formed id that later requests send; with Redis disabled they must get 503.\n  bru.setVar('image_embedding_id', 'asmo:emb:image:0000000000000000000000000000000000000000000000000000000000000000');\n}",
+            "docs": "Image embedding and the image (base64) are stored in Redis; the id is saved as image_embedding_id.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-054 Same image again returns the same id",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.jpg"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/jpeg"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\ntest('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\nif (redisOn) {\n  test('same image_embedding_id as before', () => expect(b.image_embedding_id).to.eql(bru.getVar('image_embedding_id')));\n} else {\n  test('image_embedding_id is null (Redis disabled)', () => expect(b.image_embedding_id).to.eql(null));\n}",
+            "docs": "Identical image bytes are served from Redis.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-055 Search by image_embedding_id only (no image)",
+          "seq": 8,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\nconst b = res.getBody();\nif (redisOn) {\n  test('Status 200', () => expect(res.getStatus()).to.equal(200));\n  test('products is an array', () => expect(b.products).to.be.an('array'));\n  test('image_embedding_id echoed back', () => expect(b.image_embedding_id).to.eql(bru.getVar('image_embedding_id')));\n  test('ao-100018_1 in top 5', () => expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));\n} else {\n  test('Status 503 (Redis disabled)', () => expect(res.getStatus()).to.equal(503));\n  test('code = EMBEDDING_STORE_UNAVAILABLE', () => expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));\n}",
+            "docs": "Image search using the stored embedding; no upload. Redis disabled → 503.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-056 Text + image by both ids",
+          "seq": 9,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\nconst b = res.getBody();\nif (redisOn) {\n  test('Status 200', () => expect(res.getStatus()).to.equal(200));\n  test('products is an array', () => expect(b.products).to.be.an('array'));\n  test('query_embedding_id echoed back', () => expect(b.query_embedding_id).to.eql(bru.getVar('query_embedding_id')));\n  test('image_embedding_id echoed back', () => expect(b.image_embedding_id).to.eql(bru.getVar('image_embedding_id')));\n} else {\n  test('Status 503 (Redis disabled)', () => expect(res.getStatus()).to.equal(503));\n  test('code = EMBEDDING_STORE_UNAVAILABLE', () => expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));\n}",
+            "docs": "Multimodal search entirely from Redis. Redis disabled → 503.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-057 Unknown / expired embedding id",
+          "seq": 10,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "query_embedding_id",
+                  "value": "asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const redisOn = String(bru.getVar('redis_enabled')).toLowerCase() !== 'false';\nconst b = res.getBody();\nif (redisOn) {\n  test('Status 400', () => expect(res.getStatus()).to.equal(400));\n  test('code = EMBEDDING_ID_NOT_FOUND', () => expect(b.code).to.eql('EMBEDDING_ID_NOT_FOUND'));\n} else {\n  test('Status 503 (Redis disabled)', () => expect(res.getStatus()).to.equal(503));\n  test('code = EMBEDDING_STORE_UNAVAILABLE', () => expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));\n}",
+            "docs": "Well-formed id that is not in Redis: 400 when Redis is enabled, 503 when disabled.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-058 Malformed embedding id (400)",
+          "seq": 11,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "image_embedding_id",
+                  "value": "not-an-id",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = EMBEDDING_ID_NOT_FOUND', () => expect(b.code).to.eql('EMBEDDING_ID_NOT_FOUND'));",
+            "docs": "Ids must look like asmo:emb:image:<sha256>; rejected without touching Redis (same with Redis on or off).",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "environments": [
+    {
+      "name": "local",
+      "variables": [
+        {
+          "name": "base_url",
+          "value": "http://localhost:8000",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        },
+        {
+          "name": "category_id",
+          "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        },
+        {
+          "name": "redis_enabled",
+          "value": "true",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        },
+        {
+          "name": "query_embedding_id",
+          "value": "",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        },
+        {
+          "name": "image_embedding_id",
+          "value": "",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "root": {
+    "request": {
+      "vars": {
+        "req": [
+          {
+            "name": "base_url",
+            "value": "http://localhost:8000",
+            "enabled": true
+          },
+          {
+            "name": "category_id",
+            "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72",
+            "enabled": true
+          },
+          {
+            "name": "redis_enabled",
+            "value": "true",
+            "enabled": true
+          },
+          {
+            "name": "query_embedding_id",
+            "value": "",
+            "enabled": true
+          },
+          {
+            "name": "image_embedding_id",
+            "value": "",
+            "enabled": true
+          }
+        ]
+      }
+    },
+    "docs": "Aligned to ASMO AI Search API Specification v2.0: POST /v1/search (multipart/form-data) and GET /v1/search/suggestions. Response and filter keys are the OpenSearch index field names. Set the category_id variable to a real category id from the index."
+  },
+  "brunoConfig": {
+    "version": "1",
+    "name": "ASMO AI Search API v2.0 — Scenario Tests (multipart)",
+    "type": "collection",
+    "ignore": [
+      "node_modules",
+      ".git"
+    ]
+  }
+}
