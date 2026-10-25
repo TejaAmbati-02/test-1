@@ -68,6 +68,8 @@ class SearchApiResponse(BaseModel):
     page_size: int = Field(description="Number of products returned per page")
     products: list[ProductItem] = Field(description="Products for the requested page")
     facets: SearchFacets = Field(default_factory=SearchFacets, description="Facets computed across the full result set")
+    query_embedding_id: str | None = Field(default=None, description="Redis id of the query embedding; send it back as query_embedding_id to reuse the query")
+    image_embedding_id: str | None = Field(default=None, description="Redis id of the image embedding; send it back as image_embedding_id to reuse the image")
 
 
 # ---------------------------------------------------------------------------
@@ -114,10 +116,11 @@ class HealthResponse(BaseModel):
     opensearch_cluster: str | None = Field(default=None, description="Cluster name returned by OpenSearch, null if unreachable")
     embedding_model_loaded: bool = Field(description="Whether the embedding model client has been initialized")
     embedding_model_name: str = Field(description="OCI GenAI model identifier used for query embedding")
+    redis_connected: bool | None = Field(default=None, description="Whether Redis (embedding cache) answered PING; null when Redis is disabled")
 
 
 class LatencyResponse(BaseModel):
-    target: str = Field(description="Which dependency was measured: 'opensearch' or 'oci'")
+    target: str = Field(description="Which dependency was measured: 'opensearch', 'redis' or 'oci'")
     endpoint: str = Field(description="Host/endpoint that was contacted")
     samples: int = Field(description="Number of round-trips attempted")
     samples_ms: list[float] = Field(description="Per-call round-trip time in milliseconds, in order (first is usually cold)")

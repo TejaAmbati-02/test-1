@@ -12,6 +12,18 @@
     {
       "key": "category_id",
       "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72"
+    },
+    {
+      "key": "redis_enabled",
+      "value": "true"
+    },
+    {
+      "key": "query_embedding_id",
+      "value": ""
+    },
+    {
+      "key": "image_embedding_id",
+      "value": ""
     }
   ],
   "item": [
@@ -1893,7 +1905,7 @@
           ]
         },
         {
-          "name": "TC-048 Raw binary upload (.bin, application/octet-stream)",
+          "name": "TC-048 Generic binary content type (application/octet-stream)",
           "request": {
             "method": "POST",
             "header": [],
@@ -1933,12 +1945,12 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/172000-001-hvac.bin",
+                  "src": "test_images/172000-001-hvac.png",
                   "contentType": "application/octet-stream"
                 }
               ]
             },
-            "description": "Same image as TC-044 sent as a generic binary part; the API detects PNG from the bytes."
+            "description": "PNG bytes sent with Content-Type application/octet-stream; the API detects PNG from the bytes."
           },
           "event": [
             {
@@ -3039,6 +3051,703 @@
             },
             "header": []
           }
+        }
+      ]
+    },
+    {
+      "name": "Redis (Embedding Cache)",
+      "description": "Set collection variable redis_enabled to match REDIS_ENABLED in the API's .env (true / false). Run the folder in order: TC-050 and TC-053 save the ids that later requests reuse.",
+      "item": [
+        {
+          "name": "Redis latency",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/latency/redis?samples=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "latency",
+                "redis"
+              ],
+              "query": [
+                {
+                  "key": "samples",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Round-trip PING to Redis. With redis_enabled=false the API reports ok=false and that Redis is disabled."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('Redis reachable', () => pm.expect(b.ok).to.eql(true));",
+                  "} else {",
+                  "  pm.test('reported as disabled', () => { pm.expect(b.ok).to.eql(false); pm.expect(b.error).to.include('disabled'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-049 Health reports Redis status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "redis_connected is true when Redis is enabled and reachable, null when disabled."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('redis_connected = true', () => pm.expect(b.redis_connected).to.eql(true));",
+                  "} else {",
+                  "  pm.test('redis_connected = null (disabled)', () => pm.expect(b.redis_connected).to.eql(null));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-050 Text search returns query_embedding_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "First text search: the query embedding is stored in Redis and its id returned (saved as query_embedding_id).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "gate valve",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('image_embedding_id is null', () => pm.expect(b.image_embedding_id).to.eql(null));",
+                  "if (redisOn) {",
+                  "  pm.test('query_embedding_id returned', () => pm.expect(b.query_embedding_id).to.match(/^asmo:emb:query:[0-9a-f]{64}$/));",
+                  "  pm.collectionVariables.set('query_embedding_id', b.query_embedding_id);",
+                  "} else {",
+                  "  pm.test('query_embedding_id is null (Redis disabled)', () => pm.expect(b.query_embedding_id).to.eql(null));",
+                  "  // A well-formed id that later requests send; with Redis disabled they must get 503.",
+                  "  pm.collectionVariables.set('query_embedding_id', 'asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-051 Same query again (different case/spaces) returns the same id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Same query after normalisation (trim, collapse spaces, lower-case) is served from Redis.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "  Gate   VALVE ",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('same query_embedding_id as before', () => pm.expect(b.query_embedding_id).to.eql(pm.collectionVariables.get('query_embedding_id')));",
+                  "} else {",
+                  "  pm.test('query_embedding_id is null (Redis disabled)', () => pm.expect(b.query_embedding_id).to.eql(null));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-052 Search by query_embedding_id only (no search_query)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Reuses the stored query text and embedding. Redis disabled → 503.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "  pm.test('query_embedding_id echoed back', () => pm.expect(b.query_embedding_id).to.eql(pm.collectionVariables.get('query_embedding_id')));",
+                  "} else {",
+                  "  pm.test('Status 503 (Redis disabled)', () => pm.response.to.have.status(503));",
+                  "  pm.test('code = EMBEDDING_STORE_UNAVAILABLE', () => pm.expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-053 Image search returns image_embedding_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Image embedding and the image (base64) are stored in Redis; the id is saved as image_embedding_id.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('query_embedding_id is null', () => pm.expect(b.query_embedding_id).to.eql(null));",
+                  "if (redisOn) {",
+                  "  pm.test('image_embedding_id returned', () => pm.expect(b.image_embedding_id).to.match(/^asmo:emb:image:[0-9a-f]{64}$/));",
+                  "  pm.collectionVariables.set('image_embedding_id', b.image_embedding_id);",
+                  "} else {",
+                  "  pm.test('image_embedding_id is null (Redis disabled)', () => pm.expect(b.image_embedding_id).to.eql(null));",
+                  "  // A well-formed id that later requests send; with Redis disabled they must get 503.",
+                  "  pm.collectionVariables.set('image_embedding_id', 'asmo:emb:image:0000000000000000000000000000000000000000000000000000000000000000');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-054 Same image again returns the same id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Identical image bytes are served from Redis.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('same image_embedding_id as before', () => pm.expect(b.image_embedding_id).to.eql(pm.collectionVariables.get('image_embedding_id')));",
+                  "} else {",
+                  "  pm.test('image_embedding_id is null (Redis disabled)', () => pm.expect(b.image_embedding_id).to.eql(null));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-055 Search by image_embedding_id only (no image)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Image search using the stored embedding; no upload. Redis disabled → 503.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "  pm.test('image_embedding_id echoed back', () => pm.expect(b.image_embedding_id).to.eql(pm.collectionVariables.get('image_embedding_id')));",
+                  "  pm.test('ao-100018_1 in top 5', () => pm.expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));",
+                  "} else {",
+                  "  pm.test('Status 503 (Redis disabled)', () => pm.response.to.have.status(503));",
+                  "  pm.test('code = EMBEDDING_STORE_UNAVAILABLE', () => pm.expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-056 Text + image by both ids",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Multimodal search entirely from Redis. Redis disabled → 503.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "  pm.test('query_embedding_id echoed back', () => pm.expect(b.query_embedding_id).to.eql(pm.collectionVariables.get('query_embedding_id')));",
+                  "  pm.test('image_embedding_id echoed back', () => pm.expect(b.image_embedding_id).to.eql(pm.collectionVariables.get('image_embedding_id')));",
+                  "} else {",
+                  "  pm.test('Status 503 (Redis disabled)', () => pm.response.to.have.status(503));",
+                  "  pm.test('code = EMBEDDING_STORE_UNAVAILABLE', () => pm.expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-057 Unknown / expired embedding id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Well-formed id that is not in Redis: 400 when Redis is enabled, 503 when disabled.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "query_embedding_id",
+                  "value": "asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const redisOn = String(pm.collectionVariables.get('redis_enabled')).toLowerCase() !== 'false';",
+                  "const b = pm.response.json();",
+                  "if (redisOn) {",
+                  "  pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "  pm.test('code = EMBEDDING_ID_NOT_FOUND', () => pm.expect(b.code).to.eql('EMBEDDING_ID_NOT_FOUND'));",
+                  "} else {",
+                  "  pm.test('Status 503 (Redis disabled)', () => pm.response.to.have.status(503));",
+                  "  pm.test('code = EMBEDDING_STORE_UNAVAILABLE', () => pm.expect(b.code).to.eql('EMBEDDING_STORE_UNAVAILABLE'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-058 Malformed embedding id (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Ids must look like asmo:emb:image:<sha256>; rejected without touching Redis (same with Redis on or off).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image_embedding_id",
+                  "value": "not-an-id",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = EMBEDDING_ID_NOT_FOUND', () => pm.expect(b.code).to.eql('EMBEDDING_ID_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

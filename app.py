@@ -22,6 +22,7 @@ from utils.logger import logger, setup_logging, set_log_context, clear_log_conte
 from models.response import HealthResponse, LatencyResponse
 from routers.search import index_router, v1_router
 from services.embedder import embedding_service
+from services.embedding_store import embedding_store
 from services.opensearch import os_client
 from services.search import search_service
  
@@ -100,6 +101,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         else:
             logger.info("OpenSearch connected")
  
+        if embedding_store.enabled:
+            logger.info(f"Connecting to Redis at {settings.redis_host}:{settings.redis_port}")
+            if await embedding_store.ping():
+                logger.info("Redis connected — embedding cache enabled")
+            else:
+                logger.warning("Redis unreachable — searches will embed without the cache")
+        else:
+            logger.info("Redis disabled (REDIS_ENABLED=false or REDIS_HOST unset) — embedding cache off")
+
         logger.info("Setting up hybrid search pipeline (RRF)")
         await search_service.setup_pipeline()
         logger.info("Search pipeline ready")
@@ -125,6 +135,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
             except asyncio.CancelledError:
                 pass
     await os_client.close()
+    await embedding_store.close()
     logger.info("Shutdown complete")
  
  
@@ -218,14 +229,16 @@ async def health() -> HealthResponse:
         cluster = await os_client.cluster_name()
         connected = cluster is not None
         model_loaded = embedding_service.is_loaded
-        status = "ok" if connected and model_loaded else "degraded"
-        logger.info(f"Health: status={status} opensearch={connected} model={model_loaded}")
+        redis_connected = await embedding_store.ping() if embedding_store.enabled else None
+        status = "ok" if connected and model_loaded and redis_connected is not False else "degraded"
+        logger.info(f"Health: status={status} opensearch={connected} model={model_loaded} redis={redis_connected}")
         return HealthResponse(
             status=status,
             opensearch_connected=connected,
             opensearch_cluster=cluster,
             embedding_model_loaded=model_loaded,
             embedding_model_name=embedding_service.model_name,
+            redis_connected=redis_connected,
         )
     except Exception as exc:
         logger.exception(f"Health check failed: {exc}")
@@ -278,6 +291,24 @@ async def latency_opensearch(samples: int = 5) -> LatencyResponse:
     return result
  
  
+@app.get("/health/latency/redis", response_model=LatencyResponse, tags=["Health"])
+async def latency_redis(samples: int = 5) -> LatencyResponse:
+    """Measure round-trip latency to Redis (one PING per sample)."""
+    samples = max(1, min(samples, 20))
+    logger.info(f"GET /health/latency/redis — {samples} samples")
+    endpoint = f"{settings.redis_host}:{settings.redis_port}"
+    if not embedding_store.enabled:
+        return _latency_response("redis", endpoint, samples, [], "Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)")
+
+    async def _call() -> None:
+        await embedding_store._redis().ping()
+
+    times, error = await _measure_latency(_call, samples)
+    result = _latency_response("redis", endpoint, samples, times, error)
+    logger.info(f"Redis latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+    return result
+
+
 @app.get("/health/latency/oci", response_model=LatencyResponse, tags=["Health"])
 async def latency_oci(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to OCI GenAI (one embed call per sample)."""

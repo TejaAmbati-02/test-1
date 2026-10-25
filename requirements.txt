@@ -7,3 +7,4 @@ opensearch-py[async]>=2.7.0
 oci>=2.126.0
 langchain-core>=0.3.0
 python-dotenv>=1.0.0
+redis>=5.1.0

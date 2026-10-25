@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from typing import Annotated, Any
@@ -20,6 +21,13 @@ from models.response import (
     SuggestionsResponse,
 )
 from services.opensearch import IndexNotFoundError, OpenSearchQueryError
+from services.embedding_store import (
+    EmbeddingIdNotFound,
+    EmbeddingStoreUnavailable,
+    ImageEmbedding,
+    QueryEmbedding,
+    embedding_store,
+)
 from services.search import ALLOWED_FILTER_KEYS, FILTER_KEY_MAP, search_service
 
 index_router = APIRouter(prefix="/indices", tags=["Indices"])
@@ -169,6 +177,8 @@ class SearchForm(BaseModel):
     filters: str | None = Field(default=None, description="Filter object encoded as a JSON string")
     page: int = Field(default=1, ge=1, description="1-based page number")
     page_size: int = Field(default=60, ge=1, le=200, description="Results per page (frontend default 60)")
+    query_embedding_id: str | None = Field(default=None, description="Embedding id from a previous response; reuses that query (and its embedding) when search_query is omitted")
+    image_embedding_id: str | None = Field(default=None, description="Embedding id from a previous response; reuses that image (and its embedding) when image is omitted")
 
 
 # The multipart body is parsed in the handler (not by FastAPI) so the image part
@@ -233,6 +243,34 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None,
     return parsed, (data or None), declared
 
 
+async def _resolve_embeddings(
+    query: str | None,
+    query_id: str | None,
+    image: tuple[bytes, str] | None,
+    image_id: str | None,
+) -> tuple[QueryEmbedding | None, ImageEmbedding | None]:
+    """Resolve the query and image embeddings concurrently.
+
+    Raw input is embedded through the Redis cache (a repeat query / image reuses
+    the stored vector); an embedding id is loaded straight from Redis.
+    """
+    async def for_query() -> QueryEmbedding | None:
+        if query:
+            return await embedding_store.query_embedding(query)
+        if query_id:
+            return await embedding_store.load_query(query_id)
+        return None
+
+    async def for_image() -> ImageEmbedding | None:
+        if image:
+            return await embedding_store.image_embedding(*image)
+        if image_id:
+            return await embedding_store.load_image(image_id)
+        return None
+
+    return await asyncio.gather(for_query(), for_image())
+
+
 @v1_router.post(
     "/search",
     response_model=SearchApiResponse,
@@ -256,7 +294,10 @@ async def v1_search(request: Request) -> SearchApiResponse:
         _validate_enum(sort_by, SUPPORTED_SORT_BY, "sort_by", "INVALID_SORT_BY")
     _validate_enum(sort_order, SUPPORTED_SORT_ORDER, "sort_order", "INVALID_SORT_ORDER")
 
-    has_image = image_bytes is not None
+    # A raw query / image wins over an embedding id when both are sent.
+    query_id = None if (search_query and search_query.strip()) else form.query_embedding_id
+    image_id = None if image_bytes is not None else form.image_embedding_id
+    has_image = image_bytes is not None or bool(image_id)
 
     logger.info(
         "POST /v1/search — received",
@@ -272,13 +313,15 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 "sort_order": sort_order,
                 "has_filters": bool(filters),
                 "has_image": has_image,
+                "query_embedding_id": query_id,
+                "image_embedding_id": image_id,
             },
         },
     )
 
     # --- Image validation (§5): unsupported type -> 400, oversized -> 413 ----
     image_input: tuple[bytes, str] | None = None
-    if has_image:
+    if image_bytes is not None:
         if declared_type not in ALLOWED_IMAGE_TYPES | GENERIC_BINARY_TYPES:
             logger.warning(f"POST /v1/search — unsupported image type '{declared_type}'")
             raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", f"Unsupported image type '{declared_type}'.")
@@ -298,13 +341,13 @@ async def v1_search(request: Request) -> SearchApiResponse:
     logger.debug("POST /v1/search — parsing filters and building OpenSearch clauses")
     os_filters = _build_os_filters(_parse_filters(filters))
 
-    has_query = bool(search_query and search_query.strip())
+    has_query = bool(search_query and search_query.strip()) or bool(query_id)
     has_filters = bool(os_filters)
 
     # --- Operation decision (§2.2) ------------------------------------------
     if not has_query and not has_image and not has_filters:
         logger.warning("POST /v1/search — rejected: no query, no image and no filters provided")
-        raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image or filters must be provided")
+        raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or an embedding id must be provided")
 
     mode = (
         "text+image" if has_query and has_image
@@ -316,10 +359,15 @@ async def v1_search(request: Request) -> SearchApiResponse:
 
     try:
         if has_query or has_image:
+            query_emb, image_emb = await _resolve_embeddings(
+                search_query.strip() if search_query and search_query.strip() else None,
+                query_id, image_input, image_id,
+            )
             result = await search_service.search_v1(
                 index=_cfg.opensearch_index_name,
-                query=search_query.strip() if has_query else None,
-                image=image_input,
+                query=query_emb.query if query_emb else None,
+                query_vector=query_emb.vector if query_emb else None,
+                image_vector=image_emb.vector if image_emb else None,
                 vector_field=_cfg.opensearch_vector_field,
                 language=language,
                 filters=os_filters,
@@ -330,6 +378,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 retrieval_k=_RETRIEVAL_K,
                 request_id=request_id,
             )
+            result.query_embedding_id = query_emb.key if query_emb else None
+            result.image_embedding_id = image_emb.key if image_emb else None
         else:
             result = await search_service.filter_browse(
                 index=_cfg.opensearch_index_name,
@@ -361,6 +411,12 @@ async def v1_search(request: Request) -> SearchApiResponse:
         return result
     except HTTPException:
         raise
+    except EmbeddingIdNotFound as exc:
+        logger.warning(f"POST /v1/search — embedding id not found: {exc}")
+        raise _api_error(400, "EMBEDDING_ID_NOT_FOUND", str(exc))
+    except EmbeddingStoreUnavailable as exc:
+        logger.warning(f"POST /v1/search — Redis unavailable while resolving an embedding id: {exc}")
+        raise _api_error(503, "EMBEDDING_STORE_UNAVAILABLE", f"Embedding ids cannot be resolved ({exc}); send search_query / image instead.")
     except IndexNotFoundError as exc:
         logger.warning(f"POST /v1/search — index not found: {exc}", extra={"status": "error", "error_details": str(exc)})
         raise _api_error(404, "INDEX_NOT_FOUND", str(exc))

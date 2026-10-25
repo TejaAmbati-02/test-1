@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import time
 from typing import Any
 
@@ -239,7 +238,8 @@ class SearchService:
         self,
         index: str,
         query: str | None,
-        image: tuple[bytes, str] | None,
+        query_vector: list[float] | None,
+        image_vector: list[float] | None,
         vector_field: str,
         language: str,
         filters: list[dict],
@@ -256,7 +256,11 @@ class SearchService:
           * text  → BM25 multi_match + kNN on ``content_vector``;
           * image → nested kNN on ``images.image_vector`` (each SKU scores by its
             best-matching image).
+
+        Embeddings are resolved by the caller (Redis cache or OCI) and passed in:
+        ``query`` + ``query_vector`` for text, ``image_vector`` for an image.
         """
+        image = image_vector is not None
         mode = "text+image" if (query and image) else ("image" if image else "text")
         logger.info(
             f"SearchService.search_v1 — starting (mode={mode})",
@@ -270,19 +274,8 @@ class SearchService:
             },
         )
         try:
-            # Embed text and image concurrently — they are independent OCI calls.
-            _t_embed0 = time.perf_counter()
-            embed_jobs = []
-            if query:
-                embed_jobs.append(self._emb.encode_query(query))
-            if image:
-                embed_jobs.append(self._emb.encode_image(*image))
-            vectors = await asyncio.gather(*embed_jobs)
-            query_vector = vectors[0] if query else None
-            image_vector = vectors[-1] if image else None
-            embed_ms = (time.perf_counter() - _t_embed0) * 1000
             logger.debug(
-                "SearchService.search_v1 — vectors encoded",
+                "SearchService.search_v1 — vectors received",
                 extra={"input_data": {"text_dim": len(query_vector or []), "image_dim": len(image_vector or [])}},
             )
 
@@ -335,20 +328,18 @@ class SearchService:
             raw_hits = raw["hits"]["hits"]
 
             # Phase breakdown so slow searches can be attributed precisely:
-            #   embed_ms       = OCI GenAI embedding round-trip (Riyadh, on-demand)
             #   search_wall_ms = full OpenSearch call wall time (network + server)
             #   took_ms        = OpenSearch server-side time only
             #   os_network_ms  = search_wall_ms - took_ms  (round-trip + (de)serialization)
             os_network_ms = round(search_wall_ms - took_ms, 1)
             logger.info(
-                f"SearchService.search_v1 — PHASE BREAKDOWN: embed={embed_ms:.1f}ms "
+                f"SearchService.search_v1 — PHASE BREAKDOWN: "
                 f"os_wall={search_wall_ms:.1f}ms os_server(took)={took_ms}ms os_network={os_network_ms}ms",
                 extra={
                     "status": "success",
                     "search_query": query,
-                    "latency": f"{embed_ms + search_wall_ms:.1f}ms",
+                    "latency": f"{search_wall_ms:.1f}ms",
                     "response_payload": {
-                        "embed_ms": round(embed_ms, 1),
                         "os_wall_ms": round(search_wall_ms, 1),
                         "os_server_took_ms": took_ms,
                         "os_network_ms": os_network_ms,

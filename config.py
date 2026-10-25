@@ -32,6 +32,21 @@ class Settings(BaseSettings):
     hybrid_retrieval_k: int = 100
  
  
+    # Redis — embedding cache for /v1/search. Each query / image embedding is an
+    # entry in one Redis hash (the collection) keyed by its embedding id, and
+    # expires redis_ttl_seconds after it is written.
+    redis_enabled: bool = True
+    redis_host: str = ""
+    redis_port: int = 443
+    redis_username: str = "default"
+    redis_password: str = ""
+    redis_db: int = 0
+    redis_ssl: bool = True
+    redis_ssl_cert_reqs: str = "none"
+    redis_timeout: int = 10
+    redis_collection: str = "asmo:embeddings"
+    redis_ttl_seconds: int = 3600
+
     # Logging — every log line always prints to the console; LOG_TO_FILE=true
     # also writes JSON lines to logs/asmo-<timestamp>.log.
     log_level: str = "INFO"
