@@ -295,72 +295,6 @@
               "mode": "none"
             }
           }
-        },
-        {
-          "type": "http-request",
-          "name": "TC-008 Search - Arabic language (ar)",
-          "seq": 4,
-          "request": {
-            "url": "{{base_url}}/v1/search",
-            "method": "POST",
-            "headers": [],
-            "params": [],
-            "body": {
-              "mode": "multipartForm",
-              "json": null,
-              "text": null,
-              "xml": null,
-              "sparql": null,
-              "formUrlEncoded": [],
-              "multipartForm": [
-                {
-                  "type": "text",
-                  "name": "channel",
-                  "value": "web",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "language",
-                  "value": "ar",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "search_query",
-                  "value": "pump",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page",
-                  "value": "1",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page_size",
-                  "value": "60",
-                  "enabled": true
-                }
-              ],
-              "file": []
-            },
-            "script": {
-              "req": "",
-              "res": ""
-            },
-            "vars": {
-              "req": [],
-              "res": []
-            },
-            "assertions": [],
-            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['product_key','sku_id','product_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => expect(p).to.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.category_ids).to.be.an('array');\n  expect(p.contract_indicator).to.be.a('boolean');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','seller_name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n  expect(p.supplier_count).to.eql(p.seller_details.length);\n});",
-            "docs": "language=ar is accepted by the contract; the index has no Arabic fields, so the backend searches the German (_de) fields.",
-            "auth": {
-              "mode": "none"
-            }
-          }
         }
       ]
     },
@@ -2886,8 +2820,74 @@
         },
         {
           "type": "http-request",
-          "name": "TC-030b Unsupported channel - desktop (400)",
+          "name": "TC-008 Arabic language not supported (400)",
           "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "ar",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_LANGUAGE', () => expect(b.code).to.eql('UNSUPPORTED_LANGUAGE'));\ntest(\"message lists only 'en'\", () => expect(b.message).to.eql(\"Unsupported language 'ar'. Allowed: en\"));",
+            "docs": "Only English is supported (the index holds English text only): language=ar is rejected.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-030b Unsupported channel - desktop (400)",
+          "seq": 3,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -2953,7 +2953,7 @@
         {
           "type": "http-request",
           "name": "TC-031 Empty request - no query-image-filters (400)",
-          "seq": 3,
+          "seq": 4,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3013,7 +3013,7 @@
         {
           "type": "http-request",
           "name": "TC-032 Invalid filter key (400)",
-          "seq": 4,
+          "seq": 5,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3079,7 +3079,7 @@
         {
           "type": "http-request",
           "name": "TC-032b Malformed filters JSON (400)",
-          "seq": 5,
+          "seq": 6,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3145,7 +3145,7 @@
         {
           "type": "http-request",
           "name": "TC-032c Invalid sort_by (400)",
-          "seq": 6,
+          "seq": 7,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3217,7 +3217,7 @@
         {
           "type": "http-request",
           "name": "TC-033 page_size gt 200 (400)",
-          "seq": 7,
+          "seq": 8,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3283,7 +3283,7 @@
         {
           "type": "http-request",
           "name": "TC-034 page lt 1 (400)",
-          "seq": 8,
+          "seq": 9,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3349,7 +3349,7 @@
         {
           "type": "http-request",
           "name": "TC-035 Missing q on suggestions (400)",
-          "seq": 9,
+          "seq": 10,
           "request": {
             "url": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
             "method": "GET",
@@ -3397,7 +3397,7 @@
         {
           "type": "http-request",
           "name": "TC-035b Missing channel on suggestions (400)",
-          "seq": 10,
+          "seq": 11,
           "request": {
             "url": "{{base_url}}/v1/search/suggestions?q=pump&language=en",
             "method": "GET",
@@ -3445,7 +3445,7 @@
         {
           "type": "http-request",
           "name": "TC-035c Unsupported language on suggestions (400)",
-          "seq": 11,
+          "seq": 12,
           "request": {
             "url": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=fr",
             "method": "GET",
@@ -3499,7 +3499,7 @@
         {
           "type": "http-request",
           "name": "TC-043 Non-image file sent as bin (400)",
-          "seq": 12,
+          "seq": 13,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3574,7 +3574,7 @@
         {
           "type": "http-request",
           "name": "TC-043b JPG file rejected - only .bin accepted (400)",
-          "seq": 13,
+          "seq": 14,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3643,7 +3643,7 @@
         {
           "type": "http-request",
           "name": "TC-043c PNG file rejected - only .bin accepted (400)",
-          "seq": 14,
+          "seq": 15,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3712,7 +3712,7 @@
         {
           "type": "http-request",
           "name": "TC-043d File without .bin extension rejected (400)",
-          "seq": 15,
+          "seq": 16,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3781,7 +3781,7 @@
         {
           "type": "http-request",
           "name": "TC-043e .bin file declared image-png rejected (400)",
-          "seq": 16,
+          "seq": 17,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3850,7 +3850,7 @@
         {
           "type": "http-request",
           "name": "TC-047 Image larger than 5 MB (413)",
-          "seq": 17,
+          "seq": 18,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3919,7 +3919,7 @@
         {
           "type": "http-request",
           "name": "TC-032d Invalid filter value (400)",
-          "seq": 18,
+          "seq": 19,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",

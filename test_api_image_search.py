@@ -81,7 +81,7 @@ def run(base_url: str, cases_dir: Path, bad_dir: Path, only: str | None) -> int:
             top2 = ((body2.get("products") or [{}])[0]).get("sku_id")
             report(f"  reuse image_embedding_id", status2 == 200 and top2 == top, f"status={status2} top={top2}")
 
-    # Error handling (§5): a non-image upload -> 400, an image over 5 MiB -> 413.
+    # Error handling : a non-image upload -> 400, an image over 5 MiB -> 413.
     for name, code in (("not_an_image.png", 400), ("oversized.jpg", 413)):
         path = bad_dir / name
         if path.exists():

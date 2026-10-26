@@ -1,0 +1,3012 @@
+{
+  "name": "ASMO AI Search API - Frontend",
+  "version": "1",
+  "items": [
+    {
+      "type": "folder",
+      "name": "Positive cases",
+      "seq": 1,
+      "root": {
+        "docs": "Requests that succeed."
+      },
+      "items": [
+        {
+          "type": "http-request",
+          "name": "P01 Text search",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pipe",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "relevance",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "desc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Free-text search. Results ranked by relevance (keyword + semantic).\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P02 Text search - mobile channel",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "mobile",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "valve",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Same as text search with channel=mobile.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P03 Sort by price ascending",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "asc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "sort_by=price, sort_order=asc.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P04 Sort by price descending",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "desc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "sort_by=price, sort_order=desc.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P05 Filter - availability",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"availability\": [\"IN_STOCK\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Browse with filters only (no search_query).\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P06 Filter - price range",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "asc",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Range filter: {\"price\": {\"gte\": 50, \"lte\": 150}}.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P07 Filter - material type",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Term filter on material_type.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P08 Filter - category",
+          "seq": 8,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"category_ids\": [\"{{category_id}}\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Products in one category (category_ids).\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P09 Search with multiple filters",
+          "seq": 9,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"], \"availability\": [\"IN_STOCK\"], \"price\": {\"lte\": 500}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "search_query combined with material_type, availability and price filters.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P10 Pagination - page 1",
+          "seq": 10,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "page / page_size control paging; total_results is the full count.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P11 Pagination - page 2",
+          "seq": 11,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "2",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Second page of the same query.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P12 Image search",
+          "seq": 12,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Image only. The image must be a .bin file sent as application/octet-stream (max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image).\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P13 Image search with filters",
+          "seq": 13,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9COM\"], \"availability\": [\"IN_STOCK\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/a-880000629771.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Image search narrowed by filters.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P14 Image search sorted by price",
+          "seq": 14,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "asc",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Image search with sort_by=price.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P15 Text + image search",
+          "seq": 15,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "air handling unit",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "search_query and image together; the image drives the ranking, the text refines it.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P16 Text search - returns query_embedding_id",
+          "seq": 16,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "gate valve",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nbru.setVar('query_embedding_id', res.getBody().query_embedding_id || '');",
+            "docs": "The response carries query_embedding_id. Sending it back (without search_query) reuses the query. Saved to the query_embedding_id variable.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P17 Search by query_embedding_id",
+          "seq": 17,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Reuses the query from the previous request: send query_embedding_id instead of search_query.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P18 Image search - returns image_embedding_id",
+          "seq": 18,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nbru.setVar('image_embedding_id', res.getBody().image_embedding_id || '');",
+            "docs": "The response carries image_embedding_id. Sending it back (without image) reuses the image, so it need not be uploaded again. Saved to the image_embedding_id variable.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P19 Search by image_embedding_id",
+          "seq": 19,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Reuses the image from the previous request: send image_embedding_id instead of the file.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P20 Text + image by embedding ids",
+          "seq": 20,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Both ids together: text + image search without re-sending either.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P21 Suggestions",
+          "seq": 21,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pres",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "query_limit",
+                "value": "4",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "product_limit",
+                "value": "5",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "Autocomplete for a typed prefix.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"query\": \"pres\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ]\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P22 Suggestions - limits",
+          "seq": 22,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pump",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "query_limit",
+                "value": "4",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "product_limit",
+                "value": "3",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "query_limit / product_limit cap each list.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"query\": \"pump\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ]\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "P23 Suggestions - no match",
+          "seq": 23,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&query_limit=4&product_limit=5",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "zzzzzzzz",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "query_limit",
+                "value": "4",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "product_limit",
+                "value": "5",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));",
+            "docs": "No match returns 200 with empty lists.\n\nExpected: HTTP 200\n\nExample response:\n\n```json\n{\n  \"query\": \"zzqx\",\n  \"query_suggestions\": [],\n  \"product_suggestions\": []\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Negative cases",
+      "seq": 2,
+      "root": {
+        "docs": "Requests the API must reject, with the exact error returned."
+      },
+      "items": [
+        {
+          "type": "http-request",
+          "name": "N01 Unsupported language (400)",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "fr",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_LANGUAGE', () => expect(res.getBody().code).to.eql('UNSUPPORTED_LANGUAGE'));",
+            "docs": "language must be en.\n\nExpected: HTTP 400 `UNSUPPORTED_LANGUAGE`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_LANGUAGE\",\n  \"message\": \"Unsupported language 'fr'. Allowed: en\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N02 Unsupported channel (400)",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "desktop",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_CHANNEL', () => expect(res.getBody().code).to.eql('UNSUPPORTED_CHANNEL'));",
+            "docs": "channel must be web or mobile.\n\nExpected: HTTP 400 `UNSUPPORTED_CHANNEL`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_CHANNEL\",\n  \"message\": \"Unsupported channel 'desktop'. Allowed: mobile, web\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N03 Empty request (400)",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = EMPTY_REQUEST', () => expect(res.getBody().code).to.eql('EMPTY_REQUEST'));",
+            "docs": "At least one of search_query, image, filters or an embedding id is required.\n\nExpected: HTTP 400 `EMPTY_REQUEST`\n\nExample response:\n\n```json\n{\n  \"code\": \"EMPTY_REQUEST\",\n  \"message\": \"At least one of search_query, image, filters or an embedding id must be provided\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N04 Invalid filter key (400)",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"unknown_field\": \"x\"}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = INVALID_FILTER_KEY', () => expect(res.getBody().code).to.eql('INVALID_FILTER_KEY'));",
+            "docs": "Only supported filter keys are accepted.\n\nExpected: HTTP 400 `INVALID_FILTER_KEY`\n\nExample response:\n\n```json\n{\n  \"code\": \"INVALID_FILTER_KEY\",\n  \"message\": \"The filter key 'unknown_field' is not supported.\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N05 Malformed filters JSON (400)",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{not json}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = INVALID_FILTER', () => expect(res.getBody().code).to.eql('INVALID_FILTER'));",
+            "docs": "filters must be a valid JSON object string.\n\nExpected: HTTP 400 `INVALID_FILTER`\n\nExample response:\n\n```json\n{\n  \"code\": \"INVALID_FILTER\",\n  \"message\": \"filters must be a valid JSON object: Expecting property name enclosed in double quotes\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N06 Invalid filter value (400)",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": \"abc\"}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = INVALID_FILTER_VALUE', () => expect(res.getBody().code).to.eql('INVALID_FILTER_VALUE'));",
+            "docs": "A filter value of the wrong type is rejected.\n\nExpected: HTTP 400 `INVALID_FILTER_VALUE`\n\nExample response:\n\n```json\n{\n  \"code\": \"INVALID_FILTER_VALUE\",\n  \"message\": \"Invalid value for filter 'price': \\\"abc\\\"\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N07 Invalid sort_by (400)",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "name",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = INVALID_SORT_BY', () => expect(res.getBody().code).to.eql('INVALID_SORT_BY'));",
+            "docs": "sort_by must be relevance or price.\n\nExpected: HTTP 400 `INVALID_SORT_BY`\n\nExample response:\n\n```json\n{\n  \"code\": \"INVALID_SORT_BY\",\n  \"message\": \"Unsupported sort_by 'name'. Allowed: price, relevance\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N08 page_size over 200 (400)",
+          "seq": 8,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "500",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = VALIDATION_ERROR', () => expect(res.getBody().code).to.eql('VALIDATION_ERROR'));",
+            "docs": "page_size must be 1-200.\n\nExpected: HTTP 400 `VALIDATION_ERROR`\n\nExample response:\n\n```json\n{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"page_size: Input should be less than or equal to 200\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N09 page below 1 (400)",
+          "seq": 9,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "0",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = VALIDATION_ERROR', () => expect(res.getBody().code).to.eql('VALIDATION_ERROR'));",
+            "docs": "page is 1-based.\n\nExpected: HTTP 400 `VALIDATION_ERROR`\n\nExample response:\n\n```json\n{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"page: Input should be greater than or equal to 1\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N10 Suggestions - missing q (400)",
+          "seq": 10,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = VALIDATION_ERROR', () => expect(res.getBody().code).to.eql('VALIDATION_ERROR'));",
+            "docs": "q is required.\n\nExpected: HTTP 400 `VALIDATION_ERROR`\n\nExample response:\n\n```json\n{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"query.q: Field required\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N11 Suggestions - missing channel (400)",
+          "seq": 11,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pump&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pump",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = VALIDATION_ERROR', () => expect(res.getBody().code).to.eql('VALIDATION_ERROR'));",
+            "docs": "channel is required.\n\nExpected: HTTP 400 `VALIDATION_ERROR`\n\nExample response:\n\n```json\n{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"query.channel: Field required\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N12 Suggestions - unsupported language (400)",
+          "seq": 12,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=fr",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "name": "q",
+                "value": "pump",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "name": "language",
+                "value": "fr",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_LANGUAGE', () => expect(res.getBody().code).to.eql('UNSUPPORTED_LANGUAGE'));",
+            "docs": "language must be en.\n\nExpected: HTTP 400 `UNSUPPORTED_LANGUAGE`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_LANGUAGE\",\n  \"message\": \"Unsupported language 'fr'. Allowed: en\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N13 JPG file rejected (400)",
+          "seq": 13,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.jpg"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/jpeg"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(res.getBody().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
+            "docs": "Only .bin files are accepted: a .jpg (image/jpeg) is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N14 PNG file rejected (400)",
+          "seq": 14,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(res.getBody().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
+            "docs": "Only .bin files are accepted: a .png (image/png) is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N15 File without .bin extension rejected (400)",
+          "seq": 15,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/image_no_extension"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(res.getBody().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
+            "docs": "The file name must end in .bin, even when sent as application/octet-stream.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N16 bin file with image content type rejected (400)",
+          "seq": 16,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(res.getBody().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
+            "docs": "A .bin file must be sent as application/octet-stream, not image/png.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N17 bin file that is not an image (400)",
+          "seq": 17,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/not_an_image.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(res.getBody().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
+            "docs": "The bytes inside the .bin must be a PNG, JPEG, GIF or WebP image.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`\n\nExample response:\n\n```json\n{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"The uploaded file is not a valid PNG, JPEG, GIF or WebP image.\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N18 Image larger than 5 MB (413)",
+          "seq": 18,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/oversized.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 413', () => expect(res.getStatus()).to.equal(413));\ntest('code = IMAGE_TOO_LARGE', () => expect(res.getBody().code).to.eql('IMAGE_TOO_LARGE'));",
+            "docs": "Images over 5 MB are rejected.\n\nExpected: HTTP 413 `IMAGE_TOO_LARGE`\n\nExample response:\n\n```json\n{\n  \"code\": \"IMAGE_TOO_LARGE\",\n  \"message\": \"Image exceeds the maximum size of 5242880 bytes.\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N19 Unknown or expired embedding id (400)",
+          "seq": 19,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "query_embedding_id",
+                  "value": "asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = EMBEDDING_ID_NOT_FOUND', () => expect(res.getBody().code).to.eql('EMBEDDING_ID_NOT_FOUND'));",
+            "docs": "A well-formed id that is not (or no longer) in the cache.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`\n\nExample response:\n\n```json\n{\n  \"code\": \"EMBEDDING_ID_NOT_FOUND\",\n  \"message\": \"asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "N20 Malformed embedding id (400)",
+          "seq": 20,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "image_embedding_id",
+                  "value": "not-an-id",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = EMBEDDING_ID_NOT_FOUND', () => expect(res.getBody().code).to.eql('EMBEDDING_ID_NOT_FOUND'));",
+            "docs": "Embedding ids look like asmo:emb:image:<64 hex chars>.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`\n\nExample response:\n\n```json\n{\n  \"code\": \"EMBEDDING_ID_NOT_FOUND\",\n  \"message\": \"'not-an-id' is not a valid image embedding id\"\n}\n```",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "environments": [
+    {
+      "name": "local",
+      "variables": [
+        {
+          "name": "base_url",
+          "value": "http://localhost:8000",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        },
+        {
+          "name": "category_id",
+          "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        },
+        {
+          "name": "query_embedding_id",
+          "value": "",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        },
+        {
+          "name": "image_embedding_id",
+          "value": "",
+          "enabled": true,
+          "secret": false,
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "root": {
+    "request": {
+      "vars": {
+        "req": [
+          {
+            "name": "base_url",
+            "value": "http://localhost:8000",
+            "enabled": true
+          },
+          {
+            "name": "category_id",
+            "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72",
+            "enabled": true
+          },
+          {
+            "name": "query_embedding_id",
+            "value": "",
+            "enabled": true
+          },
+          {
+            "name": "image_embedding_id",
+            "value": "",
+            "enabled": true
+          }
+        ]
+      }
+    },
+    "docs": "ASMO AI Search API for frontend integration.\n\nPOST /v1/search takes multipart/form-data: channel (web|mobile), language (en), and any of search_query, image, filters (JSON string), sort_by (relevance|price), sort_order (asc|desc), page, page_size (1-200), query_embedding_id, image_embedding_id.\n\nImage: send a .bin file (file name ending in .bin) as application/octet-stream, max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image. In the browser: form.append('image', blob, 'image.bin'). Any other file gets 400 \"Incorrect file format. Only .bin files are accepted.\"\n\nErrors always return {\"code\": \"...\", \"message\": \"...\"}.\n\nSet base_url to the API address. Upload files are in test_images/ next to this collection."
+  },
+  "brunoConfig": {
+    "version": "1",
+    "name": "ASMO AI Search API - Frontend",
+    "type": "collection",
+    "ignore": [
+      "node_modules",
+      ".git"
+    ]
+  }
+}

@@ -3,9 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
-# ---------------------------------------------------------------------------
 # Search API — response contract (ASMO AI Search API Specification v2.1, §2.4)
-# ---------------------------------------------------------------------------
 
 
 class SellerDetail(BaseModel):
@@ -73,9 +71,9 @@ class SearchApiResponse(BaseModel):
     image_embedding_id: str | None = Field(default=None, description="Redis id of the image embedding; send it back as image_embedding_id to reuse the image")
 
 
-# ---------------------------------------------------------------------------
+
 # Suggestions API — response contract (§3.2)
-# ---------------------------------------------------------------------------
+
 
 
 class QuerySuggestion(BaseModel):
@@ -92,9 +90,9 @@ class SuggestionsResponse(BaseModel):
     product_suggestions: list[ProductSuggestion] = Field(description="Product suggestions matching the prefix")
 
 
-# ---------------------------------------------------------------------------
+
 # Operational / diagnostic models (not part of the frontend contract)
-# ---------------------------------------------------------------------------
+
 
 
 class IndexInfo(BaseModel):
@@ -130,9 +128,9 @@ class LatencyResponse(BaseModel):
     error: str | None = Field(default=None, description="Error message if a round-trip failed")
 
 
-# ---------------------------------------------------------------------------
+
 # Error contract (§5.1) — flat {code, message}
-# ---------------------------------------------------------------------------
+
 
 
 class ErrorResponse(BaseModel):

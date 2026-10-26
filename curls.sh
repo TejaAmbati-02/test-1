@@ -22,7 +22,7 @@ _json_field() {  # _json_field <field>  — read a top-level field from JSON on 
 }
 
 
-# ---------- Health & Infra ----------
+# Health & Infra
 
 echo "=== TC-000 Health Check ==="
 curl -s "${base_url}/health"
@@ -33,7 +33,7 @@ curl -s "${base_url}/indices"
 echo
 
 
-# ---------- Text Search ----------
+# Text Search
 
 echo "=== TC-001 Search — pipe (en) ==="
 curl -s -X POST "${base_url}/v1/search" \
@@ -64,17 +64,8 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page_size=60"
 echo
 
-echo "=== TC-008 Search — Arabic language (ar) ==="
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=ar" \
-  -F "search_query=pump" \
-  -F "page=1" \
-  -F "page_size=60"
-echo
 
-
-# ---------- Sort ----------
+# Sort
 
 echo "=== TC-009 Sort by price asc ==="
 curl -s -X POST "${base_url}/v1/search" \
@@ -99,7 +90,7 @@ curl -s -X POST "${base_url}/v1/search" \
 echo
 
 
-# ---------- Filter Browse ----------
+# Filter Browse
 
 echo "=== TC-011 Browse — in stock only ==="
 curl -s -X POST "${base_url}/v1/search" \
@@ -140,7 +131,7 @@ curl -s -X POST "${base_url}/v1/search" \
 echo
 
 
-# ---------- Combined Search + Filters ----------
+# Combined Search + Filters
 
 echo "=== TC-018 Search + availability filter ==="
 curl -s -X POST "${base_url}/v1/search" \
@@ -173,7 +164,7 @@ curl -s -X POST "${base_url}/v1/search" \
 echo
 
 
-# ---------- Pagination ----------
+# Pagination
 
 echo "=== TC-024 Pagination — page 1 ==="
 curl -s -X POST "${base_url}/v1/search" \
@@ -194,7 +185,7 @@ curl -s -X POST "${base_url}/v1/search" \
 echo
 
 
-# ---------- Image Search ----------
+# Image Search
 
 echo "=== TC-041 Image-only search — JPEG (Charger, Battery) ==="
 curl -s -X POST "${base_url}/v1/search" \
@@ -255,7 +246,7 @@ curl -s -X POST "${base_url}/v1/search" \
 echo
 
 
-# ---------- Image Search - Known Answers ----------
+# Image Search - Known Answers
 
 echo "=== TC-IMG-01 Air Handling Unit 5 TR - 172000-001-hvac ==="
 curl -s -X POST "${base_url}/v1/search" \
@@ -385,7 +376,7 @@ curl -s -X POST "${base_url}/v1/search" \
 echo
 
 
-# ---------- Suggestions ----------
+# Suggestions
 
 echo "=== TC-026 Suggestions — 'pres' prefix ==="
 curl -s "${base_url}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5"
@@ -400,12 +391,21 @@ curl -s "${base_url}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&qu
 echo
 
 
-# ---------- Error Validation ----------
+# Error Validation
 
 echo "=== TC-030 Unsupported language — fr (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=fr" \
+  -F "search_query=pump" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-008 Arabic language not supported (400) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=ar" \
   -F "search_query=pump" \
   -F "page=1" \
   -F "page_size=60"
@@ -551,7 +551,7 @@ curl -s -X POST "${base_url}/v1/search" \
 echo
 
 
-# ---------- Diagnostics ----------
+# Diagnostics
 
 echo "=== OpenSearch latency ==="
 curl -s "${base_url}/health/latency/opensearch?samples=5"
@@ -562,7 +562,7 @@ curl -s "${base_url}/health/latency/oci?samples=5"
 echo
 
 
-# ---------- Redis (Embedding Cache) ----------
+# Redis (Embedding Cache)
 
 echo "=== Redis latency ==="
 curl -s "${base_url}/health/latency/redis?samples=5"

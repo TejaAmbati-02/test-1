@@ -1,0 +1,5202 @@
+{
+  "info": {
+    "name": "ASMO AI Search API - Frontend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "ASMO AI Search API for frontend integration.\n\nPOST /v1/search takes multipart/form-data: channel (web|mobile), language (en), and any of search_query, image, filters (JSON string), sort_by (relevance|price), sort_order (asc|desc), page, page_size (1-200), query_embedding_id, image_embedding_id.\n\nImage: send a .bin file (file name ending in .bin) as application/octet-stream, max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image. In the browser: form.append('image', blob, 'image.bin'). Any other file gets 400 \"Incorrect file format. Only .bin files are accepted.\"\n\nErrors always return {\"code\": \"...\", \"message\": \"...\"}.\n\nSet base_url to the API address. Upload files are in test_images/ next to this collection."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "category_id",
+      "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72"
+    },
+    {
+      "key": "query_embedding_id",
+      "value": ""
+    },
+    {
+      "key": "image_embedding_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Positive cases",
+      "description": "Requests that succeed.",
+      "item": [
+        {
+          "name": "P01 Text search",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pipe",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "relevance",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Free-text search. Results ranked by relevance (keyword + semantic).\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pipe",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_by",
+                      "value": "relevance",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_order",
+                      "value": "desc",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Free-text search. Results ranked by relevance (keyword + semantic).\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P02 Text search - mobile channel",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "mobile",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "valve",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Same as text search with channel=mobile.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "mobile",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "valve",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Same as text search with channel=mobile.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P03 Sort by price ascending",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "sort_by=price, sort_order=asc.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_by",
+                      "value": "price",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_order",
+                      "value": "asc",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "sort_by=price, sort_order=asc.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P04 Sort by price descending",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "sort_by=price, sort_order=desc.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_by",
+                      "value": "price",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_order",
+                      "value": "desc",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "sort_by=price, sort_order=desc.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P05 Filter - availability",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"availability\": [\"IN_STOCK\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Browse with filters only (no search_query).\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"availability\": [\"IN_STOCK\"]}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Browse with filters only (no search_query).\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P06 Filter - price range",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Range filter: {\"price\": {\"gte\": 50, \"lte\": 150}}.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_by",
+                      "value": "price",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_order",
+                      "value": "asc",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Range filter: {\"price\": {\"gte\": 50, \"lte\": 150}}.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P07 Filter - material type",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Term filter on material_type.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"material_type\": [\"9CAT\"]}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Term filter on material_type.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P08 Filter - category",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"category_ids\": [\"{{category_id}}\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Products in one category (category_ids).\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"category_ids\": [\"{{category_id}}\"]}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Products in one category (category_ids).\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P09 Search with multiple filters",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9CAT\"], \"availability\": [\"IN_STOCK\"], \"price\": {\"lte\": 500}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "search_query combined with material_type, availability and price filters.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"material_type\": [\"9CAT\"], \"availability\": [\"IN_STOCK\"], \"price\": {\"lte\": 500}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "search_query combined with material_type, availability and price filters.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P10 Pagination - page 1",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "page / page_size control paging; total_results is the full count.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "page / page_size control paging; total_results is the full count.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P11 Pagination - page 2",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Second page of the same query.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "2",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Second page of the same query.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P12 Image search",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "Image only. The image must be a .bin file sent as application/octet-stream (max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image).\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/ao-100018_1.bin",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                },
+                "description": "Image only. The image must be a .bin file sent as application/octet-stream (max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image).\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "P13 Image search with filters",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9COM\"], \"availability\": [\"IN_STOCK\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/a-880000629771.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "Image search narrowed by filters.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"material_type\": [\"9COM\"], \"availability\": [\"IN_STOCK\"]}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/a-880000629771.bin",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                },
+                "description": "Image search narrowed by filters.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "P14 Image search sorted by price",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "Image search with sort_by=price.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_by",
+                      "value": "price",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_order",
+                      "value": "asc",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/ao-100018_1.bin",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                },
+                "description": "Image search with sort_by=price.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "P15 Text + image search",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "air handling unit",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/172000-001-hvac.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "search_query and image together; the image drives the ranking, the text refines it.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "air handling unit",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/172000-001-hvac.bin",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                },
+                "description": "search_query and image together; the image drives the ranking, the text refines it.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "P16 Text search - returns query_embedding_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "The response carries query_embedding_id. Sending it back (without search_query) reuses the query. Saved to the query_embedding_id variable.\n\nExpected: HTTP 200",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "gate valve",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('query_embedding_id', pm.response.json().query_embedding_id || '');"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "description": "The response carries query_embedding_id. Sending it back (without search_query) reuses the query. Saved to the query_embedding_id variable.\n\nExpected: HTTP 200",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "gate valve",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P17 Search by query_embedding_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Reuses the query from the previous request: send query_embedding_id instead of search_query.\n\nExpected: HTTP 200",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "description": "Reuses the query from the previous request: send query_embedding_id instead of search_query.\n\nExpected: HTTP 200",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "query_embedding_id",
+                      "value": "{{query_embedding_id}}",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "P18 Image search - returns image_embedding_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "The response carries image_embedding_id. Sending it back (without image) reuses the image, so it need not be uploaded again. Saved to the image_embedding_id variable.\n\nExpected: HTTP 200",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('image_embedding_id', pm.response.json().image_embedding_id || '');"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "description": "The response carries image_embedding_id. Sending it back (without image) reuses the image, so it need not be uploaded again. Saved to the image_embedding_id variable.\n\nExpected: HTTP 200",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/ao-100018_1.bin",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "P19 Search by image_embedding_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Reuses the image from the previous request: send image_embedding_id instead of the file.\n\nExpected: HTTP 200",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "description": "Reuses the image from the previous request: send image_embedding_id instead of the file.\n\nExpected: HTTP 200",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image_embedding_id",
+                      "value": "{{image_embedding_id}}",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "P20 Text + image by embedding ids",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Both ids together: text + image search without re-sending either.\n\nExpected: HTTP 200",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "query_embedding_id",
+                  "value": "{{query_embedding_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "image_embedding_id",
+                  "value": "{{image_embedding_id}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "description": "Both ids together: text + image search without re-sending either.\n\nExpected: HTTP 200",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "query_embedding_id",
+                      "value": "{{query_embedding_id}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image_embedding_id",
+                      "value": "{{image_embedding_id}}",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "P21 Suggestions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pres"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "4"
+                },
+                {
+                  "key": "product_limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "header": [],
+            "description": "Autocomplete for a typed prefix.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search",
+                    "suggestions"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "pres"
+                    },
+                    {
+                      "key": "channel",
+                      "value": "web"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en"
+                    },
+                    {
+                      "key": "query_limit",
+                      "value": "4"
+                    },
+                    {
+                      "key": "product_limit",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "header": [],
+                "description": "Autocomplete for a typed prefix.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"query\": \"pres\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "P22 Suggestions - limits",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pump"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "4"
+                },
+                {
+                  "key": "product_limit",
+                  "value": "3"
+                }
+              ]
+            },
+            "header": [],
+            "description": "query_limit / product_limit cap each list.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search",
+                    "suggestions"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "pump"
+                    },
+                    {
+                      "key": "channel",
+                      "value": "web"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en"
+                    },
+                    {
+                      "key": "query_limit",
+                      "value": "4"
+                    },
+                    {
+                      "key": "product_limit",
+                      "value": "3"
+                    }
+                  ]
+                },
+                "header": [],
+                "description": "query_limit / product_limit cap each list.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"query\": \"pump\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "P23 Suggestions - no match",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&query_limit=4&product_limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "zzzzzzzz"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "4"
+                },
+                {
+                  "key": "product_limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "header": [],
+            "description": "No match returns 200 with empty lists.\n\nExpected: HTTP 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&query_limit=4&product_limit=5",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search",
+                    "suggestions"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "zzzzzzzz"
+                    },
+                    {
+                      "key": "channel",
+                      "value": "web"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en"
+                    },
+                    {
+                      "key": "query_limit",
+                      "value": "4"
+                    },
+                    {
+                      "key": "product_limit",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "header": [],
+                "description": "No match returns 200 with empty lists.\n\nExpected: HTTP 200"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"query\": \"zzqx\",\n  \"query_suggestions\": [],\n  \"product_suggestions\": []\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Negative cases",
+      "description": "Requests the API must reject, with the exact error returned.",
+      "item": [
+        {
+          "name": "N01 Unsupported language (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "fr",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "language must be en.\n\nExpected: HTTP 400 `UNSUPPORTED_LANGUAGE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_LANGUAGE', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_LANGUAGE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "fr",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "language must be en.\n\nExpected: HTTP 400 `UNSUPPORTED_LANGUAGE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_LANGUAGE\",\n  \"message\": \"Unsupported language 'fr'. Allowed: en\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N02 Unsupported channel (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "desktop",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "channel must be web or mobile.\n\nExpected: HTTP 400 `UNSUPPORTED_CHANNEL`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_CHANNEL', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_CHANNEL'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "desktop",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "channel must be web or mobile.\n\nExpected: HTTP 400 `UNSUPPORTED_CHANNEL`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_CHANNEL\",\n  \"message\": \"Unsupported channel 'desktop'. Allowed: mobile, web\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N03 Empty request (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "At least one of search_query, image, filters or an embedding id is required.\n\nExpected: HTTP 400 `EMPTY_REQUEST`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = EMPTY_REQUEST', () => pm.expect(pm.response.json().code).to.eql('EMPTY_REQUEST'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "At least one of search_query, image, filters or an embedding id is required.\n\nExpected: HTTP 400 `EMPTY_REQUEST`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"EMPTY_REQUEST\",\n  \"message\": \"At least one of search_query, image, filters or an embedding id must be provided\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N04 Invalid filter key (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"unknown_field\": \"x\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Only supported filter keys are accepted.\n\nExpected: HTTP 400 `INVALID_FILTER_KEY`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = INVALID_FILTER_KEY', () => pm.expect(pm.response.json().code).to.eql('INVALID_FILTER_KEY'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"unknown_field\": \"x\"}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "Only supported filter keys are accepted.\n\nExpected: HTTP 400 `INVALID_FILTER_KEY`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"INVALID_FILTER_KEY\",\n  \"message\": \"The filter key 'unknown_field' is not supported.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N05 Malformed filters JSON (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{not json}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "filters must be a valid JSON object string.\n\nExpected: HTTP 400 `INVALID_FILTER`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = INVALID_FILTER', () => pm.expect(pm.response.json().code).to.eql('INVALID_FILTER'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{not json}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "filters must be a valid JSON object string.\n\nExpected: HTTP 400 `INVALID_FILTER`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"INVALID_FILTER\",\n  \"message\": \"filters must be a valid JSON object: Expecting property name enclosed in double quotes\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N06 Invalid filter value (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": \"abc\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "A filter value of the wrong type is rejected.\n\nExpected: HTTP 400 `INVALID_FILTER_VALUE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = INVALID_FILTER_VALUE', () => pm.expect(pm.response.json().code).to.eql('INVALID_FILTER_VALUE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"price\": \"abc\"}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "A filter value of the wrong type is rejected.\n\nExpected: HTTP 400 `INVALID_FILTER_VALUE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"INVALID_FILTER_VALUE\",\n  \"message\": \"Invalid value for filter 'price': \\\"abc\\\"\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N07 Invalid sort_by (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "name",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "sort_by must be relevance or price.\n\nExpected: HTTP 400 `INVALID_SORT_BY`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = INVALID_SORT_BY', () => pm.expect(pm.response.json().code).to.eql('INVALID_SORT_BY'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_by",
+                      "value": "name",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "sort_by must be relevance or price.\n\nExpected: HTTP 400 `INVALID_SORT_BY`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"INVALID_SORT_BY\",\n  \"message\": \"Unsupported sort_by 'name'. Allowed: price, relevance\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N08 page_size over 200 (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "500",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "page_size must be 1-200.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "500",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "page_size must be 1-200.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"page_size: Input should be less than or equal to 200\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N09 page below 1 (400)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "page is 1-based.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "0",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "description": "page is 1-based.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"page: Input should be greater than or equal to 1\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N10 Suggestions - missing q (400)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "header": [],
+            "description": "q is required.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search",
+                    "suggestions"
+                  ],
+                  "query": [
+                    {
+                      "key": "channel",
+                      "value": "web"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en"
+                    }
+                  ]
+                },
+                "header": [],
+                "description": "q is required.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"query.q: Field required\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N11 Suggestions - missing channel (400)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pump&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pump"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "header": [],
+            "description": "channel is required.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = VALIDATION_ERROR', () => pm.expect(pm.response.json().code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/v1/search/suggestions?q=pump&language=en",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search",
+                    "suggestions"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "pump"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en"
+                    }
+                  ]
+                },
+                "header": [],
+                "description": "channel is required.\n\nExpected: HTTP 400 `VALIDATION_ERROR`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"query.channel: Field required\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N12 Suggestions - unsupported language (400)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=fr",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pump"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "fr"
+                }
+              ]
+            },
+            "header": [],
+            "description": "language must be en.\n\nExpected: HTTP 400 `UNSUPPORTED_LANGUAGE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_LANGUAGE', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_LANGUAGE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=fr",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search",
+                    "suggestions"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "pump"
+                    },
+                    {
+                      "key": "channel",
+                      "value": "web"
+                    },
+                    {
+                      "key": "language",
+                      "value": "fr"
+                    }
+                  ]
+                },
+                "header": [],
+                "description": "language must be en.\n\nExpected: HTTP 400 `UNSUPPORTED_LANGUAGE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_LANGUAGE\",\n  \"message\": \"Unsupported language 'fr'. Allowed: en\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N13 JPG file rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Only .bin files are accepted: a .jpg (image/jpeg) is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/ao-100018_1.jpg",
+                      "contentType": "image/jpeg"
+                    }
+                  ]
+                },
+                "description": "Only .bin files are accepted: a .jpg (image/jpeg) is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N14 PNG file rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/172000-001-hvac.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Only .bin files are accepted: a .png (image/png) is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/172000-001-hvac.png",
+                      "contentType": "image/png"
+                    }
+                  ]
+                },
+                "description": "Only .bin files are accepted: a .png (image/png) is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N15 File without .bin extension rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/image_no_extension",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "The file name must end in .bin, even when sent as application/octet-stream.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/image_no_extension",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                },
+                "description": "The file name must end in .bin, even when sent as application/octet-stream.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N16 bin file with image content type rejected (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "A .bin file must be sent as application/octet-stream, not image/png.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/ao-100018_1.bin",
+                      "contentType": "image/png"
+                    }
+                  ]
+                },
+                "description": "A .bin file must be sent as application/octet-stream, not image/png.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N17 bin file that is not an image (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/not_an_image.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "The bytes inside the .bin must be a PNG, JPEG, GIF or WebP image.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(pm.response.json().code).to.eql('UNSUPPORTED_IMAGE_TYPE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "search_query",
+                      "value": "pump",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/not_an_image.bin",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                },
+                "description": "The bytes inside the .bin must be a PNG, JPEG, GIF or WebP image.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"The uploaded file is not a valid PNG, JPEG, GIF or WebP image.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N18 Image larger than 5 MB (413)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/oversized.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            },
+            "description": "Images over 5 MB are rejected.\n\nExpected: HTTP 413 `IMAGE_TOO_LARGE`"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 413', () => pm.response.to.have.status(413));",
+                  "pm.test('code = IMAGE_TOO_LARGE', () => pm.expect(pm.response.json().code).to.eql('IMAGE_TOO_LARGE'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "413 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "test_images/oversized.bin",
+                      "contentType": "application/octet-stream"
+                    }
+                  ]
+                },
+                "description": "Images over 5 MB are rejected.\n\nExpected: HTTP 413 `IMAGE_TOO_LARGE`"
+              },
+              "status": "Error",
+              "code": 413,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"IMAGE_TOO_LARGE\",\n  \"message\": \"Image exceeds the maximum size of 5242880 bytes.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N19 Unknown or expired embedding id (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "A well-formed id that is not (or no longer) in the cache.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "query_embedding_id",
+                  "value": "asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = EMBEDDING_ID_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('EMBEDDING_ID_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "description": "A well-formed id that is not (or no longer) in the cache.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "query_embedding_id",
+                      "value": "asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"EMBEDDING_ID_NOT_FOUND\",\n  \"message\": \"asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "N20 Malformed embedding id (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Embedding ids look like asmo:emb:image:<64 hex chars>.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "image_embedding_id",
+                  "value": "not-an-id",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = EMBEDDING_ID_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('EMBEDDING_ID_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/v1/search",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "search"
+                  ]
+                },
+                "description": "Embedding ids look like asmo:emb:image:<64 hex chars>.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "channel",
+                      "value": "web",
+                      "type": "text"
+                    },
+                    {
+                      "key": "language",
+                      "value": "en",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image_embedding_id",
+                      "value": "not-an-id",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "Error",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"code\": \"EMBEDDING_ID_NOT_FOUND\",\n  \"message\": \"'not-an-id' is not a valid image embedding id\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

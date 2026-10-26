@@ -39,13 +39,14 @@ _RETRIEVAL_K = _cfg.hybrid_retrieval_k
 _EF_SEARCH = _cfg.knn_ef_search
 
 # Contract-level enums (§2.1). Validated manually so unsupported values return a
-# 400 with the standard error body (§5), rather than FastAPI's default 422.
+# 400 with the standard error body , rather than FastAPI's default 422.
 SUPPORTED_CHANNELS = frozenset({"web", "mobile"})
-SUPPORTED_LANGUAGES = frozenset({"en", "ar"})
+# The index holds English text only, so English is the only supported language.
+SUPPORTED_LANGUAGES = frozenset({"en"})
 SUPPORTED_SORT_BY = frozenset({"relevance", "price"})
 SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
 
-# Image constraints (§5): unsupported type -> 400, oversized -> 413.
+# Image constraints : unsupported type -> 400, oversized -> 413.
 # Only .bin files are accepted: the part's file name must end in .bin and its
 # content type must be application/octet-stream (or absent). Anything else —
 # .jpg, .png, .pdf, a part with no file name, ... — is a 400. The bytes inside
@@ -192,7 +193,7 @@ class SearchForm(BaseModel):
     """Text fields of the multipart search request (§2.1)."""
 
     channel: str = Field(description="Client channel — 'web' or 'mobile'")
-    language: str = Field(description="Response language — 'en' or 'ar'")
+    language: str = Field(description="Response language — 'en'")
     search_query: str | None = Field(default=None, description="Free-text query. Omit for filter-only browse")
     sort_by: str | None = Field(default=None, description="Sort field — 'relevance' or 'price'")
     sort_order: str = Field(default="desc", description="Sort direction — 'asc' or 'desc'")
@@ -311,7 +312,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
     search_query, sort_by, sort_order = form.search_query, form.sort_by, form.sort_order
     filters, page, page_size = form.filters, form.page, form.page_size
 
-    # --- Contract validation (§5) -------------------------------------------
+    # Contract validation 
     _validate_enum(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
     _validate_enum(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
     if sort_by is not None:
@@ -343,7 +344,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
         },
     )
 
-    # --- Image validation (§5): unsupported type -> 400, oversized -> 413 ----
+    # Image validation : unsupported type -> 400, oversized -> 413
     image_input: tuple[bytes, str] | None = None
     if image_bytes is not None:
         if not image_filename.lower().endswith(".bin") or declared_type not in GENERIC_BINARY_TYPES:
@@ -370,7 +371,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
     has_query = bool(search_query and search_query.strip()) or bool(query_id)
     has_filters = bool(os_filters)
 
-    # --- Operation decision (§2.2) ------------------------------------------
+    # Operation decision (§2.2) --
     if not has_query and not has_image and not has_filters:
         logger.warning("POST /v1/search — rejected: no query, no image and no filters provided")
         raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or an embedding id must be provided")
@@ -486,7 +487,7 @@ async def v1_suggestions(
     _request: Request,
     q: Annotated[str, Query(min_length=1, description="Partial text entered by the user")],
     channel: Annotated[str, Query(description="Client channel — 'web' or 'mobile'")],
-    language: Annotated[str, Query(description="Response language — 'en' or 'ar'")],
+    language: Annotated[str, Query(description="Response language — 'en'")],
     query_limit: Annotated[int, Query(ge=1, le=50, description="Max query suggestions to return")] = 5,
     product_limit: Annotated[int, Query(ge=1, le=50, description="Max product suggestions to return")] = 5,
 ) -> SuggestionsResponse:

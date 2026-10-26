@@ -373,98 +373,6 @@
               ]
             }
           }
-        },
-        {
-          "name": "TC-008 Search — Arabic language (ar)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "const b = pm.response.json();",
-                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
-                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
-                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
-                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
-                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
-                  "pm.test('facets is a keyed object', () => {",
-                  "  pm.expect(b.facets).to.be.an('object');",
-                  "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
-                  "});",
-                  "pm.test('no legacy fields', () => {",
-                  "  pm.expect(b).to.not.have.property('total');",
-                  "  pm.expect(b).to.not.have.property('results');",
-                  "  pm.expect(b).to.not.have.property('search_type');",
-                  "});",
-                  "pm.test('products expose spec fields', () => {",
-                  "  if (b.products.length === 0) return;",
-                  "  const p = b.products[0];",
-                  "  ['product_key','sku_id','product_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids'].forEach(k => pm.expect(p).to.have.property(k));",
-                  "  pm.expect(p).to.not.have.property('material_id');",
-                  "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
-                  "  pm.expect(p.seller_details).to.be.an('array');",
-                  "});",
-                  "pm.test('seller_details expose spec fields', () => {",
-                  "  const p = b.products[0];",
-                  "  if (!p || !p.seller_details.length) return;",
-                  "  const s = p.seller_details[0];",
-                  "  ['seller_id','seller_name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
-                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "url": {
-              "raw": "{{base_url}}/v1/search",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "search"
-              ]
-            },
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "ar",
-                  "type": "text"
-                },
-                {
-                  "key": "search_query",
-                  "value": "pump",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "60",
-                  "type": "text"
-                }
-              ]
-            },
-            "description": "language=ar is accepted by the contract; the index has no Arabic fields, so the backend searches the German (_de) fields."
-          }
         }
       ]
     },
@@ -3133,6 +3041,67 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "name": "TC-008 Arabic language not supported (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('code = UNSUPPORTED_LANGUAGE', () => pm.expect(b.code).to.eql('UNSUPPORTED_LANGUAGE'));",
+                  "pm.test(\"message lists only 'en'\", () => pm.expect(b.message).to.eql(\"Unsupported language 'ar'. Allowed: en\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "ar",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Only English is supported (the index holds English text only): language=ar is rejected."
           }
         },
         {

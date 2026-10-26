@@ -22,7 +22,7 @@ from utils.logger import logger, setup_logging, set_log_context, clear_log_conte
 from models.response import HealthResponse, LatencyResponse
 from routers.search import index_router, v1_router
 from services.embedder import embedding_service
-from services.embedding_store import embedding_store
+from services.redis_client import redis_client
 from services.opensearch import os_client
 from services.search import search_service
  
@@ -101,9 +101,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         else:
             logger.info("OpenSearch connected")
  
-        if embedding_store.enabled:
+        if redis_client.enabled:
             logger.info(f"Connecting to Redis at {settings.redis_host}:{settings.redis_port}")
-            if await embedding_store.ping():
+            # Create the shared Redis client once; every request reuses it.
+            await redis_client.connect()
+            if await redis_client.ping():
                 logger.info("Redis connected — embedding cache enabled")
             else:
                 logger.warning("Redis unreachable — searches will embed without the cache")
@@ -135,7 +137,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
             except asyncio.CancelledError:
                 pass
     await os_client.close()
-    await embedding_store.close()
+    await redis_client.close()
     logger.info("Shutdown complete")
  
  
@@ -229,7 +231,7 @@ async def health() -> HealthResponse:
         cluster = await os_client.cluster_name()
         connected = cluster is not None
         model_loaded = embedding_service.is_loaded
-        redis_connected = await embedding_store.ping() if embedding_store.enabled else None
+        redis_connected = await redis_client.ping() if redis_client.enabled else None
         status = "ok" if connected and model_loaded and redis_connected is not False else "degraded"
         logger.info(f"Health: status={status} opensearch={connected} model={model_loaded} redis={redis_connected}")
         return HealthResponse(
@@ -297,11 +299,11 @@ async def latency_redis(samples: int = 5) -> LatencyResponse:
     samples = max(1, min(samples, 20))
     logger.info(f"GET /health/latency/redis — {samples} samples")
     endpoint = f"{settings.redis_host}:{settings.redis_port}"
-    if not embedding_store.enabled:
+    if not redis_client.enabled:
         return _latency_response("redis", endpoint, samples, [], "Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)")
 
     async def _call() -> None:
-        await embedding_store._redis().ping()
+        await redis_client.client.ping()
 
     times, error = await _measure_latency(_call, samples)
     result = _latency_response("redis", endpoint, samples, times, error)
@@ -337,7 +339,7 @@ async def http_exception_handler(_request: Request, exc: StarletteHTTPException)
  
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
-    # Missing/malformed form or query fields map to the contract's 400 Bad Request (§5).
+    # Missing/malformed form or query fields map to the contract's 400 Bad Request .
     errors = exc.errors()
     logger.warning(f"Request validation failed: {errors}")
     first = errors[0] if errors else {}

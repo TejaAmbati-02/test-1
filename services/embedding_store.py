@@ -15,6 +15,7 @@ from redis.exceptions import ResponseError
 from config import Settings, settings as _settings
 from utils.logger import logger
 from services.embedder import EmbeddingService, embedding_service
+from services.redis_client import RedisClientService, redis_client
 
 # All embeddings live in one Redis hash — the "collection" (REDIS_COLLECTION).
 # HSET creates the collection on first write and adds to it afterwards. Each
@@ -66,12 +67,15 @@ class EmbeddingStore:
 
     Redis failures never fail a search that sent a query or image: the embedding
     is generated as usual and returned without an id.
+
+    Uses the application's shared Redis client (services.redis_client), created
+    once at startup and reused for every request.
     """
 
-    def __init__(self, settings: Settings, embedder: EmbeddingService) -> None:
+    def __init__(self, settings: Settings, embedder: EmbeddingService, redis_svc: RedisClientService) -> None:
         self._settings = settings
         self._emb = embedder
-        self._client: redis.Redis | None = None
+        self._redis_svc = redis_svc
         # Flips to False if the server lacks per-field expiry (HEXPIRE, Redis < 7.4).
         self._field_ttl = True
         # Strong refs to in-flight background writes so they are not garbage-collected.
@@ -79,37 +83,11 @@ class EmbeddingStore:
 
     @property
     def enabled(self) -> bool:
-        return bool(self._settings.redis_enabled and self._settings.redis_host)
+        return self._redis_svc.enabled
 
     def _redis(self) -> redis.Redis:
-        if self._client is None:
-            cfg = self._settings
-            tls = {"ssl": True, "ssl_cert_reqs": cfg.redis_ssl_cert_reqs} if cfg.redis_ssl else {}
-            self._client = redis.Redis(
-                host=cfg.redis_host,
-                port=cfg.redis_port,
-                username=cfg.redis_username or None,
-                password=cfg.redis_password or None,
-                db=cfg.redis_db,
-                socket_connect_timeout=cfg.redis_timeout,
-                socket_timeout=cfg.redis_timeout,
-                **tls,
-            )
-        return self._client
-
-    async def ping(self) -> bool:
-        if not self.enabled:
-            return False
-        try:
-            return bool(await self._redis().ping())
-        except Exception as exc:
-            logger.warning(f"EmbeddingStore.ping — Redis unreachable: {exc}")
-            return False
-
-    async def close(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
+        # The shared client; raises RedisNotConnected (handled like any Redis failure) before startup.
+        return self._redis_svc.client
 
     def _key(self, kind: str, content: bytes) -> str:
         cfg = self._settings
@@ -173,7 +151,7 @@ class EmbeddingStore:
                 )
         await client.expire(self.collection, ttl)
 
-    # --- Embedding by content -------------------------------------------------
+    # Embedding by content
 
     async def query_embedding(self, query: str) -> QueryEmbedding:
         """Return the query's embedding, from Redis when this query was seen before."""
@@ -216,7 +194,7 @@ class EmbeddingStore:
         })
         return ImageEmbedding(key, data, mime, vector, False)
 
-    # --- Embedding by id --------------------------------------------------------
+    # Embedding by id -
 
     async def _load(self, key: str, kind: str) -> dict[str, Any]:
         match = KEY_PATTERN.match(key or "")
@@ -243,4 +221,4 @@ class EmbeddingStore:
         return ImageEmbedding(key, base64.b64decode(record["image_base64"]), record["mime"], record["embedding"], True)
 
 
-embedding_store = EmbeddingStore(_settings, embedding_service)
+embedding_store = EmbeddingStore(_settings, embedding_service, redis_client)
