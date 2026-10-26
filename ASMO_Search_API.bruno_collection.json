@@ -3565,7 +3565,283 @@
             },
             "assertions": [],
             "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);",
-            "docs": "A text file declared as image/png must be rejected by the byte check.",
+            "docs": "A .bin file whose bytes are not a PNG, JPEG, GIF or WebP image is rejected by the byte check.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-043b JPG file rejected - only .bin accepted (400)",
+          "seq": 13,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.jpg"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/jpeg"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message = incorrect file format', () => expect(b.message).to.eql(\"Incorrect file format. Only .bin files are accepted.\"));",
+            "docs": "A .jpg file sent as image/jpeg is rejected: only .bin files are accepted.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-043c PNG file rejected - only .bin accepted (400)",
+          "seq": 14,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message = incorrect file format', () => expect(b.message).to.eql(\"Incorrect file format. Only .bin files are accepted.\"));",
+            "docs": "A .png file sent as image/png is rejected: only .bin files are accepted.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-043d File without .bin extension rejected (400)",
+          "seq": 15,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/image_no_extension"
+                  ],
+                  "enabled": true,
+                  "contentType": "application/octet-stream"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message = incorrect file format', () => expect(b.message).to.eql(\"Incorrect file format. Only .bin files are accepted.\"));",
+            "docs": "A file whose name does not end in .bin is rejected even when sent as application/octet-stream.",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-043e .bin file declared image-png rejected (400)",
+          "seq": 16,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.bin"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message = incorrect file format', () => expect(b.message).to.eql(\"Incorrect file format. Only .bin files are accepted.\"));",
+            "docs": "A .bin file must be sent as application/octet-stream (or with no content type); image/png is rejected.",
             "auth": {
               "mode": "none"
             }
@@ -3574,7 +3850,7 @@
         {
           "type": "http-request",
           "name": "TC-047 Image larger than 5 MB (413)",
-          "seq": 13,
+          "seq": 17,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3643,7 +3919,7 @@
         {
           "type": "http-request",
           "name": "TC-032d Invalid filter value (400)",
-          "seq": 14,
+          "seq": 18,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",

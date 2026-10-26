@@ -46,10 +46,12 @@ SUPPORTED_SORT_BY = frozenset({"relevance", "price"})
 SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
 
 # Image constraints (§5): unsupported type -> 400, oversized -> 413.
-# The image must be sent as a generic binary (.bin) part — application/octet-stream
-# or no content type; parts declared as image/png, image/jpeg, etc. are rejected.
-# The bytes decide the format (PNG, JPEG, GIF or WebP).
+# Only .bin files are accepted: the part's file name must end in .bin and its
+# content type must be application/octet-stream (or absent). Anything else —
+# .jpg, .png, .pdf, a part with no file name, ... — is a 400. The bytes inside
+# the .bin decide the image format (PNG, JPEG, GIF or WebP).
 GENERIC_BINARY_TYPES = frozenset({"", "application/octet-stream"})
+INCORRECT_FILE_FORMAT = "Incorrect file format. Only .bin files are accepted."
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MiB
 # Multipart parts may be up to this size (above MAX_IMAGE_BYTES so oversized
 # images reach the 413 check rather than a parser error).
@@ -213,7 +215,7 @@ _SEARCH_REQUEST_BODY = {
                 "required": ["channel", "language"],
                 "properties": {
                     **SearchForm.model_json_schema()["properties"],
-                    "image": {"type": "string", "format": "binary", "description": "Optional image for image / text+image search, sent as a binary .bin part (application/octet-stream); the bytes must be a PNG, JPEG, GIF or WebP"},
+                    "image": {"type": "string", "format": "binary", "description": "Optional image for image / text+image search, sent as a .bin file (file name ending in .bin, application/octet-stream); any other file gets 400. The bytes must be a PNG, JPEG, GIF or WebP"},
                 },
             }
         }
@@ -221,7 +223,7 @@ _SEARCH_REQUEST_BODY = {
 }
 
 
-async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None, str]:
+async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None, str, str]:
     """Parse the multipart body into the text fields and the raw image bytes.
 
     The image part is binary either way: with a filename it arrives as a file
@@ -230,8 +232,9 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None,
     with latin-1 restores the exact bytes.
 
     Returns:
-        ``(fields, image_bytes, declared_content_type)``; ``image_bytes`` is None
-        when no (or an empty) image part was sent.
+        ``(fields, image_bytes, declared_content_type, filename)``; ``image_bytes``
+        is None when no (or an empty) image part was sent; ``filename`` is "" when
+        the part has none.
     """
     try:
         form = await request.form(max_part_size=MAX_PART_BYTES)
@@ -251,15 +254,17 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None,
     if isinstance(part, UploadFile):
         data = await part.read()
         declared = (part.content_type or "").lower()
+        filename = part.filename or ""
     elif isinstance(part, str):
         try:
             data = part.encode("latin-1")
         except UnicodeEncodeError:
             data = part.encode("utf-8")  # was valid UTF-8 text, so not an image; the byte check rejects it
         declared = ""  # a part without a filename exposes no content type
+        filename = ""
     else:
-        data, declared = b"", ""
-    return parsed, (data or None), declared
+        data, declared, filename = b"", "", ""
+    return parsed, (data or None), declared, filename
 
 
 async def _resolve_embeddings(
@@ -301,7 +306,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
     request_id: str = getattr(request.state, "request_id", "")
     _t0 = time.perf_counter()
 
-    form, image_bytes, declared_type = await _read_search_form(request)
+    form, image_bytes, declared_type, image_filename = await _read_search_form(request)
     channel, language = form.channel, form.language
     search_query, sort_by, sort_order = form.search_query, form.sort_by, form.sort_order
     filters, page, page_size = form.filters, form.page, form.page_size
@@ -341,12 +346,11 @@ async def v1_search(request: Request) -> SearchApiResponse:
     # --- Image validation (§5): unsupported type -> 400, oversized -> 413 ----
     image_input: tuple[bytes, str] | None = None
     if image_bytes is not None:
-        if declared_type not in GENERIC_BINARY_TYPES:
-            logger.warning(f"POST /v1/search — unsupported image type '{declared_type}' (only binary uploads accepted)")
-            raise _api_error(
-                400, "UNSUPPORTED_IMAGE_TYPE",
-                f"Unsupported image type '{declared_type}'. Send the image as a binary file (application/octet-stream).",
+        if not image_filename.lower().endswith(".bin") or declared_type not in GENERIC_BINARY_TYPES:
+            logger.warning(
+                f"POST /v1/search — rejected file '{image_filename}' (type '{declared_type}'): only .bin files accepted"
             )
+            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", INCORRECT_FILE_FORMAT)
         if len(image_bytes) > MAX_IMAGE_BYTES:
             logger.warning(f"POST /v1/search — image too large: {len(image_bytes)} bytes")
             raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
