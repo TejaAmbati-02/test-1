@@ -11,10 +11,12 @@ from pydantic import BaseModel, Field
 class SellerDetail(BaseModel):
     """One seller offer for the SKU (source: seller_details[])."""
 
+    seller_id: str | None = Field(default=None, description="Seller identifier (source: seller_details[].seller_id)")
     seller_name: str | None = Field(default=None, description="Seller name (source: seller_details[].seller_name)")
     lead_time: int | None = Field(default=None, description="Lead time in days (source: seller_details[].lead_time)")
-    moq: int | None = Field(default=None, description="Minimum order quantity (source: seller_details[].moq)")
+    unit_type: str | None = Field(default=None, description="Unit of measure, e.g. Ea (source: seller_details[].unit_type)")
     price: float | None = Field(default=None, description="Unit price (source: seller_details[].price)")
+    moq: int | None = Field(default=None, description="Minimum order quantity (source: seller_details[].moq)")
     currency: str | None = Field(default=None, description="ISO 4217 currency code (source: seller_details[].currency)")
 
 
@@ -27,7 +29,6 @@ class ProductItem(BaseModel):
     product_key: str | None = Field(default=None, description="Stable product identifier (source: product_key)")
     sku_id: str | None = Field(default=None, description="SKU identifier (source: sku_id)")
     product_name: str | None = Field(default=None, description="Product name (source: product_name)")
-    product_url: str | None = Field(default=None, description="Relative product detail page URL (source: product_url)")
     primary_image_url: str | None = Field(default=None, description="Primary product image URL (source: primary_image_url)")
     asmo_material_number: str | None = Field(default=None, description="ASMO material number (source: asmo_material_number)")
     aramco_material_number: str | None = Field(default=None, description="Aramco material number (source: aramco_material_number)")
@@ -79,12 +80,10 @@ class SearchApiResponse(BaseModel):
 
 class QuerySuggestion(BaseModel):
     text: str = Field(description="Suggested search query string matching the prefix")
-    destination_url: str = Field(description="Search results URL for the suggested query, e.g. /search?q=...")
 
 
 class ProductSuggestion(BaseModel):
     text: str = Field(description="Suggested product name to display in the autocomplete dropdown")
-    destination_url: str = Field(description="Product detail page URL (source: product_url)")
 
 
 class SuggestionsResponse(BaseModel):

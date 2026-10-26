@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from urllib.parse import quote
 
 from models.response import (
     FacetTermValue,
@@ -100,10 +99,12 @@ def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
 
 def _seller_detail(seller: dict[str, Any]) -> SellerDetail:
     return SellerDetail(
+        seller_id=seller.get("seller_id"),
         seller_name=seller.get("seller_name"),
         lead_time=seller.get("lead_time"),
-        moq=seller.get("moq"),
+        unit_type=seller.get("unit_type"),
         price=seller.get("price"),
+        moq=seller.get("moq"),
         currency=seller.get("currency"),
     )
 
@@ -117,7 +118,6 @@ def _to_product(src: dict[str, Any]) -> ProductItem:
         product_key=src.get("product_key"),
         sku_id=src.get("sku_id"),
         product_name=src.get("product_name"),
-        product_url=src.get("product_url"),
         primary_image_url=src.get("primary_image_url"),
         asmo_material_number=src.get("asmo_material_number"),
         aramco_material_number=src.get("aramco_material_number"),
@@ -455,7 +455,7 @@ class SearchService:
             product_body: dict[str, Any] = {
                 # Enough hits to fill both the product and the query suggestions.
                 "size": max(product_limit, query_limit),
-                "_source": [name_field, "product_url"],
+                "_source": [name_field],
                 "query": {"match_phrase_prefix": {name_field: {"query": query, "max_expansions": 20}}},
             }
             logger.debug("SearchService.get_suggestions — executing product query")
@@ -466,10 +466,7 @@ class SearchService:
                 src = h.get("_source", {})
                 text = src.get(name_field) or ""
                 if text:
-                    product_suggestions.append(ProductSuggestion(
-                        text=text,
-                        destination_url=src.get("product_url") or "",
-                    ))
+                    product_suggestions.append(ProductSuggestion(text=text))
             logger.debug(f"SearchService.get_suggestions — parsed {len(product_suggestions)} product suggestions")
 
             # Query suggestions: distinct product-name phrases (order-preserving dedup).
@@ -477,7 +474,7 @@ class SearchService:
                 p.text for p in product_suggestions if p.text
             )
             query_suggestions = [
-                QuerySuggestion(text=t, destination_url=f"/search?q={quote(t)}")
+                QuerySuggestion(text=t)
                 for t in list(unique_queries)[:query_limit]
             ]
             product_suggestions = product_suggestions[:product_limit]
