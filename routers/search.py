@@ -34,6 +34,7 @@ index_router = APIRouter(prefix="/indices", tags=["Indices"])
 v1_router = APIRouter(prefix="/v1", tags=["V1 Search API"])
 
 _RETRIEVAL_K = _cfg.hybrid_retrieval_k
+_EF_SEARCH = _cfg.knn_ef_search
 
 # Contract-level enums (§2.1). Validated manually so unsupported values return a
 # 400 with the standard error body (§5), rather than FastAPI's default 422.
@@ -384,6 +385,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 page=page,
                 page_size=page_size,
                 retrieval_k=_RETRIEVAL_K,
+                ef_search=_EF_SEARCH,
                 request_id=request_id,
             )
             result.query_embedding_id = query_emb.key if query_emb else None

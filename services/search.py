@@ -248,6 +248,7 @@ class SearchService:
         page: int,
         page_size: int,
         retrieval_k: int,
+        ef_search: int | None = None,
         request_id: str | None = None,
     ) -> SearchApiResponse:
         """Text, image or text + image search (§2.2), fused with RRF.
@@ -282,6 +283,8 @@ class SearchService:
                 extra={"input_data": {"text_dim": len(query_vector or []), "image_dim": len(image_vector or [])}},
             )
 
+            # Per-query HNSW candidate count; Lucene ignores the index-level ef_search.
+            knn_params: dict[str, Any] = {"method_parameters": {"ef_search": ef_search}} if ef_search else {}
             subqueries: list[dict[str, Any]] = []
             filters = list(filters)
             if query and image:
@@ -294,13 +297,13 @@ class SearchService:
             elif query:
                 # The index holds English text only, so every language searches the same fields.
                 subqueries.append({"multi_match": {"query": query, "fields": KEYWORD_FIELDS, "type": "best_fields", "lenient": True}})
-                subqueries.append({"knn": {vector_field: {"vector": query_vector, "k": retrieval_k}}})
+                subqueries.append({"knn": {vector_field: {"vector": query_vector, "k": retrieval_k, **knn_params}}})
             if image:
                 subqueries.append({
                     "nested": {
                         "path": IMAGE_PATH,
                         "score_mode": "max",
-                        "query": {"knn": {IMAGE_VECTOR_FIELD: {"vector": image_vector, "k": retrieval_k}}},
+                        "query": {"knn": {IMAGE_VECTOR_FIELD: {"vector": image_vector, "k": retrieval_k, **knn_params}}},
                     }
                 })
             logger.debug(f"SearchService.search_v1 — hybrid query with {len(subqueries)} sub-queries")

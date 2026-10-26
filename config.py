@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     hybrid_semantic_weight: float = 0.5
     hybrid_keyword_weight: float = 0.5
     hybrid_retrieval_k: int = 100
+    # HNSW candidate list size per kNN query. The Lucene engine ignores the index
+    # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
+    # exact image matches at k=100; 500 found every known-answer test image.
+    knn_ef_search: int = 500
  
  
     # Redis — embedding cache for /v1/search. Each query / image embedding is an
