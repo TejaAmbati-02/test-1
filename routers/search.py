@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, ValidationError
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.formparsers import MultiPartParser
 
 from config import settings as _cfg
 from utils.logger import logger
@@ -49,6 +50,14 @@ SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
 # The bytes decide the format (PNG, JPEG, GIF or WebP).
 GENERIC_BINARY_TYPES = frozenset({"", "application/octet-stream"})
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MiB
+# Multipart parts may be up to this size (above MAX_IMAGE_BYTES so oversized
+# images reach the 413 check rather than a parser error).
+MAX_PART_BYTES = 2 * MAX_IMAGE_BYTES
+# Starlette spools file parts over 1 MiB to a temp file on disk. Containers with
+# a read-only filesystem have no usable temp dir, so every larger image failed
+# with "No usable temporary directory found". Parts are capped at MAX_PART_BYTES,
+# so keep them in memory instead.
+MultiPartParser.spool_max_size = MAX_PART_BYTES
 
 _ERROR_RESPONSES = {
     400: {"model": ErrorResponse, "description": "Bad request — unsupported channel/language, invalid filter, or empty request"},
@@ -216,8 +225,7 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None,
         when no (or an empty) image part was sent.
     """
     try:
-        # Above MAX_IMAGE_BYTES so oversized images reach the 413 check below.
-        form = await request.form(max_part_size=2 * MAX_IMAGE_BYTES)
+        form = await request.form(max_part_size=MAX_PART_BYTES)
     except StarletteHTTPException as exc:
         if "maximum size" in str(exc.detail):
             raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
