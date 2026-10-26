@@ -1,5 +1,5 @@
 {
-  "name": "ASMO AI Search API v2.0 — Scenario Tests (multipart)",
+  "name": "ASMO AI Search API v2.0 - Scenario Tests (multipart)",
   "version": "1",
   "items": [
     {
@@ -88,7 +88,7 @@
       "items": [
         {
           "type": "http-request",
-          "name": "TC-001 Search — pipe (en)",
+          "name": "TC-001 Search - pipe (en)",
           "seq": 1,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -166,7 +166,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-002 Search — pump (en)",
+          "name": "TC-002 Search - pump (en)",
           "seq": 2,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -232,7 +232,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-003 Search — valve (mobile)",
+          "name": "TC-003 Search - valve (mobile)",
           "seq": 3,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -298,7 +298,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-008 Search — Arabic language (ar)",
+          "name": "TC-008 Search - Arabic language (ar)",
           "seq": 4,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -536,7 +536,7 @@
       "items": [
         {
           "type": "http-request",
-          "name": "TC-011 Browse — in stock only",
+          "name": "TC-011 Browse - in stock only",
           "seq": 1,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -602,7 +602,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-014 Browse — price range 50–150",
+          "name": "TC-014 Browse - price range 50-150",
           "seq": 2,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -680,7 +680,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-016 Browse — material type 9CAT",
+          "name": "TC-016 Browse - material type 9CAT",
           "seq": 3,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -746,7 +746,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-012 Browse — category_ids",
+          "name": "TC-012 Browse - category_ids",
           "seq": 4,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1044,7 +1044,7 @@
       "items": [
         {
           "type": "http-request",
-          "name": "TC-024 Pagination — page 1",
+          "name": "TC-024 Pagination - page 1",
           "seq": 1,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1110,7 +1110,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-025 Pagination — page 2 differs from page 1",
+          "name": "TC-025 Pagination - page 2 differs from page 1",
           "seq": 2,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1186,7 +1186,7 @@
       "items": [
         {
           "type": "http-request",
-          "name": "TC-041 Image-only search — JPEG (Charger, Battery)",
+          "name": "TC-041 Image-only search - JPEG (Charger, Battery)",
           "seq": 1,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1255,7 +1255,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-042 Image-only search — PNG (HPE X242 40G QSFP)",
+          "name": "TC-042 Image-only search - PNG (HPE X242 40G QSFP)",
           "seq": 2,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1555,7 +1555,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-048 Generic binary content type (application/octet-stream)",
+          "name": "TC-048 Generic binary content type (application-octet-stream)",
           "seq": 6,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1626,7 +1626,7 @@
     },
     {
       "type": "folder",
-      "name": "Image Search — Known Answers",
+      "name": "Image Search - Known Answers",
       "seq": 8,
       "root": {
         "docs": "One request per image in test_images_known/ (byte-identical copies of ingested product images, see expected.json). Each asserts the expected SKU is the top hit. Requires the API to search asmo-image-search-api-index with knn_ef_search=500."
@@ -1634,7 +1634,7 @@
       "items": [
         {
           "type": "http-request",
-          "name": "TC-IMG-01 Air Handling Unit 5 TR → 172000-001-hvac",
+          "name": "TC-IMG-01 Air Handling Unit 5 TR - 172000-001-hvac",
           "seq": 1,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1703,7 +1703,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-02 Cooling Tower 3 TR → 172000-003-hvac",
+          "name": "TC-IMG-02 Cooling Tower 3 TR - 172000-003-hvac",
           "seq": 2,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1772,7 +1772,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-03 Cooling Tower 3 TR → 174000-001-hvac",
+          "name": "TC-IMG-03 Cooling Tower 3 TR - 174000-001-hvac",
           "seq": 3,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1841,7 +1841,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-04 HPE X242 40G QSFP → a-880000629771",
+          "name": "TC-IMG-04 HPE X242 40G QSFP - a-880000629771",
           "seq": 4,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1910,7 +1910,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch → a-880000629773",
+          "name": "TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch - a-880000629773",
           "seq": 5,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1979,7 +1979,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-06 Stapler Standard Duty Black → ao-100004_1",
+          "name": "TC-IMG-06 Stapler Standard Duty Black - ao-100004_1",
           "seq": 6,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2048,7 +2048,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-07 Scissors Stainless Steel 8 Inch → ao-100014_1",
+          "name": "TC-IMG-07 Scissors Stainless Steel 8 Inch - ao-100014_1",
           "seq": 7,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2117,7 +2117,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA → ao-100018_1",
+          "name": "TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA - ao-100018_1",
           "seq": 8,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2186,7 +2186,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-09 Calculator Desktop 12 Digit → ao-100021_1",
+          "name": "TC-IMG-09 Calculator Desktop 12 Digit - ao-100021_1",
           "seq": 9,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2255,7 +2255,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-10 7X50 A211 ACULON BINO NIKON → ao-100027_1",
+          "name": "TC-IMG-10 7X50 A211 ACULON BINO NIKON - ao-100027_1",
           "seq": 10,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2324,7 +2324,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-11 Book 20 Pages Sz Letter 80GSM → ao-100031_1",
+          "name": "TC-IMG-11 Book 20 Pages Sz Letter 80GSM - ao-100031_1",
           "seq": 11,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2393,7 +2393,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-12 AeroDry Smart Dehumidifier 20L → qa-product-01",
+          "name": "TC-IMG-12 AeroDry Smart Dehumidifier 20L - qa-product-01",
           "seq": 12,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2462,7 +2462,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-IMG-13 Control Valve Positioner HART → 105 SKUs",
+          "name": "TC-IMG-13 Control Valve Positioner HART - 105 SKUs",
           "seq": 13,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2539,7 +2539,7 @@
       "items": [
         {
           "type": "http-request",
-          "name": "TC-026 Suggestions — 'pres' prefix",
+          "name": "TC-026 Suggestions - 'pres' prefix",
           "seq": 1,
           "request": {
             "url": "{{base_url}}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5",
@@ -2605,7 +2605,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-027 Suggestions — 'pump' prefix (limit 3)",
+          "name": "TC-027 Suggestions - 'pump' prefix (limit 3)",
           "seq": 2,
           "request": {
             "url": "{{base_url}}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3",
@@ -2671,7 +2671,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-029 Suggestions — no match",
+          "name": "TC-029 Suggestions - no match",
           "seq": 3,
           "request": {
             "url": "{{base_url}}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&query_limit=4&product_limit=5",
@@ -2745,7 +2745,7 @@
       "items": [
         {
           "type": "http-request",
-          "name": "TC-030 Unsupported language — fr (400)",
+          "name": "TC-030 Unsupported language - fr (400)",
           "seq": 1,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2811,7 +2811,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-030b Unsupported channel — desktop (400)",
+          "name": "TC-030b Unsupported channel - desktop (400)",
           "seq": 2,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -2877,7 +2877,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-031 Empty request — no query/image/filters (400)",
+          "name": "TC-031 Empty request - no query-image-filters (400)",
           "seq": 3,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -3141,7 +3141,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-033 page_size > 200 (400)",
+          "name": "TC-033 page_size gt 200 (400)",
           "seq": 7,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -3207,7 +3207,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-034 page < 1 (400)",
+          "name": "TC-034 page lt 1 (400)",
           "seq": 8,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -3423,7 +3423,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-043 Non-image file sent as image/png (400)",
+          "name": "TC-043 Non-image file sent as image-png (400)",
           "seq": 12,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -3878,7 +3878,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-051 Same query again (different case/spaces) returns the same id",
+          "name": "TC-051 Same query again (different case-spaces) returns the same id",
           "seq": 4,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -4286,7 +4286,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-057 Unknown / expired embedding id",
+          "name": "TC-057 Unknown or expired embedding id",
           "seq": 10,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -4497,7 +4497,7 @@
   },
   "brunoConfig": {
     "version": "1",
-    "name": "ASMO AI Search API v2.0 — Scenario Tests (multipart)",
+    "name": "ASMO AI Search API v2.0 - Scenario Tests (multipart)",
     "type": "collection",
     "ignore": [
       "node_modules",
