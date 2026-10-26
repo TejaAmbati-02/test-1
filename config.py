@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
     # exact image matches at k=100; 500 found every known-answer test image.
     knn_ef_search: int = 500
+    # Image matches scoring below this are dropped. Scores are (1 + cosine) / 2,
+    # so an exact copy is 1.0; 0 disables. Calibrate with eval_image_search.py.
+    image_min_score: float = 0.0
+    # Weight of the image kNN in text + image RRF fusion; the rest is split
+    # equally between BM25 and the text kNN.
+    text_image_image_weight: float = 0.6
  
  
     # Redis — embedding cache for /v1/search. Each query / image embedding is an

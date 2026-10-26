@@ -22,6 +22,8 @@ from services.embedder import EmbeddingService, embedding_service
 from services.opensearch import OpenSearchClientService, os_client
 
 PIPELINE_ID = "hybrid-rrf-pipeline"
+# Weighted RRF for text + image: sub-query order is [BM25, text kNN, image kNN].
+TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"
 
 # Filter keys are the OpenSearch index field names themselves (§4: "Filter keys
 # should match the OpenSearch index field names"). The value is the field the
@@ -141,8 +143,12 @@ class SearchService:
     ) -> None:
         self._os = os_client
         self._emb = embedding_svc
+        # Set by setup_pipeline(): False when the cluster rejects weighted RRF,
+        # in which case text + image falls back to text-as-filter.
+        self._text_image_fusion = False
 
     async def setup_pipeline(self) -> None:
+        await self._setup_text_image_pipeline()
         logger.info(f"SearchService.setup_pipeline — checking for existing pipeline '{PIPELINE_ID}'")
         try:
             exists = await self._os.pipeline_exists(PIPELINE_ID)
@@ -164,6 +170,21 @@ class SearchService:
                 extra={"status": "error", "error_details": str(exc), "input_data": {"pipeline_id": PIPELINE_ID}},
             )
             raise
+
+    async def _setup_text_image_pipeline(self) -> None:
+        """Create/refresh the weighted RRF pipeline used for text + image search."""
+        w = _cfg.text_image_image_weight
+        weights = [(1 - w) / 2, (1 - w) / 2, w]  # BM25, text kNN, image kNN
+        try:
+            await self._os.create_search_pipeline(TEXT_IMAGE_PIPELINE_ID, rank_constant=60, weights=weights)
+            self._text_image_fusion = True
+            logger.info(f"SearchService.setup_pipeline — '{TEXT_IMAGE_PIPELINE_ID}' ready (weights={weights})")
+        except Exception as exc:
+            self._text_image_fusion = False
+            logger.warning(
+                f"SearchService.setup_pipeline — weighted RRF not available ({exc}); "
+                "text + image search falls back to filtering by the text",
+            )
 
     @staticmethod
     def _sort_clause(sort_by: str | None, sort_order: str) -> list[dict] | None:
@@ -249,17 +270,22 @@ class SearchService:
         page_size: int,
         retrieval_k: int,
         ef_search: int | None = None,
+        image_min_score: float = 0.0,
         request_id: str | None = None,
     ) -> SearchApiResponse:
-        """Text, image or text + image search (§2.2), fused with RRF.
+        """Text, image or text + image search (§2.2).
 
-        Sub-queries of the hybrid query:
-          * text  → BM25 multi_match + kNN on ``content_vector``;
-          * image → nested kNN on ``images.image_vector`` (each SKU scores by its
-            best-matching image).
-          * text + image → the image kNN alone ranks; the text only narrows the
-            results to products containing every query word (it is not fused in,
-            so it cannot outvote the image).
+          * text  → hybrid BM25 multi_match + kNN on ``content_vector``, fused with RRF;
+          * image → a plain nested kNN on ``images.image_vector`` (each SKU scores
+            by its best-matching image). RRF over a single list would not change
+            the order, so no hybrid query / pipeline is used;
+          * text + image → hybrid BM25 + text kNN + image kNN fused with weighted
+            RRF (image weighted highest), so the text helps rank but never
+            removes an image match. If the cluster has no weighted RRF, the text
+            instead filters (every word must appear) and the image kNN ranks.
+
+        ``image_min_score`` drops image matches scoring below it. Scores are
+        ``(1 + cosine) / 2``; 0 disables the cut-off.
 
         Embeddings are resolved by the caller (Redis cache or OCI) and passed in:
         ``query`` + ``query_vector`` for text, ``image_vector`` for an image.
@@ -285,46 +311,56 @@ class SearchService:
 
             # Per-query HNSW candidate count; Lucene ignores the index-level ef_search.
             knn_params: dict[str, Any] = {"method_parameters": {"ef_search": ef_search}} if ef_search else {}
-            subqueries: list[dict[str, Any]] = []
+            depth = max(retrieval_k, page * page_size)  # deep enough to cover the requested page
             filters = list(filters)
-            if query and image:
-                # Every query word must appear in one of the text fields (the
-                # catch-all `content` field holds all of them).
-                filters.append({"multi_match": {
-                    "query": query, "fields": KEYWORD_FIELDS, "type": "best_fields",
-                    "operator": "and", "lenient": True,
-                }})
-            elif query:
-                # The index holds English text only, so every language searches the same fields.
-                subqueries.append({"multi_match": {"query": query, "fields": KEYWORD_FIELDS, "type": "best_fields", "lenient": True}})
-                subqueries.append({"knn": {vector_field: {"vector": query_vector, "k": retrieval_k, **knn_params}}})
-            if image:
-                subqueries.append({
-                    "nested": {
-                        "path": IMAGE_PATH,
-                        "score_mode": "max",
-                        "query": {"knn": {IMAGE_VECTOR_FIELD: {"vector": image_vector, "k": retrieval_k, **knn_params}}},
-                    }
-                })
-            logger.debug(f"SearchService.search_v1 — hybrid query with {len(subqueries)} sub-queries")
+            bm25 = {"multi_match": {"query": query, "fields": KEYWORD_FIELDS, "type": "best_fields", "lenient": True}} if query else None
+            fuse_text_image = bool(query and image and self._text_image_fusion)
 
-            # A hybrid query must be the top-level query, so filters go in its own
-            # `filter` (applied to every sub-query) rather than an outer bool.
-            hybrid: dict[str, Any] = {
-                "queries": subqueries,
-                # Each sub-query must retrieve deep enough to cover the requested page.
-                "pagination_depth": max(retrieval_k, page * page_size),
-            }
-            if filters:
-                hybrid["filter"] = {"bool": {"filter": filters}}
+            def image_query(knn_filter: list[dict] | None = None) -> dict[str, Any]:
+                knn: dict[str, Any] = {"vector": image_vector, "k": depth, **knn_params}
+                if knn_filter:
+                    knn["filter"] = {"bool": {"filter": knn_filter}}
+                q: dict[str, Any] = {"nested": {
+                    "path": IMAGE_PATH, "score_mode": "max",
+                    "query": {"knn": {IMAGE_VECTOR_FIELD: knn}},
+                }}
+                # function_score with no functions keeps the kNN score; min_score drops weak matches.
+                return {"function_score": {"query": q, "min_score": image_min_score}} if image_min_score > 0 else q
 
-            # RRF-fused results, paginated natively by OpenSearch (from/size) — no rerank step.
+            pipeline_id: str | None = PIPELINE_ID
+            if image and not query:
+                # Plain nested kNN; filters go inside the kNN so it pre-filters
+                # (exact search when the filter is selective) instead of post-filtering.
+                query_clause = image_query(filters)
+                pipeline_id = None
+            else:
+                subqueries: list[dict[str, Any]] = []
+                if query and image and not fuse_text_image:
+                    # Fallback: every query word must appear in one of the text fields.
+                    filters.append({"multi_match": {**bm25["multi_match"], "operator": "and"}})
+                elif query:
+                    # The index holds English text only, so every language searches the same fields.
+                    subqueries.append(bm25)
+                    subqueries.append({"knn": {vector_field: {"vector": query_vector, "k": retrieval_k, **knn_params}}})
+                if image:
+                    subqueries.append(image_query())
+                if fuse_text_image:
+                    pipeline_id = TEXT_IMAGE_PIPELINE_ID
+                # A hybrid query must be the top-level query, so filters go in its own
+                # `filter` (applied to every sub-query) rather than an outer bool.
+                hybrid: dict[str, Any] = {"queries": subqueries, "pagination_depth": depth}
+                if filters:
+                    hybrid["filter"] = {"bool": {"filter": filters}}
+                query_clause = {"hybrid": hybrid}
+            logger.debug(f"SearchService.search_v1 — mode={mode} pipeline={pipeline_id} fused_text_image={fuse_text_image}")
+
+            # Paginated natively by OpenSearch (from/size) — no rerank step.
             body: dict[str, Any] = {
                 "from": (page - 1) * page_size,
                 "size": page_size,
                 # Never return embedding vectors — they are large and useless to clients.
                 "_source": {"excludes": [vector_field, IMAGE_PATH]},
-                "query": {"hybrid": hybrid},
+                "query": query_clause,
                 "aggs": _build_aggs(),
             }
             sort = self._sort_clause(sort_by, sort_order)
@@ -332,9 +368,9 @@ class SearchService:
                 body["sort"] = sort
                 logger.debug(f"SearchService.search_v1 — sort applied: {sort}")
 
-            logger.info(f"SearchService.search_v1 — executing hybrid RRF search via pipeline '{PIPELINE_ID}'")
+            logger.info(f"SearchService.search_v1 — executing {mode} search (pipeline={pipeline_id})")
             _t_search0 = time.perf_counter()
-            raw = await self._os.search(index, body, pipeline_id=PIPELINE_ID)
+            raw = await self._os.search(index, body, pipeline_id=pipeline_id)
             search_wall_ms = (time.perf_counter() - _t_search0) * 1000
 
             took_ms = raw.get("took", 0)

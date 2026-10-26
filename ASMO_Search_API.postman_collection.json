@@ -2821,6 +2821,74 @@
               }
             }
           ]
+        },
+        {
+          "name": "TC-IMG-14 Text + image - extra unmatched word still finds 172000-001-hvac",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "air handling unit zzqx",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/172000-001-hvac__img0.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Text + image fusion: 'zzqx' appears in no product, which used to filter every result out (all words had to match). With weighted RRF the text only helps ranking, so the image match must still rank in the top 3. Fails with 0 products if the cluster rejected weighted RRF (API log: 'weighted RRF not available')."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "pm.test('172000-001-hvac is in the top 3', () => pm.expect(b.products.slice(0, 3).map(p => p.sku_id)).to.include('172000-001-hvac'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

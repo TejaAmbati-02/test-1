@@ -386,6 +386,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 page_size=page_size,
                 retrieval_k=_RETRIEVAL_K,
                 ef_search=_EF_SEARCH,
+                image_min_score=_cfg.image_min_score,
                 request_id=request_id,
             )
             result.query_embedding_id = query_emb.key if query_emb else None

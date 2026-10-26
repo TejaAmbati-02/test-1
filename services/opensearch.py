@@ -147,18 +147,22 @@ class OpenSearchClientService:
             logger.info(f"OpenSearchClientService.pipeline_exists — pipeline '{pipeline_id}' not found")
             return False
 
-    async def create_search_pipeline(self, pipeline_id: str, rank_constant: int = 60) -> dict[str, Any]:
+    async def create_search_pipeline(
+        self, pipeline_id: str, rank_constant: int = 60, weights: list[float] | None = None,
+    ) -> dict[str, Any]:
         logger.info(
             f"OpenSearchClientService.create_search_pipeline — creating '{pipeline_id}'",
             extra={"input_data": {"pipeline_id": pipeline_id, "rank_constant": rank_constant}},
         )
         try:
             client = await self.get_client()
+            combination: dict[str, Any] = {"technique": "rrf", "rank_constant": rank_constant}
+            if weights:
+                # One weight per hybrid sub-query, in sub-query order.
+                combination["parameters"] = {"weights": weights}
             body = {
-                "description": "RRF hybrid search pipeline",
-                "phase_results_processors": [
-                    {"score-ranker-processor": {"combination": {"technique": "rrf", "rank_constant": rank_constant}}}
-                ],
+                "description": "RRF hybrid search pipeline" + (" (weighted)" if weights else ""),
+                "phase_results_processors": [{"score-ranker-processor": {"combination": combination}}],
             }
             response = await client.transport.perform_request("PUT", f"/_search/pipeline/{pipeline_id}", body=body)
             logger.info(

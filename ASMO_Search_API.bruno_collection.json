@@ -2528,6 +2528,81 @@
               "mode": "none"
             }
           }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-IMG-14 Text + image - extra unmatched word still finds 172000-001-hvac",
+          "seq": 14,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "air handling unit zzqx",
+                  "enabled": true
+                },
+                {
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images_known/172000-001-hvac__img0.png"
+                  ],
+                  "enabled": true,
+                  "contentType": "image/png"
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('172000-001-hvac is in the top 3', () => expect(b.products.slice(0, 3).map(p => p.sku_id)).to.include('172000-001-hvac'));",
+            "docs": "Text + image fusion: 'zzqx' appears in no product, which used to filter every result out (all words had to match). With weighted RRF the text only helps ranking, so the image match must still rank in the top 3. Fails with 0 products if the cluster rejected weighted RRF (API log: 'weighted RRF not available').",
+            "auth": {
+              "mode": "none"
+            }
+          }
         }
       ]
     },
