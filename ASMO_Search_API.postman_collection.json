@@ -1986,6 +1986,845 @@
       "description": "Binary image uploads. Files live in test_images/ next to this collection (paths are relative to the collection folder)."
     },
     {
+      "name": "Image Search - Known Answers",
+      "description": "One request per image in test_images_known/ (byte-identical copies of ingested product images, see expected.json). Each asserts the expected SKU is the top hit. Requires the API to search asmo-image-search-api-index with knn_ef_search=500.",
+      "item": [
+        {
+          "name": "TC-IMG-01 Air Handling Unit 5 TR - 172000-001-hvac",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/172000-001-hvac__img0.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: 172000-001-hvac__img0.png is a byte-identical copy of the product image ingested for 172000-001-hvac, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"172000-001-hvac\"];",
+                  "pm.test('top hit is 172000-001-hvac', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-02 Cooling Tower 3 TR - 172000-003-hvac",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/172000-003-hvac__img0.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: 172000-003-hvac__img0.png is a byte-identical copy of the product image ingested for 172000-003-hvac, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"172000-003-hvac\"];",
+                  "pm.test('top hit is 172000-003-hvac', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-03 Cooling Tower 3 TR - 174000-001-hvac",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/174000-001-hvac__img0.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Known-answer image search: 174000-001-hvac__img0.jpg is a byte-identical copy of the product image ingested for 174000-001-hvac, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"174000-001-hvac\"];",
+                  "pm.test('top hit is 174000-001-hvac', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-04 HPE X242 40G QSFP - a-880000629771",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/a-880000629771__img0.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: a-880000629771__img0.png is a byte-identical copy of the product image ingested for a-880000629771, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"a-880000629771\"];",
+                  "pm.test('top hit is a-880000629771', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch - a-880000629773",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/a-880000629773__img1.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: a-880000629773__img1.png is a byte-identical copy of the product image ingested for a-880000629773, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"a-880000629773\"];",
+                  "pm.test('top hit is a-880000629773', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-06 Stapler Standard Duty Black - ao-100004_1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/ao-100004_1__img1.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: ao-100004_1__img1.png is a byte-identical copy of the product image ingested for ao-100004_1, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"ao-100004_1\"];",
+                  "pm.test('top hit is ao-100004_1', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-07 Scissors Stainless Steel 8 Inch - ao-100014_1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/ao-100014_1__img0.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: ao-100014_1__img0.png is a byte-identical copy of the product image ingested for ao-100014_1, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"ao-100014_1\"];",
+                  "pm.test('top hit is ao-100014_1', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA - ao-100018_1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/ao-100018_1__img0.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Known-answer image search: ao-100018_1__img0.jpg is a byte-identical copy of the product image ingested for ao-100018_1, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"ao-100018_1\"];",
+                  "pm.test('top hit is ao-100018_1', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-09 Calculator Desktop 12 Digit - ao-100021_1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/ao-100021_1__img0.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: ao-100021_1__img0.png is a byte-identical copy of the product image ingested for ao-100021_1, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"ao-100021_1\"];",
+                  "pm.test('top hit is ao-100021_1', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-10 7X50 A211 ACULON BINO NIKON - ao-100027_1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/ao-100027_1__img0.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: ao-100027_1__img0.png is a byte-identical copy of the product image ingested for ao-100027_1, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"ao-100027_1\"];",
+                  "pm.test('top hit is ao-100027_1', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-11 Book 20 Pages Sz Letter 80GSM - ao-100031_1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/ao-100031_1__img2.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: ao-100031_1__img2.png is a byte-identical copy of the product image ingested for ao-100031_1, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"ao-100031_1\"];",
+                  "pm.test('top hit is ao-100031_1', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-12 AeroDry Smart Dehumidifier 20L - qa-product-01",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/qa-product-01__img3.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Known-answer image search: qa-product-01__img3.png is a byte-identical copy of the product image ingested for qa-product-01, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"qa-product-01\"];",
+                  "pm.test('top hit is qa-product-01', () => pm.expect(expected).to.include(b.products[0].sku_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-IMG-13 Control Valve Positioner HART - 105 SKUs",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images_known/shared__105_skus.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Known-answer image search: shared__105_skus.jpg is a byte-identical copy of the product image ingested for one of the 105 SKUs sharing this image, so it must rank first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
+                  "const expected = [\"001300-001-instrumentation-1\", \"001300-002-instrumentation\", \"003500-001-services-1\", \"027100-002-instrumentation-1\", \"027100-003-instrumentation\", \"029000-004-instrumentation-1\", \"029000-005-instrumentation\", \"029000-009-instrumentation-1\", \"029000-010-instrumentation\", \"029000-014-instrumentation-1\", \"029000-015-instrumentation\", \"029000-019-instrumentation-1\", \"029000-020-instrumentation\", \"029000-024-instrumentation-1\", \"029000-025-instrumentation\", \"032000-001-instrumentation-1\", \"032000-002-instrumentation\", \"032000-006-instrumentation-1\", \"032000-007-instrumentation\", \"032000-011-instrumentation-1\", \"032000-012-instrumentation\", \"044000-002-instrumentation-1\", \"044000-003-instrumentation\", \"044000-007-instrumentation-1\", \"044000-008-instrumentation\", \"044100-002-instrumentation-1\", \"064000-001-instrumentation\", \"067000-001-instrumentation-1\", \"067000-002-instrumentation\", \"067000-006-instrumentation-1\", \"067000-007-instrumentation\", \"068000-001-instrumentation-1\", \"068000-002-instrumentation\", \"069000-003-instrumentation-1\", \"070000-001-instrumentation\", \"072000-002-instrumentation-1\", \"072000-003-instrumentation\", \"075000-001-instrumentation-1\", \"075000-002-instrumentation\", \"076000-001-instrumentation-1\", \"076000-002-instrumentation\", \"077000-001-instrumentation\", \"079000-002-instrumentation-1\", \"080000-001-instrumentation\", \"082000-002-instrumentation-1\", \"082000-003-instrumentation\", \"083100-002-instrumentation-1\", \"084000-002-instrumentation-1\", \"084100-001-instrumentation\", \"085000-001-instrumentation\", \"088000-002-instrumentation-1\", \"088000-003-instrumentation\", \"089000-001-instrumentation-1\", \"089100-001-instrumentation\", \"090000-002-instrumentation-1\", \"090100-001-instrumentation\", \"092100-002-instrumentation-1\", \"093000-001-instrumentation\", \"093100-003-instrumentation-1\", \"094000-001-instrumentation\", \"095000-001-instrumentation-1\", \"151000-001-services-1\", \"151000-002-services\", \"151000-004-services-1\", \"151000-005-services\", \"151000-007-services-1\", \"151000-008-services\", \"151000-010-services-1\", \"151100-001-services\", \"152100-001-services-1\", \"152100-002-services\", \"152500-002-services-1\", \"152500-003-services\", \"153000-001-services\", \"153100-001-services-1\", \"153100-002-services\", \"154000-002-services-1\", \"154000-003-services\", \"158100-001-services-1\", \"158100-002-services\", \"158500-002-services-1\", \"158500-003-services\", \"159000-002-services-1\", \"159100-001-services\", \"159100-003-services-1\", \"159200-001-services\", \"159500-001-services\", \"160000-002-services-1\", \"160000-003-services\", \"198000-002-services-1\", \"199000-001-services-1\", \"199000-002-services\", \"213000-001-instrumentation\", \"213100-003-instrumentation-1\", \"214000-001-instrumentation\", \"216000-001-services-1\", \"216000-002-services\", \"216100-002-services-1\", \"216100-003-services\", \"217000-002-services-1\", \"217000-003-services\", \"227100-001-services-1\", \"227100-002-services\", \"871000-001-services-1\", \"871000-002-services\"];",
+                  "pm.test('top hit is one of the 105 SKUs sharing this image', () => pm.expect(expected).to.include(b.products[0].sku_id));",
+                  "pm.test('every product on page 1 shares this image', () => b.products.forEach(p => pm.expect(expected).to.include(p.sku_id)));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Suggestions",
       "item": [
         {
