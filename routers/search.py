@@ -3,14 +3,15 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from tempfile import SpooledTemporaryFile
 from typing import Annotated, Any
 
+import starlette.formparsers as _starlette_formparsers
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, ValidationError
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.formparsers import MultiPartParser
 
 from config import settings as _cfg
 from utils.logger import logger
@@ -56,8 +57,16 @@ MAX_PART_BYTES = 2 * MAX_IMAGE_BYTES
 # Starlette spools file parts over 1 MiB to a temp file on disk. Containers with
 # a read-only filesystem have no usable temp dir, so every larger image failed
 # with "No usable temporary directory found". Parts are capped at MAX_PART_BYTES,
-# so keep them in memory instead.
-MultiPartParser.spool_max_size = MAX_PART_BYTES
+# so keep them in memory instead. The spool-size attribute was renamed across
+# Starlette releases (max_file_size up to 0.45, spool_max_size from 0.46), so
+# swap in a spool class that never rolls over below MAX_PART_BYTES — this works
+# on every version regardless of the attribute name.
+class _InMemorySpool(SpooledTemporaryFile):
+    def __init__(self, max_size: int = 0, *args: Any, **kwargs: Any) -> None:
+        super().__init__(max(max_size, MAX_PART_BYTES), *args, **kwargs)
+
+
+_starlette_formparsers.SpooledTemporaryFile = _InMemorySpool
 
 _ERROR_RESPONSES = {
     400: {"model": ErrorResponse, "description": "Bad request — unsupported channel/language, invalid filter, or empty request"},
