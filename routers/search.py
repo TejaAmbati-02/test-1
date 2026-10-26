@@ -44,8 +44,9 @@ SUPPORTED_SORT_BY = frozenset({"relevance", "price"})
 SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
 
 # Image constraints (§5): unsupported type -> 400, oversized -> 413.
-ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
-# Generic binary uploads (e.g. a .bin part) carry no image type; the bytes decide.
+# The image must be sent as a generic binary (.bin) part — application/octet-stream
+# or no content type; parts declared as image/png, image/jpeg, etc. are rejected.
+# The bytes decide the format (PNG, JPEG, GIF or WebP).
 GENERIC_BINARY_TYPES = frozenset({"", "application/octet-stream"})
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MiB
 
@@ -194,7 +195,7 @@ _SEARCH_REQUEST_BODY = {
                 "required": ["channel", "language"],
                 "properties": {
                     **SearchForm.model_json_schema()["properties"],
-                    "image": {"type": "string", "format": "binary", "description": "Optional binary image (PNG, JPEG, GIF or WebP) for image / text+image search"},
+                    "image": {"type": "string", "format": "binary", "description": "Optional image for image / text+image search, sent as a binary .bin part (application/octet-stream); the bytes must be a PNG, JPEG, GIF or WebP"},
                 },
             }
         }
@@ -323,9 +324,12 @@ async def v1_search(request: Request) -> SearchApiResponse:
     # --- Image validation (§5): unsupported type -> 400, oversized -> 413 ----
     image_input: tuple[bytes, str] | None = None
     if image_bytes is not None:
-        if declared_type not in ALLOWED_IMAGE_TYPES | GENERIC_BINARY_TYPES:
-            logger.warning(f"POST /v1/search — unsupported image type '{declared_type}'")
-            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", f"Unsupported image type '{declared_type}'.")
+        if declared_type not in GENERIC_BINARY_TYPES:
+            logger.warning(f"POST /v1/search — unsupported image type '{declared_type}' (only binary uploads accepted)")
+            raise _api_error(
+                400, "UNSUPPORTED_IMAGE_TYPE",
+                f"Unsupported image type '{declared_type}'. Send the image as a binary file (application/octet-stream).",
+            )
         if len(image_bytes) > MAX_IMAGE_BYTES:
             logger.warning(f"POST /v1/search — image too large: {len(image_bytes)} bytes")
             raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")

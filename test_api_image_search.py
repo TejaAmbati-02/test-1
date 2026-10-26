@@ -29,10 +29,10 @@ def post_search(base_url: str, fields: dict[str, str], image: Path | None = None
     for name, value in fields.items():
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
     if image is not None:
-        mime = "image/png" if image.suffix.lower() == ".png" else "image/jpeg"
+        # Sent as a generic .bin binary, as the frontend does; the API detects the format from the bytes.
         parts.append(
-            f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{image.name}"\r\n'
-            f"Content-Type: {mime}\r\n\r\n".encode() + image.read_bytes() + b"\r\n"
+            f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{image.stem}.bin"\r\n'
+            f"Content-Type: application/octet-stream\r\n\r\n".encode() + image.read_bytes() + b"\r\n"
         )
     parts.append(f"--{boundary}--\r\n".encode())
     req = urllib.request.Request(

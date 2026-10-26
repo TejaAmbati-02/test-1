@@ -300,4 +300,4 @@ echo "=== OCI latency ==="
 curl -s "${base_url}/health/latency/oci?samples=5"
 
 echo "=== Image search (expect 501) ==="
-curl -s -X POST "${base_url}/v1/search" -F "channel=web" -F "language=en" -F "image=@/path/to/photo.jpg"
+curl -s -X POST "${base_url}/v1/search" -F "channel=web" -F "language=en" -F "image=@/path/to/photo.bin;type=application/octet-stream"

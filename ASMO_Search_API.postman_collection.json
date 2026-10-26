@@ -1534,8 +1534,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -1612,8 +1612,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/a-880000629771.png",
-                  "contentType": "image/png"
+                  "src": "test_images/a-880000629771.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -1695,8 +1695,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/172000-001-hvac.png",
-                  "contentType": "image/png"
+                  "src": "test_images/172000-001-hvac.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -1778,8 +1778,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/a-880000629771.png",
-                  "contentType": "image/png"
+                  "src": "test_images/a-880000629771.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -1867,8 +1867,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -1945,7 +1945,7 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/172000-001-hvac.png",
+                  "src": "test_images/172000-001-hvac.bin",
                   "contentType": "application/octet-stream"
                 }
               ]
@@ -2030,8 +2030,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/172000-001-hvac__img0.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/172000-001-hvac__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2094,8 +2094,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/172000-003-hvac__img0.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/172000-003-hvac__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2158,8 +2158,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/174000-001-hvac__img0.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images_known/174000-001-hvac__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2222,8 +2222,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/a-880000629771__img0.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/a-880000629771__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2286,8 +2286,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/a-880000629773__img1.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/a-880000629773__img1.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2350,8 +2350,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100004_1__img1.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/ao-100004_1__img1.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2414,8 +2414,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100014_1__img0.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/ao-100014_1__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2478,8 +2478,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100018_1__img0.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images_known/ao-100018_1__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2542,8 +2542,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100021_1__img0.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/ao-100021_1__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2606,8 +2606,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100027_1__img0.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/ao-100027_1__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2670,8 +2670,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100031_1__img2.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/ao-100031_1__img2.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2734,8 +2734,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/qa-product-01__img3.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/qa-product-01__img3.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2798,8 +2798,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/shared__105_skus.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images_known/shared__105_skus.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -2868,8 +2868,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/172000-001-hvac__img0.png",
-                  "contentType": "image/png"
+                  "src": "test_images_known/172000-001-hvac__img0.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -3695,7 +3695,7 @@
           }
         },
         {
-          "name": "TC-043 Non-image file sent as image/png (400)",
+          "name": "TC-043 Non-image file sent as bin (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -3740,8 +3740,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/not_an_image.png",
-                  "contentType": "image/png"
+                  "src": "test_images/not_an_image.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -3803,8 +3803,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/oversized.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images/oversized.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             },
@@ -4289,8 +4289,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             }
@@ -4360,8 +4360,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.jpg",
-                  "contentType": "image/jpeg"
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
                 }
               ]
             }

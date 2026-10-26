@@ -1229,10 +1229,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/ao-100018_1.jpg"
+                    "test_images/ao-100018_1.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1298,10 +1298,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/a-880000629771.png"
+                    "test_images/a-880000629771.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1373,10 +1373,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/172000-001-hvac.png"
+                    "test_images/172000-001-hvac.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1448,10 +1448,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/a-880000629771.png"
+                    "test_images/a-880000629771.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1529,10 +1529,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/ao-100018_1.jpg"
+                    "test_images/ao-100018_1.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1598,7 +1598,7 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/172000-001-hvac.png"
+                    "test_images/172000-001-hvac.bin"
                   ],
                   "enabled": true,
                   "contentType": "application/octet-stream"
@@ -1677,10 +1677,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/172000-001-hvac__img0.png"
+                    "test_images_known/172000-001-hvac__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1746,10 +1746,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/172000-003-hvac__img0.png"
+                    "test_images_known/172000-003-hvac__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1815,10 +1815,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/174000-001-hvac__img0.jpg"
+                    "test_images_known/174000-001-hvac__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1884,10 +1884,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/a-880000629771__img0.png"
+                    "test_images_known/a-880000629771__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -1953,10 +1953,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/a-880000629773__img1.png"
+                    "test_images_known/a-880000629773__img1.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2022,10 +2022,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100004_1__img1.png"
+                    "test_images_known/ao-100004_1__img1.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2091,10 +2091,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100014_1__img0.png"
+                    "test_images_known/ao-100014_1__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2160,10 +2160,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100018_1__img0.jpg"
+                    "test_images_known/ao-100018_1__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2229,10 +2229,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100021_1__img0.png"
+                    "test_images_known/ao-100021_1__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2298,10 +2298,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100027_1__img0.png"
+                    "test_images_known/ao-100027_1__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2367,10 +2367,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100031_1__img2.png"
+                    "test_images_known/ao-100031_1__img2.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2436,10 +2436,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/qa-product-01__img3.png"
+                    "test_images_known/qa-product-01__img3.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2505,10 +2505,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/shared__105_skus.jpg"
+                    "test_images_known/shared__105_skus.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -2580,10 +2580,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/172000-001-hvac__img0.png"
+                    "test_images_known/172000-001-hvac__img0.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -3498,7 +3498,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-043 Non-image file sent as image-png (400)",
+          "name": "TC-043 Non-image file sent as bin (400)",
           "seq": 12,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -3547,10 +3547,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/not_an_image.png"
+                    "test_images/not_an_image.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/png"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -3616,10 +3616,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/oversized.jpg"
+                    "test_images/oversized.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -4128,10 +4128,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/ao-100018_1.jpg"
+                    "test_images/ao-100018_1.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
@@ -4197,10 +4197,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/ao-100018_1.jpg"
+                    "test_images/ao-100018_1.bin"
                   ],
                   "enabled": true,
-                  "contentType": "image/jpeg"
+                  "contentType": "application/octet-stream"
                 }
               ],
               "file": []
