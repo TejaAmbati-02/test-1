@@ -459,7 +459,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
         raise _api_error(400, "QUERY_ERROR", str(exc))
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - _t0) * 1000
-        logger.error(
+        # exception(): include the traceback so the failing call is visible in the logs.
+        logger.exception(
             f"POST /v1/search — failed after {elapsed_ms:.1f}ms: {exc}",
             extra={
                 "status": "error",

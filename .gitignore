@@ -14,3 +14,4 @@ logs
 /pushing_data_to_index/out_transformed
 pushing_data_to_index
 out_transformed
+tmp/

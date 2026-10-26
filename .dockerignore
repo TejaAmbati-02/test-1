@@ -32,3 +32,5 @@ curls.sh
 latency_checks.json
 Dockerfile
 .dockerignore
+
+tmp/

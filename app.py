@@ -5,8 +5,44 @@ from typing import AsyncGenerator
  
 import asyncio
 import os
+import shutil
+import tempfile
 import time
- 
+
+# App-local temp folder, used only when the system temp dirs are unusable (see
+# _ensure_temp_dir) and emptied of stale files by _tmp_cleanup.
+APP_TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tmp")
+
+
+def _ensure_temp_dir() -> None:
+    """Point tempfile at a writable directory if the defaults are unusable.
+
+    Read-only containers have no writable /tmp, /var/tmp, /usr/tmp or /app, so any
+    library that creates a temp file fails with "No usable temporary directory
+    found". Fall back to the first that works: a ``tmp`` folder inside the app
+    directory (created if missing; helps when only the system temp dirs are
+    locked down), /dev/shm (an in-memory tmpfs present in containers), or the
+    home directory.
+    """
+    try:
+        tempfile.gettempdir()
+        return
+    except FileNotFoundError:
+        pass
+    for candidate in (APP_TMP_DIR, "/dev/shm", os.path.expanduser("~")):
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            with tempfile.TemporaryFile(dir=candidate):
+                pass
+        except OSError:
+            continue
+        tempfile.tempdir = candidate
+        os.environ["TMPDIR"] = candidate
+        return
+
+
+_ensure_temp_dir()
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -40,6 +76,13 @@ OPENSEARCH_HEARTBEAT_INTERVAL = 5
 # on-demand call, so keep it only as frequent as needed to beat the idle window.
 OCI_EMBED_HEARTBEAT_INTERVAL = int(os.environ.get("OCI_EMBED_HEARTBEAT_INTERVAL", "60"))
  
+# How often the app-local tmp folder is swept, and how old a file must be before
+# it is deleted. Files younger than the max age may still be in use by a running
+# request, so they are left alone. Override with TMP_CLEANUP_INTERVAL /
+# TMP_FILE_MAX_AGE (seconds).
+TMP_CLEANUP_INTERVAL = float(os.environ.get("TMP_CLEANUP_INTERVAL", "1"))
+TMP_FILE_MAX_AGE = float(os.environ.get("TMP_FILE_MAX_AGE", "60"))
+
 # Throwaway query used for both the startup warmup and the keep-alive heartbeat.
 _EMBED_WARMUP_TEXT = "warmup"
  
@@ -74,11 +117,51 @@ async def _oci_embed_heartbeat(interval: int) -> None:
             logger.warning(f"OCI embed heartbeat failed: {exc}")
  
  
+def _clean_app_tmp(max_age: float) -> int:
+    """Delete entries in APP_TMP_DIR last modified more than max_age seconds ago."""
+    cutoff = time.time() - max_age
+    removed = 0
+    try:
+        entries = list(os.scandir(APP_TMP_DIR))
+    except FileNotFoundError:
+        return 0
+    for entry in entries:
+        try:
+            if entry.stat(follow_symlinks=False).st_mtime > cutoff:
+                continue  # recent: may still be in use
+            if entry.is_dir(follow_symlinks=False):
+                shutil.rmtree(entry.path)
+            else:
+                os.unlink(entry.path)
+            removed += 1
+        except FileNotFoundError:
+            pass  # already gone (closed and removed by its owner)
+    return removed
+
+
+async def _tmp_cleanup(interval: float, max_age: float) -> None:
+    """Periodically remove stale files from the app-local tmp folder."""
+    logger.info(f"tmp cleanup started — every {interval}s, removing files older than {max_age}s in {APP_TMP_DIR}")
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            removed = await asyncio.to_thread(_clean_app_tmp, max_age)
+            if removed:
+                logger.info(f"tmp cleanup removed {removed} stale entr{'y' if removed == 1 else 'ies'}")
+        except asyncio.CancelledError:
+            logger.info("tmp cleanup cancelled")
+            raise
+        except Exception as exc:
+            # Never let a transient filesystem error kill the cleanup loop.
+            logger.warning(f"tmp cleanup failed: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Application startup")
     heartbeat_task: asyncio.Task | None = None
     embed_heartbeat_task: asyncio.Task | None = None
+    tmp_cleanup_task: asyncio.Task | None = None
     try:
         logger.info(f"Loading embedding model: {settings.embedding_model_name}")
         await embedding_service.load()
@@ -118,6 +201,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         heartbeat_task = asyncio.create_task(_opensearch_heartbeat(OPENSEARCH_HEARTBEAT_INTERVAL))
         # Keep the on-demand embedding model warm so no request ever hits a cold spin-up.
         embed_heartbeat_task = asyncio.create_task(_oci_embed_heartbeat(OCI_EMBED_HEARTBEAT_INTERVAL))
+        # Sweep the app-local tmp folder — only exists when it is the temp fallback.
+        if os.path.isdir(APP_TMP_DIR):
+            tmp_cleanup_task = asyncio.create_task(_tmp_cleanup(TMP_CLEANUP_INTERVAL, TMP_FILE_MAX_AGE))
  
     except Exception as exc:
         logger.exception(f"Startup failed: {exc}")
@@ -127,7 +213,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     yield
  
     logger.info("Shutting down")
-    for task in (heartbeat_task, embed_heartbeat_task):
+    for task in (heartbeat_task, embed_heartbeat_task, tmp_cleanup_task):
         if task is not None:
             task.cancel()
             try:
