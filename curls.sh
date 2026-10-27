@@ -488,6 +488,12 @@ echo "=== TC-035c Unsupported language on suggestions (400) ==="
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=fr"
 echo
 
+echo "=== TC-059 Request not sent as multipart/form-data (400) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"web","language":"en","search_query":"valve"}'
+echo
+
 echo "=== TC-043 Non-image file rejected (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \

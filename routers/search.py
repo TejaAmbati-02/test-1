@@ -244,6 +244,11 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, tuple[bytes, 
         None when ``image`` came as a text field rather than a file part (no
         filename, e.g. Base64), which the caller rejects.
     """
+    # The request must be multipart/form-data: text fields and the image are separate parts.
+    content_type = request.headers.get("content-type", "")
+    if content_type.split(";")[0].strip().lower() != "multipart/form-data":
+        logger.warning(f"POST /v1/search — rejected Content-Type '{content_type or 'none'}'")
+        raise _api_error(400, "INVALID_CONTENT_TYPE", "The request must be sent as multipart/form-data.")
     try:
         form = await request.form(max_part_size=MAX_PART_BYTES)
     except StarletteHTTPException as exc:

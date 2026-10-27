@@ -1,6 +1,6 @@
 # ASMO AI Search API — Test Cases (curl)
 
-Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 49 cases that succeed; **Part B** lists the 20 cases that must be rejected, with the exact error returned.
+Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 49 cases that succeed; **Part B** lists the 21 cases that must be rejected, with the exact error returned.
 
 ## How to run
 
@@ -173,6 +173,7 @@ Every error has the same body: `{"code": "…", "message": "…"}`.
 
 | HTTP | `code` | When |
 |---|---|---|
+| 400 | `INVALID_CONTENT_TYPE` | the request is not `multipart/form-data` (e.g. JSON or `application/x-www-form-urlencoded`) |
 | 400 | `UNSUPPORTED_CHANNEL` | `channel` is not `web` / `mobile` |
 | 400 | `UNSUPPORTED_LANGUAGE` | `language` is not `en` |
 | 400 | `INVALID_SORT_BY` | `sort_by` is not `relevance` / `price` |
@@ -1216,7 +1217,27 @@ Checks: code = UNSUPPORTED_LANGUAGE; message is a non-empty string; flat error b
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=fr"
 ```
 
-#### B13. TC-043 Non-image file rejected (400)
+#### B13. TC-059 Request not sent as multipart/form-data (400)
+
+The search request must be multipart/form-data, with the text fields and the image as separate parts; a JSON body is rejected.
+
+`POST /v1/search` → expected **400**
+
+Response:
+
+```json
+{"code":"INVALID_CONTENT_TYPE","message":"The request must be sent as multipart/form-data."}
+```
+
+Checks: code = INVALID_CONTENT_TYPE; message = "The request must be sent as multipart/form-data."
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"web","language":"en","search_query":"valve"}'
+```
+
+#### B14. TC-043 Non-image file rejected (400)
 
 A file whose bytes are not a JPEG, PNG or WebP image is rejected (the format is detected from the bytes, not the file name).
 
@@ -1239,7 +1260,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/not_an_image.png;type=image/png"
 ```
 
-#### B14. TC-043b GIF image rejected (400)
+#### B15. TC-043b GIF image rejected (400)
 
 GIF is not supported: only JPEG, PNG and WebP images are accepted.
 
@@ -1262,7 +1283,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/sample.gif;type=image/gif"
 ```
 
-#### B15. TC-043c Image sent as a text field (Base64) rejected (400)
+#### B16. TC-043c Image sent as a text field (Base64) rejected (400)
 
 The image sent as a text field (Base64, no file part) is rejected: it must be binary in a multipart file part.
 
@@ -1285,7 +1306,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=$(base64 < test_images/ao-100018_1.jpg | tr -d '\n')"
 ```
 
-#### B16. TC-048 Generic binary content type (application/octet-stream) rejected (400)
+#### B17. TC-048 Generic binary content type (application/octet-stream) rejected (400)
 
 A JPEG sent with Content-Type application/octet-stream is rejected: the image part must be image/jpeg, image/png or image/webp.
 
@@ -1308,7 +1329,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.jpg;type=application/octet-stream"
 ```
 
-#### B17. TC-047 Image larger than 10 MiB (413)
+#### B18. TC-047 Image larger than 10 MiB (413)
 
 Uploads over 10 MiB (10485760 bytes) are rejected before embedding.
 
@@ -1331,7 +1352,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/oversized.jpg;type=image/jpeg"
 ```
 
-#### B18. TC-032d Invalid filter value (400)
+#### B19. TC-032d Invalid filter value (400)
 
 `POST /v1/search` → expected **400**
 
@@ -1354,7 +1375,7 @@ curl -s -X POST "${base_url}/v1/search" \
 
 ### Redis (Embedding Cache)
 
-#### B19. TC-057 Unknown / expired request_id
+#### B20. TC-057 Unknown / expired request_id
 
 A well-formed request_id whose search is not in Redis: 400 when Redis is enabled, 503 when disabled.
 
@@ -1377,7 +1398,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=00000000-0000-0000-0000-000000000000"
 ```
 
-#### B20. TC-058 Malformed request_id (400)
+#### B21. TC-058 Malformed request_id (400)
 
 request_id must be a UUID; rejected without touching Redis (same with Redis on or off).
 
