@@ -1163,10 +1163,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/ao-100018_1.bin"
+                    "test_images/ao-100018_1.jpg"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/jpeg"
                 }
               ],
               "file": []
@@ -1232,10 +1232,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/a-880000629771.bin"
+                    "test_images/a-880000629771.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -1307,10 +1307,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/172000-001-hvac.bin"
+                    "test_images/172000-001-hvac.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -1382,10 +1382,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/a-880000629771.bin"
+                    "test_images/a-880000629771.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -1463,10 +1463,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/ao-100018_1.bin"
+                    "test_images/ao-100018_1.jpg"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/jpeg"
                 }
               ],
               "file": []
@@ -1489,7 +1489,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-048 Generic binary content type (application-octet-stream)",
+          "name": "TC-048 Generic binary content type (application-octet-stream) rejected (400)",
           "seq": 6,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -1532,7 +1532,7 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/172000-001-hvac.bin"
+                    "test_images/ao-100018_1.jpg"
                   ],
                   "enabled": true,
                   "contentType": "application/octet-stream"
@@ -1549,8 +1549,8 @@
               "res": []
             },
             "assertions": [],
-            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('facets is a keyed object', () => {\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('products expose spec fields', () => {\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => expect(b.products[0]).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(b.products[0]).to.not.have.property(k));\n});\ntest('no image vectors leak into products', () => b.products.forEach(p => expect(p).to.not.have.property('images')));\ntest('172000-001-hvac is in the top 5 (searched with its own image)', () => {\n  const skus = b.products.slice(0, 5).map(p => p.sku_id);\n  expect(skus).to.include('172000-001-hvac');\n});",
-            "docs": "PNG bytes sent with Content-Type application/octet-stream; the API detects PNG from the bytes.",
+            "tests": "const b = res.getBody();\ntest('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message', () => expect(b.message).to.eql(\"The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp.\"));",
+            "docs": "A JPEG sent with Content-Type application/octet-stream is rejected: the image part must be image/jpeg, image/png or image/webp.",
             "auth": {
               "mode": "none"
             }
@@ -1611,10 +1611,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/172000-001-hvac__img0.bin"
+                    "test_images_known/172000-001-hvac__img0.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -1680,10 +1680,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/172000-003-hvac__img0.bin"
+                    "test_images_known/172000-003-hvac__img0.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -1749,10 +1749,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/174000-001-hvac__img0.bin"
+                    "test_images_known/174000-001-hvac__img0.jpg"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/jpeg"
                 }
               ],
               "file": []
@@ -1818,10 +1818,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/a-880000629771__img0.bin"
+                    "test_images_known/a-880000629771__img0.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -1887,10 +1887,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/a-880000629773__img1.bin"
+                    "test_images_known/a-880000629773__img1.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -1956,10 +1956,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100004_1__img1.bin"
+                    "test_images_known/ao-100004_1__img1.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -2025,10 +2025,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100014_1__img0.bin"
+                    "test_images_known/ao-100014_1__img0.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -2094,10 +2094,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100018_1__img0.bin"
+                    "test_images_known/ao-100018_1__img0.jpg"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/jpeg"
                 }
               ],
               "file": []
@@ -2163,10 +2163,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100021_1__img0.bin"
+                    "test_images_known/ao-100021_1__img0.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -2232,10 +2232,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100027_1__img0.bin"
+                    "test_images_known/ao-100027_1__img0.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -2301,10 +2301,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/ao-100031_1__img2.bin"
+                    "test_images_known/ao-100031_1__img2.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -2370,10 +2370,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/qa-product-01__img3.bin"
+                    "test_images_known/qa-product-01__img3.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -2439,10 +2439,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/shared__105_skus.bin"
+                    "test_images_known/shared__105_skus.jpg"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/jpeg"
                 }
               ],
               "file": []
@@ -2514,10 +2514,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images_known/172000-001-hvac__img0.bin"
+                    "test_images_known/172000-001-hvac__img0.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -3498,7 +3498,7 @@
         },
         {
           "type": "http-request",
-          "name": "TC-043 Non-image file (400)",
+          "name": "TC-043 Non-image file rejected (400)",
           "seq": 13,
           "request": {
             "url": "{{base_url}}/v1/search",
@@ -3547,10 +3547,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/not_an_image.bin"
+                    "test_images/not_an_image.png"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/png"
                 }
               ],
               "file": []
@@ -3564,8 +3564,8 @@
               "res": []
             },
             "assertions": [],
-            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);",
-            "docs": "A file whose bytes are not a JPEG, PNG or WebP image is rejected by the byte check.",
+            "tests": "const b = res.getBody();\ntest('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message', () => expect(b.message).to.eql(\"Unsupported image type. Only JPEG, PNG and WebP images are accepted.\"));",
+            "docs": "A file whose bytes are not a JPEG, PNG or WebP image is rejected (the format is detected from the bytes, not the file name).",
             "auth": {
               "mode": "none"
             }
@@ -3573,284 +3573,8 @@
         },
         {
           "type": "http-request",
-          "name": "TC-043b JPEG image part (image-jpeg) accepted",
+          "name": "TC-043b GIF image rejected (400)",
           "seq": 14,
-          "request": {
-            "url": "{{base_url}}/v1/search",
-            "method": "POST",
-            "headers": [],
-            "params": [],
-            "body": {
-              "mode": "multipartForm",
-              "json": null,
-              "text": null,
-              "xml": null,
-              "sparql": null,
-              "formUrlEncoded": [],
-              "multipartForm": [
-                {
-                  "type": "text",
-                  "name": "channel",
-                  "value": "web",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "language",
-                  "value": "en",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page",
-                  "value": "1",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page_size",
-                  "value": "10",
-                  "enabled": true
-                },
-                {
-                  "type": "file",
-                  "name": "image",
-                  "value": [
-                    "test_images/ao-100018_1.jpg"
-                  ],
-                  "enabled": true,
-                  "contentType": "image/jpeg"
-                }
-              ],
-              "file": []
-            },
-            "script": {
-              "req": "",
-              "res": ""
-            },
-            "vars": {
-              "req": [],
-              "res": []
-            },
-            "assertions": [],
-            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('ao-100018_1 is in the top 5 (searched with its own image)', () => expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));",
-            "docs": "A normal image part: a .jpg file sent as image/jpeg.",
-            "auth": {
-              "mode": "none"
-            }
-          }
-        },
-        {
-          "type": "http-request",
-          "name": "TC-043c PNG image part (image-png) accepted",
-          "seq": 15,
-          "request": {
-            "url": "{{base_url}}/v1/search",
-            "method": "POST",
-            "headers": [],
-            "params": [],
-            "body": {
-              "mode": "multipartForm",
-              "json": null,
-              "text": null,
-              "xml": null,
-              "sparql": null,
-              "formUrlEncoded": [],
-              "multipartForm": [
-                {
-                  "type": "text",
-                  "name": "channel",
-                  "value": "web",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "language",
-                  "value": "en",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page",
-                  "value": "1",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page_size",
-                  "value": "10",
-                  "enabled": true
-                },
-                {
-                  "type": "file",
-                  "name": "image",
-                  "value": [
-                    "test_images/172000-001-hvac.png"
-                  ],
-                  "enabled": true,
-                  "contentType": "image/png"
-                }
-              ],
-              "file": []
-            },
-            "script": {
-              "req": "",
-              "res": ""
-            },
-            "vars": {
-              "req": [],
-              "res": []
-            },
-            "assertions": [],
-            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('172000-001-hvac is in the top 5 (searched with its own image)', () => expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('172000-001-hvac'));",
-            "docs": "A normal image part: a .png file sent as image/png.",
-            "auth": {
-              "mode": "none"
-            }
-          }
-        },
-        {
-          "type": "http-request",
-          "name": "TC-043d File without an extension accepted",
-          "seq": 16,
-          "request": {
-            "url": "{{base_url}}/v1/search",
-            "method": "POST",
-            "headers": [],
-            "params": [],
-            "body": {
-              "mode": "multipartForm",
-              "json": null,
-              "text": null,
-              "xml": null,
-              "sparql": null,
-              "formUrlEncoded": [],
-              "multipartForm": [
-                {
-                  "type": "text",
-                  "name": "channel",
-                  "value": "web",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "language",
-                  "value": "en",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page",
-                  "value": "1",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page_size",
-                  "value": "10",
-                  "enabled": true
-                },
-                {
-                  "type": "file",
-                  "name": "image",
-                  "value": [
-                    "test_images/image_no_extension"
-                  ],
-                  "enabled": true,
-                  "contentType": "application/octet-stream"
-                }
-              ],
-              "file": []
-            },
-            "script": {
-              "req": "",
-              "res": ""
-            },
-            "vars": {
-              "req": [],
-              "res": []
-            },
-            "assertions": [],
-            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('ao-100018_1 is in the top 5 (searched with its own image)', () => expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));",
-            "docs": "The file name does not matter; JPEG bytes with no extension are accepted.",
-            "auth": {
-              "mode": "none"
-            }
-          }
-        },
-        {
-          "type": "http-request",
-          "name": "TC-043e Mislabelled content type accepted - the bytes decide",
-          "seq": 17,
-          "request": {
-            "url": "{{base_url}}/v1/search",
-            "method": "POST",
-            "headers": [],
-            "params": [],
-            "body": {
-              "mode": "multipartForm",
-              "json": null,
-              "text": null,
-              "xml": null,
-              "sparql": null,
-              "formUrlEncoded": [],
-              "multipartForm": [
-                {
-                  "type": "text",
-                  "name": "channel",
-                  "value": "web",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "language",
-                  "value": "en",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page",
-                  "value": "1",
-                  "enabled": true
-                },
-                {
-                  "type": "text",
-                  "name": "page_size",
-                  "value": "10",
-                  "enabled": true
-                },
-                {
-                  "type": "file",
-                  "name": "image",
-                  "value": [
-                    "test_images/ao-100018_1.bin"
-                  ],
-                  "enabled": true,
-                  "contentType": "image/png"
-                }
-              ],
-              "file": []
-            },
-            "script": {
-              "req": "",
-              "res": ""
-            },
-            "vars": {
-              "req": [],
-              "res": []
-            },
-            "assertions": [],
-            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('products is a non-empty array', () => expect(b.products).to.be.an('array').that.is.not.empty);\ntest('ao-100018_1 is in the top 5 (searched with its own image)', () => expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));",
-            "docs": "JPEG bytes declared as image/png: the API detects JPEG from the bytes.",
-            "auth": {
-              "mode": "none"
-            }
-          }
-        },
-        {
-          "type": "http-request",
-          "name": "TC-043f GIF image rejected (400)",
-          "seq": 18,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3909,8 +3633,8 @@
               "res": []
             },
             "assertions": [],
-            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message = unsupported image', () => expect(b.message).to.eql(\"Unsupported image. Upload a JPEG, PNG or WebP image.\"));",
-            "docs": "Only JPEG, PNG and WebP images are accepted; a GIF is rejected.",
+            "tests": "const b = res.getBody();\ntest('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message', () => expect(b.message).to.eql(\"Unsupported image type. Only JPEG, PNG and WebP images are accepted.\"));",
+            "docs": "GIF is not supported: only JPEG, PNG and WebP images are accepted.",
             "auth": {
               "mode": "none"
             }
@@ -3918,8 +3642,8 @@
         },
         {
           "type": "http-request",
-          "name": "TC-043g Unsupported content type rejected (400)",
-          "seq": 19,
+          "name": "TC-043c Image sent as a text field (Base64) rejected (400)",
+          "seq": 15,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -3958,13 +3682,10 @@
                   "enabled": true
                 },
                 {
-                  "type": "file",
+                  "type": "text",
                   "name": "image",
-                  "value": [
-                    "test_images/ao-100018_1.jpg"
-                  ],
-                  "enabled": true,
-                  "contentType": "application/pdf"
+                  "value": "/9j/4AAQSkZJRgABAQAAAQABAAD",
+                  "enabled": true
                 }
               ],
               "file": []
@@ -3978,8 +3699,8 @@
               "res": []
             },
             "assertions": [],
-            "tests": "test('Status 400', () => expect(res.getStatus()).to.equal(400));\nconst b = res.getBody();\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message = unsupported image', () => expect(b.message).to.eql(\"Unsupported image. Upload a JPEG, PNG or WebP image.\"));",
-            "docs": "The image part must be sent as image/jpeg, image/png, image/webp or application/octet-stream; application/pdf is rejected.",
+            "tests": "const b = res.getBody();\ntest('Status 400', () => expect(res.getStatus()).to.equal(400));\ntest('code = UNSUPPORTED_IMAGE_TYPE', () => expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));\ntest('message', () => expect(b.message).to.eql(\"The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp.\"));",
+            "docs": "The image sent as a text field (Base64, no file part) is rejected: it must be binary in a multipart file part.",
             "auth": {
               "mode": "none"
             }
@@ -3988,7 +3709,7 @@
         {
           "type": "http-request",
           "name": "TC-047 Image larger than 10 MiB (413)",
-          "seq": 20,
+          "seq": 16,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -4030,10 +3751,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/oversized.bin"
+                    "test_images/oversized.jpg"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/jpeg"
                 }
               ],
               "file": []
@@ -4047,7 +3768,7 @@
               "res": []
             },
             "assertions": [],
-            "tests": "test('Status 413', () => expect(res.getStatus()).to.equal(413));\nconst b = res.getBody();\ntest('code = IMAGE_TOO_LARGE', () => expect(b.code).to.eql('IMAGE_TOO_LARGE'));\ntest('message is a non-empty string', () => expect(b.message).to.be.a('string').and.not.empty);",
+            "tests": "const b = res.getBody();\ntest('Status 413', () => expect(res.getStatus()).to.equal(413));\ntest('code = IMAGE_TOO_LARGE', () => expect(b.code).to.eql('IMAGE_TOO_LARGE'));\ntest('message', () => expect(b.message).to.eql(\"Image exceeds the maximum size of 10485760 bytes.\"));",
             "docs": "Uploads over 10 MiB (10485760 bytes) are rejected before embedding.",
             "auth": {
               "mode": "none"
@@ -4057,7 +3778,7 @@
         {
           "type": "http-request",
           "name": "TC-032d Invalid filter value (400)",
-          "seq": 21,
+          "seq": 17,
           "request": {
             "url": "{{base_url}}/v1/search",
             "method": "POST",
@@ -4554,10 +4275,10 @@
                   "type": "file",
                   "name": "image",
                   "value": [
-                    "test_images/ao-100018_1.bin"
+                    "test_images/ao-100018_1.jpg"
                   ],
                   "enabled": true,
-                  "contentType": "application/octet-stream"
+                  "contentType": "image/jpeg"
                 }
               ],
               "file": []

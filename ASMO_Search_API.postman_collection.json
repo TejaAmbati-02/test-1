@@ -1421,8 +1421,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
                 }
               ]
             },
@@ -1497,8 +1497,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/a-880000629771.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/a-880000629771.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -1578,8 +1578,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/172000-001-hvac.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/172000-001-hvac.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -1659,8 +1659,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/a-880000629771.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/a-880000629771.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -1746,8 +1746,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
                 }
               ]
             },
@@ -1782,7 +1782,7 @@
           ]
         },
         {
-          "name": "TC-048 Generic binary content type (application/octet-stream)",
+          "name": "TC-048 Generic binary content type (application/octet-stream) rejected (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -1822,12 +1822,12 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/172000-001-hvac.bin",
+                  "src": "test_images/ao-100018_1.jpg",
                   "contentType": "application/octet-stream"
                 }
               ]
             },
-            "description": "PNG bytes sent with Content-Type application/octet-stream; the API detects PNG from the bytes."
+            "description": "A JPEG sent with Content-Type application/octet-stream is rejected: the image part must be image/jpeg, image/png or image/webp."
           },
           "event": [
             {
@@ -1835,23 +1835,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "const b = pm.response.json();",
-                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
-                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
-                  "pm.test('facets is a keyed object', () => {",
-                  "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
-                  "});",
-                  "pm.test('products expose spec fields', () => {",
-                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
-                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.not.have.property(k));",
-                  "});",
-                  "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
-                  "pm.test('172000-001-hvac is in the top 5 (searched with its own image)', () => {",
-                  "  const skus = b.products.slice(0, 5).map(p => p.sku_id);",
-                  "  pm.expect(skus).to.include('172000-001-hvac');",
-                  "});"
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
+                  "pm.test('message', () => pm.expect(b.message).to.eql(\"The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp.\"));"
                 ]
               }
             }
@@ -1905,8 +1892,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/172000-001-hvac__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/172000-001-hvac__img0.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -1969,8 +1956,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/172000-003-hvac__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/172000-003-hvac__img0.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2033,8 +2020,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/174000-001-hvac__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/174000-001-hvac__img0.jpg",
+                  "contentType": "image/jpeg"
                 }
               ]
             },
@@ -2097,8 +2084,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/a-880000629771__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/a-880000629771__img0.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2161,8 +2148,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/a-880000629773__img1.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/a-880000629773__img1.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2225,8 +2212,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100004_1__img1.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/ao-100004_1__img1.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2289,8 +2276,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100014_1__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/ao-100014_1__img0.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2353,8 +2340,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100018_1__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/ao-100018_1__img0.jpg",
+                  "contentType": "image/jpeg"
                 }
               ]
             },
@@ -2417,8 +2404,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100021_1__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/ao-100021_1__img0.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2481,8 +2468,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100027_1__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/ao-100027_1__img0.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2545,8 +2532,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/ao-100031_1__img2.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/ao-100031_1__img2.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2609,8 +2596,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/qa-product-01__img3.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/qa-product-01__img3.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -2673,8 +2660,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/shared__105_skus.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/shared__105_skus.jpg",
+                  "contentType": "image/jpeg"
                 }
               ]
             },
@@ -2743,8 +2730,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images_known/172000-001-hvac__img0.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images_known/172000-001-hvac__img0.png",
+                  "contentType": "image/png"
                 }
               ]
             },
@@ -3629,7 +3616,7 @@
           }
         },
         {
-          "name": "TC-043 Non-image file (400)",
+          "name": "TC-043 Non-image file rejected (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -3674,12 +3661,12 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/not_an_image.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/not_an_image.png",
+                  "contentType": "image/png"
                 }
               ]
             },
-            "description": "A file whose bytes are not a JPEG, PNG or WebP image is rejected by the byte check."
+            "description": "A file whose bytes are not a JPEG, PNG or WebP image is rejected (the format is detected from the bytes, not the file name)."
           },
           "event": [
             {
@@ -3687,269 +3674,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "const b = pm.response.json();",
                   "pm.test('Status 400', () => pm.response.to.have.status(400));",
-                  "const b = pm.response.json();",
                   "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
-                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);"
+                  "pm.test('message', () => pm.expect(b.message).to.eql(\"Unsupported image type. Only JPEG, PNG and WebP images are accepted.\"));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "TC-043b JPEG image part (image/jpeg) accepted",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/v1/search",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "search"
-              ]
-            },
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": "test_images/ao-100018_1.jpg",
-                  "contentType": "image/jpeg"
-                }
-              ]
-            },
-            "description": "A normal image part: a .jpg file sent as image/jpeg."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "const b = pm.response.json();",
-                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
-                  "pm.test('ao-100018_1 is in the top 5 (searched with its own image)', () => pm.expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "TC-043c PNG image part (image/png) accepted",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/v1/search",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "search"
-              ]
-            },
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": "test_images/172000-001-hvac.png",
-                  "contentType": "image/png"
-                }
-              ]
-            },
-            "description": "A normal image part: a .png file sent as image/png."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "const b = pm.response.json();",
-                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
-                  "pm.test('172000-001-hvac is in the top 5 (searched with its own image)', () => pm.expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('172000-001-hvac'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "TC-043d File without an extension accepted",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/v1/search",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "search"
-              ]
-            },
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": "test_images/image_no_extension",
-                  "contentType": "application/octet-stream"
-                }
-              ]
-            },
-            "description": "The file name does not matter; JPEG bytes with no extension are accepted."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "const b = pm.response.json();",
-                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
-                  "pm.test('ao-100018_1 is in the top 5 (searched with its own image)', () => pm.expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "TC-043e Mislabelled content type accepted - the bytes decide",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/v1/search",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "search"
-              ]
-            },
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "channel",
-                  "value": "web",
-                  "type": "text"
-                },
-                {
-                  "key": "language",
-                  "value": "en",
-                  "type": "text"
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "page_size",
-                  "value": "10",
-                  "type": "text"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": "test_images/ao-100018_1.bin",
-                  "contentType": "image/png"
-                }
-              ]
-            },
-            "description": "JPEG bytes declared as image/png: the API detects JPEG from the bytes."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "const b = pm.response.json();",
-                  "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
-                  "pm.test('ao-100018_1 is in the top 5 (searched with its own image)', () => pm.expect(b.products.slice(0, 5).map(p => p.sku_id)).to.include('ao-100018_1'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "TC-043f GIF image rejected (400)",
+          "name": "TC-043b GIF image rejected (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -3994,7 +3729,7 @@
                 }
               ]
             },
-            "description": "Only JPEG, PNG and WebP images are accepted; a GIF is rejected."
+            "description": "GIF is not supported: only JPEG, PNG and WebP images are accepted."
           },
           "event": [
             {
@@ -4002,17 +3737,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
                   "const b = pm.response.json();",
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
                   "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
-                  "pm.test('message = unsupported image', () => pm.expect(b.message).to.eql(\"Unsupported image. Upload a JPEG, PNG or WebP image.\"));"
+                  "pm.test('message', () => pm.expect(b.message).to.eql(\"Unsupported image type. Only JPEG, PNG and WebP images are accepted.\"));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "TC-043g Unsupported content type rejected (400)",
+          "name": "TC-043c Image sent as a text field (Base64) rejected (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -4051,13 +3786,12 @@
                 },
                 {
                   "key": "image",
-                  "type": "file",
-                  "src": "test_images/ao-100018_1.jpg",
-                  "contentType": "application/pdf"
+                  "value": "/9j/4AAQSkZJRgABAQAAAQABAAD",
+                  "type": "text"
                 }
               ]
             },
-            "description": "The image part must be sent as image/jpeg, image/png, image/webp or application/octet-stream; application/pdf is rejected."
+            "description": "The image sent as a text field (Base64, no file part) is rejected: it must be binary in a multipart file part."
           },
           "event": [
             {
@@ -4065,10 +3799,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
                   "const b = pm.response.json();",
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
                   "pm.test('code = UNSUPPORTED_IMAGE_TYPE', () => pm.expect(b.code).to.eql('UNSUPPORTED_IMAGE_TYPE'));",
-                  "pm.test('message = unsupported image', () => pm.expect(b.message).to.eql(\"Unsupported image. Upload a JPEG, PNG or WebP image.\"));"
+                  "pm.test('message', () => pm.expect(b.message).to.eql(\"The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp.\"));"
                 ]
               }
             }
@@ -4115,8 +3849,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/oversized.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/oversized.jpg",
+                  "contentType": "image/jpeg"
                 }
               ]
             },
@@ -4128,10 +3862,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 413', () => pm.response.to.have.status(413));",
                   "const b = pm.response.json();",
+                  "pm.test('Status 413', () => pm.response.to.have.status(413));",
                   "pm.test('code = IMAGE_TOO_LARGE', () => pm.expect(b.code).to.eql('IMAGE_TOO_LARGE'));",
-                  "pm.test('message is a non-empty string', () => pm.expect(b.message).to.be.a('string').and.not.empty);"
+                  "pm.test('message', () => pm.expect(b.message).to.eql(\"Image exceeds the maximum size of 10485760 bytes.\"));"
                 ]
               }
             }
@@ -4609,8 +4343,8 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.bin",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
                 }
               ]
             }

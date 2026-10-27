@@ -45,24 +45,21 @@ SUPPORTED_LANGUAGES = frozenset({"en"})
 SUPPORTED_SORT_BY = frozenset({"relevance", "price"})
 SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
 
-# Image constraints : unsupported type -> 400, oversized -> 413.
-# The image is a normal binary multipart part (any file name, or none). Its
-# declared content type must be JPEG, PNG or WebP — or generic binary / absent —
-# and the bytes themselves must be a JPEG, PNG or WebP image (GIF is rejected).
-# The bytes decide the format, so a mislabelled part still works.
-ACCEPTED_IMAGE_TYPES = frozenset({"", "application/octet-stream", "image/jpeg", "image/jpg", "image/png", "image/webp"})
-UNSUPPORTED_IMAGE = "Unsupported image. Upload a JPEG, PNG or WebP image."
-MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MiB
+# Image constraints (agreed with the frontend): the image is sent as binary in a
+# normal multipart image part — a file part with Content-Type image/jpeg,
+# image/png or image/webp. A plain text field (e.g. Base64) or any other
+# Content-Type -> 400; over 10 MiB -> 413; bytes that are not a JPEG, PNG or WebP
+# image (GIF included) -> 400. The bytes decide the format sent to the embedder.
+IMAGE_CONTENT_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+NOT_AN_IMAGE_PART = (
+    "The image must be sent as binary in a multipart file part with Content-Type "
+    "image/jpeg, image/png or image/webp."
+)
+UNSUPPORTED_IMAGE = "Unsupported image type. Only JPEG, PNG and WebP images are accepted."
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MiB (10485760 bytes)
 # Multipart parts may be up to this size (above MAX_IMAGE_BYTES so oversized
 # images reach the 413 check rather than a parser error).
 MAX_PART_BYTES = 2 * MAX_IMAGE_BYTES
-# Starlette spools file parts over 1 MiB to a temp file on disk. Containers with
-# a read-only filesystem have no usable temp dir, so every larger image failed
-# with "No usable temporary directory found". Parts are capped at MAX_PART_BYTES,
-# so keep them in memory instead. The spool-size attribute was renamed across
-# Starlette releases (max_file_size up to 0.45, spool_max_size from 0.46), so
-# swap in a spool class that never rolls over below MAX_PART_BYTES — this works
-# on every version regardless of the attribute name.
 class _InMemorySpool(SpooledTemporaryFile):
     def __init__(self, max_size: int = 0, *args: Any, **kwargs: Any) -> None:
         super().__init__(max(max_size, MAX_PART_BYTES), *args, **kwargs)
@@ -83,7 +80,7 @@ _SEARCH_ERROR_RESPONSES = {
 
 
 def _image_mime(data: bytes) -> str | None:
-    """Return the MIME type for PNG/JPEG/WebP bytes, else None."""
+    """Return the MIME type for JPEG/PNG/WebP bytes, else None (GIF is not supported)."""
     if data[:8].startswith(b"\x89PNG"):
         return "image/png"
     if data[:3] == b"\xff\xd8\xff":
@@ -230,7 +227,7 @@ _SEARCH_REQUEST_BODY = {
                 "required": ["channel", "language"],
                 "properties": {
                     **SearchForm.model_json_schema()["properties"],
-                    "image": {"type": "string", "format": "binary", "description": "Optional image for image / text+image search, as a binary multipart part (image/jpeg, image/png, image/webp or application/octet-stream). The bytes must be a JPEG, PNG or WebP image, max 10 MiB; GIF and other formats get 400, larger files 413"},
+                    "image": {"type": "string", "format": "binary", "description": "Optional image for image / text+image search, sent as binary in a normal multipart image part: a file part with Content-Type image/jpeg, image/png or image/webp, max 10 MiB (10485760 bytes); the bytes must be a JPEG, PNG or WebP image. In the browser: form.append('image', file). A text field (e.g. Base64), any other Content-Type (application/octet-stream, image/gif, ...) or non-image bytes get 400 UNSUPPORTED_IMAGE_TYPE, larger files 413 IMAGE_TOO_LARGE"},
                 },
             }
         }
@@ -238,18 +235,14 @@ _SEARCH_REQUEST_BODY = {
 }
 
 
-async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None, str, str]:
-    """Parse the multipart body into the text fields and the raw image bytes.
-
-    The image part is binary either way: with a filename it arrives as a file
-    part; without one Starlette hands it over as text, decoded with latin-1 when
-    the bytes are not valid UTF-8 (always true for image data), so encoding back
-    with latin-1 restores the exact bytes.
+async def _read_search_form(request: Request) -> tuple[SearchForm, tuple[bytes, str | None] | None]:
+    """Parse the multipart body into the text fields and the image part.
 
     Returns:
-        ``(fields, image_bytes, declared_content_type, filename)``; ``image_bytes``
-        is None when no (or an empty) image part was sent; ``filename`` is "" when
-        the part has none.
+        ``(fields, image)``; ``image`` is None when no (or an empty) image part
+        was sent, else ``(bytes, declared_content_type)``. The content type is
+        None when ``image`` came as a text field rather than a file part (no
+        filename, e.g. Base64), which the caller rejects.
     """
     try:
         form = await request.form(max_part_size=MAX_PART_BYTES)
@@ -268,18 +261,10 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None,
     part = form.get("image")
     if isinstance(part, UploadFile):
         data = await part.read()
-        declared = (part.content_type or "").lower()
-        filename = part.filename or ""
-    elif isinstance(part, str):
-        try:
-            data = part.encode("latin-1")
-        except UnicodeEncodeError:
-            data = part.encode("utf-8")  # was valid UTF-8 text, so not an image; the byte check rejects it
-        declared = ""  # a part without a filename exposes no content type
-        filename = ""
-    else:
-        data, declared, filename = b"", "", ""
-    return parsed, (data or None), declared, filename
+        return parsed, ((data, (part.content_type or "").split(";")[0].strip().lower()) if data else None)
+    if isinstance(part, str) and part:
+        return parsed, (part.encode("utf-8"), None)
+    return parsed, None
 
 
 @v1_router.post(
@@ -294,7 +279,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
     request_id: str = getattr(request.state, "request_id", "") or str(uuid.uuid4())
     _t0 = time.perf_counter()
 
-    form, image_bytes, declared_type, image_filename = await _read_search_form(request)
+    form, image_part = await _read_search_form(request)
     channel, language = form.channel, form.language
     search_query, sort_by, sort_order = form.search_query, form.sort_by, form.sort_order
     filters, page, page_size = form.filters, form.page, form.page_size
@@ -322,25 +307,33 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 "sort_by": sort_by,
                 "sort_order": sort_order,
                 "has_filters": bool(filters),
-                "has_image": image_bytes is not None,
+                "has_image": image_part is not None,
                 "previous_request_id": previous_request_id,
             },
         },
     )
 
-    # Image validation : unsupported type -> 400, oversized -> 413
+    # Image validation : not an image file part -> 400, oversized -> 413,
+    # bytes not JPEG/PNG/WebP -> 400
     image_input: tuple[bytes, str] | None = None
-    if image_bytes is not None:
-        if declared_type not in ACCEPTED_IMAGE_TYPES:
-            logger.warning(f"POST /v1/search — rejected file '{image_filename}': unsupported content type '{declared_type}'")
-            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
+    if image_part is not None:
+        image_bytes, declared_type = image_part
+        if declared_type not in IMAGE_CONTENT_TYPES:
+            logger.warning(
+                "POST /v1/search — rejected image: "
+                + ("sent as a text field, not a file part" if declared_type is None else f"Content-Type '{declared_type}'")
+            )
+            # Another image type (e.g. image/gif) is an unsupported format; anything
+            # else (text field, application/octet-stream, ...) is not an image part.
+            is_other_image = declared_type is not None and declared_type.startswith("image/")
+            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE if is_other_image else NOT_AN_IMAGE_PART)
         if len(image_bytes) > MAX_IMAGE_BYTES:
             logger.warning(f"POST /v1/search — image too large: {len(image_bytes)} bytes")
             raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
-        # Trust the bytes, not the declared header: the embedder rejects anything else.
+        # The bytes decide the format sent to the embedder.
         detected = _image_mime(image_bytes)
         if detected is None:
-            logger.warning(f"POST /v1/search — image bytes are not JPEG/PNG/WebP (declared '{declared_type}')")
+            logger.warning("POST /v1/search — uploaded file is not a JPEG/PNG/WebP image")
             raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
         image_input = (image_bytes, detected)
 

@@ -161,7 +161,7 @@
                   "image": {
                     "type": "string",
                     "format": "binary",
-                    "description": "Optional image for image / text+image search, as a binary multipart part (image/jpeg, image/png, image/webp or application/octet-stream). The bytes must be a JPEG, PNG or WebP image, max 10 MiB; GIF and other formats get 400, larger files 413"
+                    "description": "Optional image for image / text+image search, sent as binary in a normal multipart image part: a file part with Content-Type image/jpeg, image/png or image/webp, max 10 MiB (10485760 bytes); the bytes must be a JPEG, PNG or WebP image. In the browser: form.append('image', file). A text field (e.g. Base64), any other Content-Type (application/octet-stream, image/gif, ...) or non-image bytes get 400 UNSUPPORTED_IMAGE_TYPE, larger files 413 IMAGE_TOO_LARGE"
                   }
                 },
                 "type": "object",

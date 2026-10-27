@@ -7,9 +7,10 @@
 #   base_url=https://my-host ./curls.sh         # against another server
 # On Windows use Git Bash or WSL.
 #
-# Image uploads: a normal binary multipart part (image/jpeg, image/png, image/webp
-# or application/octet-stream), max 10 MiB. The bytes must be a JPEG, PNG or WebP
-# image; GIF and other files get 400 UNSUPPORTED_IMAGE_TYPE.
+# Image uploads: binary in a normal multipart image part — a file part with
+# Content-Type image/jpeg, image/png or image/webp, max 10 MiB. A text field (e.g.
+# Base64), any other Content-Type, GIF or non-image bytes get 400 UNSUPPORTED_IMAGE_TYPE
+# ("Unsupported image type. Only JPEG, PNG and WebP images are accepted."); larger files 413.
 # test_images_known/ lives in the data-pipeline repo; copy it next to this file.
 base_url="${base_url:-http://localhost:8000}"
 category_id="${category_id:-1ba050d2-f900-4a9b-82c0-9dade7948d72}"
@@ -194,7 +195,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
+  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 echo
 
 echo "=== TC-042 Image-only search — PNG (HPE X242 40G QSFP) ==="
@@ -203,7 +204,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/a-880000629771.bin;type=application/octet-stream"
+  -F "image=@test_images/a-880000629771.png;type=image/png"
 echo
 
 echo "=== TC-044 Text + image search (Air Handling Unit) ==="
@@ -213,7 +214,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page=1" \
   -F "page_size=60" \
   -F "search_query=air handling unit" \
-  -F "image=@test_images/172000-001-hvac.bin;type=application/octet-stream"
+  -F "image=@test_images/172000-001-hvac.png;type=image/png"
 echo
 
 echo "=== TC-045 Image + filters (material_type 9COM) ==="
@@ -223,7 +224,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page=1" \
   -F "page_size=60" \
   -F "filters={\"material_type\": [\"9COM\"], \"availability\": [\"IN_STOCK\"]}" \
-  -F "image=@test_images/a-880000629771.bin;type=application/octet-stream"
+  -F "image=@test_images/a-880000629771.png;type=image/png"
 echo
 
 echo "=== TC-046 Image search sorted by price asc ==="
@@ -234,16 +235,16 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page_size=60" \
   -F "sort_by=price" \
   -F "sort_order=asc" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
+  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 echo
 
-echo "=== TC-048 Generic binary content type (application/octet-stream) ==="
+echo "=== TC-048 Generic binary content type (application/octet-stream) rejected (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/172000-001-hvac.bin;type=application/octet-stream"
+  -F "image=@test_images/ao-100018_1.jpg;type=application/octet-stream"
 echo
 
 
@@ -255,7 +256,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/172000-001-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/172000-001-hvac__img0.png;type=image/png"
 echo
 
 echo "=== TC-IMG-02 Cooling Tower 3 TR - 172000-003-hvac ==="
@@ -264,7 +265,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/172000-003-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/172000-003-hvac__img0.png;type=image/png"
 echo
 
 echo "=== TC-IMG-03 Cooling Tower 3 TR - 174000-001-hvac ==="
@@ -273,7 +274,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/174000-001-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/174000-001-hvac__img0.jpg;type=image/jpeg"
 echo
 
 echo "=== TC-IMG-04 HPE X242 40G QSFP - a-880000629771 ==="
@@ -282,7 +283,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/a-880000629771__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/a-880000629771__img0.png;type=image/png"
 echo
 
 echo "=== TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch - a-880000629773 ==="
@@ -291,7 +292,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/a-880000629773__img1.bin;type=application/octet-stream"
+  -F "image=@test_images_known/a-880000629773__img1.png;type=image/png"
 echo
 
 echo "=== TC-IMG-06 Stapler Standard Duty Black - ao-100004_1 ==="
@@ -300,7 +301,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100004_1__img1.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100004_1__img1.png;type=image/png"
 echo
 
 echo "=== TC-IMG-07 Scissors Stainless Steel 8 Inch - ao-100014_1 ==="
@@ -309,7 +310,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100014_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100014_1__img0.png;type=image/png"
 echo
 
 echo "=== TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA - ao-100018_1 ==="
@@ -318,7 +319,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100018_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100018_1__img0.jpg;type=image/jpeg"
 echo
 
 echo "=== TC-IMG-09 Calculator Desktop 12 Digit - ao-100021_1 ==="
@@ -327,7 +328,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100021_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100021_1__img0.png;type=image/png"
 echo
 
 echo "=== TC-IMG-10 7X50 A211 ACULON BINO NIKON - ao-100027_1 ==="
@@ -336,7 +337,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100027_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100027_1__img0.png;type=image/png"
 echo
 
 echo "=== TC-IMG-11 Book 20 Pages Sz Letter 80GSM - ao-100031_1 ==="
@@ -345,7 +346,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100031_1__img2.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100031_1__img2.png;type=image/png"
 echo
 
 echo "=== TC-IMG-12 AeroDry Smart Dehumidifier 20L - qa-product-01 ==="
@@ -354,7 +355,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/qa-product-01__img3.bin;type=application/octet-stream"
+  -F "image=@test_images_known/qa-product-01__img3.png;type=image/png"
 echo
 
 echo "=== TC-IMG-13 Control Valve Positioner HART - 105 SKUs ==="
@@ -363,7 +364,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/shared__105_skus.bin;type=application/octet-stream"
+  -F "image=@test_images_known/shared__105_skus.jpg;type=image/jpeg"
 echo
 
 echo "=== TC-IMG-14 Text + image - extra unmatched word still finds 172000-001-hvac ==="
@@ -373,7 +374,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page=1" \
   -F "page_size=10" \
   -F "search_query=air handling unit zzqx" \
-  -F "image=@test_images_known/172000-001-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/172000-001-hvac__img0.png;type=image/png"
 echo
 
 
@@ -487,53 +488,16 @@ echo "=== TC-035c Unsupported language on suggestions (400) ==="
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=fr"
 echo
 
-echo "=== TC-043 Non-image file (400) ==="
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=60" \
-  -F "search_query=pump" \
-  -F "image=@test_images/not_an_image.bin;type=application/octet-stream"
-echo
-
-echo "=== TC-043b JPEG image part (image/jpeg) accepted ==="
+echo "=== TC-043 Non-image file rejected (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
+  -F "image=@test_images/not_an_image.png;type=image/png"
 echo
 
-echo "=== TC-043c PNG image part (image/png) accepted ==="
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=10" \
-  -F "image=@test_images/172000-001-hvac.png;type=image/png"
-echo
-
-echo "=== TC-043d File without an extension accepted ==="
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=10" \
-  -F "image=@test_images/image_no_extension;type=application/octet-stream"
-echo
-
-echo "=== TC-043e Mislabelled content type accepted - the bytes decide ==="
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=10" \
-  -F "image=@test_images/ao-100018_1.bin;type=image/png"
-echo
-
-echo "=== TC-043f GIF image rejected (400) ==="
+echo "=== TC-043b GIF image rejected (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -542,13 +506,13 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/sample.gif;type=image/gif"
 echo
 
-echo "=== TC-043g Unsupported content type rejected (400) ==="
+echo "=== TC-043c Image sent as a text field (Base64) rejected (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images/ao-100018_1.jpg;type=application/pdf"
+  -F "image=$(base64 < test_images/ao-100018_1.jpg | tr -d '\n')"
 echo
 
 echo "=== TC-047 Image larger than 10 MiB (413) ==="
@@ -556,8 +520,8 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
-  -F "page_size=60" \
-  -F "image=@test_images/oversized.bin;type=application/octet-stream"
+  -F "page_size=10" \
+  -F "image=@test_images/oversized.jpg;type=image/jpeg"
 echo
 
 echo "=== TC-032d Invalid filter value (400) ==="
@@ -629,7 +593,7 @@ resp=$(curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream")
+  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg")
 echo "$resp"
 image_search_request_id=$(printf '%s' "$resp" | _json_field request_id)
 echo "-> image_search_request_id=${image_search_request_id}"

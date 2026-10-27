@@ -1,6 +1,6 @@
 # ASMO AI Search API — Test Cases (curl)
 
-Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 50 cases that succeed; **Part B** lists the 23 error-path cases: 19 that must be rejected, with the exact error returned, and 4 upload variants (TC-043b–e) that are accepted.
+Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 49 cases that succeed; **Part B** lists the 20 cases that must be rejected, with the exact error returned.
 
 ## How to run
 
@@ -23,7 +23,7 @@ export category_id=1ba050d2-f900-4a9b-82c0-9dade7948d72
 | `channel` | yes | `web` or `mobile` |
 | `language` | yes | `en` (English only) |
 | `search_query` | no | free text |
-| `image` | no | binary multipart part — any file name, sent as `image/jpeg`, `image/png`, `image/webp` or `application/octet-stream`; max 10 MiB; the bytes must be a JPEG, PNG or WebP image (GIF is rejected) |
+| `image` | no | binary, sent as a normal multipart image part — a file part with Content-Type `image/jpeg`, `image/png` or `image/webp`, max 10 MiB (10485760 bytes); the bytes must be a JPEG, PNG or WebP image. In the browser: `form.append('image', file)` |
 | `filters` | no | JSON object as a string, e.g. `{"price": {"gte": 50, "lte": 150}, "material_type": ["9CAT"]}` |
 | `sort_by` | no | `relevance` (default) or `price` |
 | `sort_order` | no | `desc` (default) or `asc` |
@@ -181,8 +181,8 @@ Every error has the same body: `{"code": "…", "message": "…"}`.
 | 400 | `INVALID_FILTER_KEY` | a filter key is not supported |
 | 400 | `INVALID_FILTER_VALUE` | a filter value has the wrong type |
 | 400 | `VALIDATION_ERROR` | a field is missing or out of range (e.g. `page_size` > 200, `page` < 1) |
-| 400 | `UNSUPPORTED_IMAGE_TYPE` | the part's content type is not JPEG / PNG / WebP / `application/octet-stream`, or its bytes are not a JPEG, PNG or WebP image — GIF included (`Unsupported image. Upload a JPEG, PNG or WebP image.`) |
-| 413 | `IMAGE_TOO_LARGE` | image larger than 10 MiB |
+| 400 | `UNSUPPORTED_IMAGE_TYPE` | the image is not a file part with an image Content-Type — e.g. a text field (Base64) or `application/octet-stream` (`The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp.`); or it is another image type or the bytes are not a JPEG, PNG or WebP image — GIF included (`Unsupported image type. Only JPEG, PNG and WebP images are accepted.`) |
+| 413 | `IMAGE_TOO_LARGE` | image larger than 10 MiB (10485760 bytes) |
 | 400 | `REQUEST_ID_NOT_FOUND` | `request_id` is not a UUID, unknown, or its search has expired |
 | 503 | `EMBEDDING_STORE_UNAVAILABLE` | a `request_id` was sent but the cache (Redis) is unavailable |
 | 404 | `INDEX_NOT_FOUND` | the search index does not exist |
@@ -459,7 +459,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
+  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 ```
 
 #### A18. TC-042 Image-only search — PNG (HPE X242 40G QSFP)
@@ -476,7 +476,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/a-880000629771.bin;type=application/octet-stream"
+  -F "image=@test_images/a-880000629771.png;type=image/png"
 ```
 
 #### A19. TC-044 Text + image search (Air Handling Unit)
@@ -494,7 +494,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page=1" \
   -F "page_size=60" \
   -F "search_query=air handling unit" \
-  -F "image=@test_images/172000-001-hvac.bin;type=application/octet-stream"
+  -F "image=@test_images/172000-001-hvac.png;type=image/png"
 ```
 
 #### A20. TC-045 Image + filters (material_type 9COM)
@@ -512,7 +512,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page=1" \
   -F "page_size=60" \
   -F "filters={\"material_type\": [\"9COM\"], \"availability\": [\"IN_STOCK\"]}" \
-  -F "image=@test_images/a-880000629771.bin;type=application/octet-stream"
+  -F "image=@test_images/a-880000629771.png;type=image/png"
 ```
 
 #### A21. TC-046 Image search sorted by price asc
@@ -531,29 +531,12 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page_size=60" \
   -F "sort_by=price" \
   -F "sort_order=asc" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
-```
-
-#### A22. TC-048 Generic binary content type (application/octet-stream)
-
-PNG bytes sent with Content-Type application/octet-stream; the API detects PNG from the bytes.
-
-`POST /v1/search` → expected **200**
-
-Checks: total_results is a number; products is a non-empty array; facets is a keyed object; products expose spec fields; no image vectors leak into products; 172000-001-hvac is in the top 5 (searched with its own image).
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=60" \
-  -F "image=@test_images/172000-001-hvac.bin;type=application/octet-stream"
+  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 ```
 
 ### Image Search - Known Answers
 
-#### A23. TC-IMG-01 Air Handling Unit 5 TR - 172000-001-hvac
+#### A22. TC-IMG-01 Air Handling Unit 5 TR - 172000-001-hvac
 
 Known-answer image search: 172000-001-hvac__img0.png is a byte-identical copy of the product image ingested for 172000-001-hvac, so it must rank first.
 
@@ -567,10 +550,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/172000-001-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/172000-001-hvac__img0.png;type=image/png"
 ```
 
-#### A24. TC-IMG-02 Cooling Tower 3 TR - 172000-003-hvac
+#### A23. TC-IMG-02 Cooling Tower 3 TR - 172000-003-hvac
 
 Known-answer image search: 172000-003-hvac__img0.png is a byte-identical copy of the product image ingested for 172000-003-hvac, so it must rank first.
 
@@ -584,10 +567,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/172000-003-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/172000-003-hvac__img0.png;type=image/png"
 ```
 
-#### A25. TC-IMG-03 Cooling Tower 3 TR - 174000-001-hvac
+#### A24. TC-IMG-03 Cooling Tower 3 TR - 174000-001-hvac
 
 Known-answer image search: 174000-001-hvac__img0.jpg is a byte-identical copy of the product image ingested for 174000-001-hvac, so it must rank first.
 
@@ -601,10 +584,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/174000-001-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/174000-001-hvac__img0.jpg;type=image/jpeg"
 ```
 
-#### A26. TC-IMG-04 HPE X242 40G QSFP - a-880000629771
+#### A25. TC-IMG-04 HPE X242 40G QSFP - a-880000629771
 
 Known-answer image search: a-880000629771__img0.png is a byte-identical copy of the product image ingested for a-880000629771, so it must rank first.
 
@@ -618,10 +601,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/a-880000629771__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/a-880000629771__img0.png;type=image/png"
 ```
 
-#### A27. TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch - a-880000629773
+#### A26. TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch - a-880000629773
 
 Known-answer image search: a-880000629773__img1.png is a byte-identical copy of the product image ingested for a-880000629773, so it must rank first.
 
@@ -635,10 +618,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/a-880000629773__img1.bin;type=application/octet-stream"
+  -F "image=@test_images_known/a-880000629773__img1.png;type=image/png"
 ```
 
-#### A28. TC-IMG-06 Stapler Standard Duty Black - ao-100004_1
+#### A27. TC-IMG-06 Stapler Standard Duty Black - ao-100004_1
 
 Known-answer image search: ao-100004_1__img1.png is a byte-identical copy of the product image ingested for ao-100004_1, so it must rank first.
 
@@ -652,10 +635,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100004_1__img1.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100004_1__img1.png;type=image/png"
 ```
 
-#### A29. TC-IMG-07 Scissors Stainless Steel 8 Inch - ao-100014_1
+#### A28. TC-IMG-07 Scissors Stainless Steel 8 Inch - ao-100014_1
 
 Known-answer image search: ao-100014_1__img0.png is a byte-identical copy of the product image ingested for ao-100014_1, so it must rank first.
 
@@ -669,10 +652,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100014_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100014_1__img0.png;type=image/png"
 ```
 
-#### A30. TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA - ao-100018_1
+#### A29. TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA - ao-100018_1
 
 Known-answer image search: ao-100018_1__img0.jpg is a byte-identical copy of the product image ingested for ao-100018_1, so it must rank first.
 
@@ -686,10 +669,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100018_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100018_1__img0.jpg;type=image/jpeg"
 ```
 
-#### A31. TC-IMG-09 Calculator Desktop 12 Digit - ao-100021_1
+#### A30. TC-IMG-09 Calculator Desktop 12 Digit - ao-100021_1
 
 Known-answer image search: ao-100021_1__img0.png is a byte-identical copy of the product image ingested for ao-100021_1, so it must rank first.
 
@@ -703,10 +686,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100021_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100021_1__img0.png;type=image/png"
 ```
 
-#### A32. TC-IMG-10 7X50 A211 ACULON BINO NIKON - ao-100027_1
+#### A31. TC-IMG-10 7X50 A211 ACULON BINO NIKON - ao-100027_1
 
 Known-answer image search: ao-100027_1__img0.png is a byte-identical copy of the product image ingested for ao-100027_1, so it must rank first.
 
@@ -720,10 +703,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100027_1__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100027_1__img0.png;type=image/png"
 ```
 
-#### A33. TC-IMG-11 Book 20 Pages Sz Letter 80GSM - ao-100031_1
+#### A32. TC-IMG-11 Book 20 Pages Sz Letter 80GSM - ao-100031_1
 
 Known-answer image search: ao-100031_1__img2.png is a byte-identical copy of the product image ingested for ao-100031_1, so it must rank first.
 
@@ -737,10 +720,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/ao-100031_1__img2.bin;type=application/octet-stream"
+  -F "image=@test_images_known/ao-100031_1__img2.png;type=image/png"
 ```
 
-#### A34. TC-IMG-12 AeroDry Smart Dehumidifier 20L - qa-product-01
+#### A33. TC-IMG-12 AeroDry Smart Dehumidifier 20L - qa-product-01
 
 Known-answer image search: qa-product-01__img3.png is a byte-identical copy of the product image ingested for qa-product-01, so it must rank first.
 
@@ -754,10 +737,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/qa-product-01__img3.bin;type=application/octet-stream"
+  -F "image=@test_images_known/qa-product-01__img3.png;type=image/png"
 ```
 
-#### A35. TC-IMG-13 Control Valve Positioner HART - 105 SKUs
+#### A34. TC-IMG-13 Control Valve Positioner HART - 105 SKUs
 
 Known-answer image search: shared__105_skus.jpg is a byte-identical copy of the product image ingested for one of the 105 SKUs sharing this image, so it must rank first.
 
@@ -771,10 +754,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images_known/shared__105_skus.bin;type=application/octet-stream"
+  -F "image=@test_images_known/shared__105_skus.jpg;type=image/jpeg"
 ```
 
-#### A36. TC-IMG-14 Text + image - extra unmatched word still finds 172000-001-hvac
+#### A35. TC-IMG-14 Text + image - extra unmatched word still finds 172000-001-hvac
 
 Text + image fusion: 'zzqx' appears in no product, which used to filter every result out (all words had to match). With weighted RRF the text only helps ranking, so the image match must still rank in the top 3. Fails with 0 products if the cluster rejected weighted RRF (API log: 'weighted RRF not available').
 
@@ -789,12 +772,12 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page=1" \
   -F "page_size=10" \
   -F "search_query=air handling unit zzqx" \
-  -F "image=@test_images_known/172000-001-hvac__img0.bin;type=application/octet-stream"
+  -F "image=@test_images_known/172000-001-hvac__img0.png;type=image/png"
 ```
 
 ### Suggestions
 
-#### A37. TC-026 Suggestions — 'pres' prefix
+#### A36. TC-026 Suggestions — 'pres' prefix
 
 `GET /v1/search/suggestions` → expected **200**
 
@@ -804,7 +787,7 @@ Checks: response keys are exactly the spec keys; query echoed; query_suggestions
 curl -s "${base_url}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5"
 ```
 
-#### A38. TC-027 Suggestions — 'pump' prefix (limit 3)
+#### A37. TC-027 Suggestions — 'pump' prefix (limit 3)
 
 `GET /v1/search/suggestions` → expected **200**
 
@@ -814,7 +797,7 @@ Checks: product_suggestions count <= 3.
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3"
 ```
 
-#### A39. TC-029 Suggestions — no match
+#### A38. TC-029 Suggestions — no match
 
 `GET /v1/search/suggestions` → expected **200**
 
@@ -826,7 +809,7 @@ curl -s "${base_url}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&qu
 
 ### Diagnostics (operations only — not needed by the frontend)
 
-#### A40. OpenSearch latency
+#### A39. OpenSearch latency
 
 `GET /health/latency/opensearch` → expected **200**
 
@@ -834,7 +817,7 @@ curl -s "${base_url}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&qu
 curl -s "${base_url}/health/latency/opensearch?samples=5"
 ```
 
-#### A41. OCI latency
+#### A40. OCI latency
 
 `GET /health/latency/oci` → expected **200**
 
@@ -844,7 +827,7 @@ curl -s "${base_url}/health/latency/oci?samples=5"
 
 ### Redis (Embedding Cache)
 
-#### A42. Redis latency
+#### A41. Redis latency
 
 Round-trip PING to Redis. With redis_enabled=false the API reports ok=false and that Redis is disabled.
 
@@ -856,7 +839,7 @@ Checks: Redis reachable; reported as disabled.
 curl -s "${base_url}/health/latency/redis?samples=5"
 ```
 
-#### A43. TC-049 Health reports Redis status
+#### A42. TC-049 Health reports Redis status
 
 redis_connected is true when Redis is enabled and reachable, null when disabled.
 
@@ -868,7 +851,7 @@ Checks: redis_connected = true; redis_connected = null (disabled).
 curl -s "${base_url}/health"
 ```
 
-#### A44. TC-050 Text search returns request_id
+#### A43. TC-050 Text search returns request_id
 
 First text search: its query embedding is stored in Redis under the response's request_id (saved as text_search_request_id).
 
@@ -885,7 +868,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "search_query=gate valve"
 ```
 
-#### A45. TC-051 Refine by request_id - sort by price, same request_id
+#### A44. TC-051 Refine by request_id - sort by price, same request_id
 
 request_id plus sort_by / sort_order only: the same search (query reused, not re-sent), re-sorted. The response keeps the same request_id. Redis disabled → 503.
 
@@ -904,7 +887,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "sort_order=asc"
 ```
 
-#### A46. TC-052 Refine by request_id only - replays the query
+#### A45. TC-052 Refine by request_id only - replays the query
 
 request_id alone reruns the same search from the stored query and embedding. Redis disabled → 503.
 
@@ -921,7 +904,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=${text_search_request_id}"
 ```
 
-#### A47. TC-053 Image search returns request_id
+#### A46. TC-053 Image search returns request_id
 
 The image embedding is stored in Redis under the response's request_id (saved as image_search_request_id); the image itself is not stored.
 
@@ -935,10 +918,10 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
+  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 ```
 
-#### A48. TC-054 Refine image search by request_id - page 2
+#### A47. TC-054 Refine image search by request_id - page 2
 
 request_id plus page: the next page of the same image search, without re-uploading the image. Redis disabled → 503.
 
@@ -955,7 +938,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=${image_search_request_id}"
 ```
 
-#### A49. TC-055 Refine by request_id only - replays the image
+#### A48. TC-055 Refine by request_id only - replays the image
 
 request_id alone reruns the image search from the stored embedding; no upload. Redis disabled → 503.
 
@@ -972,7 +955,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=${image_search_request_id}"
 ```
 
-#### A50. TC-056 request_id + new search_query - text + image, keeps the image
+#### A49. TC-056 request_id + new search_query - text + image, keeps the image
 
 The image search's request_id plus a search_query: the stored image is reused (not re-uploaded) with the new query. That is a new search context, so the response has a new request_id. Redis disabled → 503.
 
@@ -1233,111 +1216,42 @@ Checks: code = UNSUPPORTED_LANGUAGE; message is a non-empty string; flat error b
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=fr"
 ```
 
-#### B13. TC-043 Non-image file (400)
+#### B13. TC-043 Non-image file rejected (400)
 
-A file whose bytes are not a JPEG, PNG or WebP image is rejected by the byte check.
-
-`POST /v1/search` → expected **400**
-
-Response:
-
-```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image. Upload a JPEG, PNG or WebP image."}
-```
-
-Checks: code = UNSUPPORTED_IMAGE_TYPE; message is a non-empty string.
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=60" \
-  -F "search_query=pump" \
-  -F "image=@test_images/not_an_image.bin;type=application/octet-stream"
-```
-
-#### B14. TC-043b JPEG image part (image/jpeg) accepted
-
-A normal image part: a .jpg file sent as image/jpeg.
-
-`POST /v1/search` → expected **200**
-
-Checks: products is a non-empty array; ao-100018_1 is in the top 5 (searched with its own image).
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=10" \
-  -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
-```
-
-#### B15. TC-043c PNG image part (image/png) accepted
-
-A normal image part: a .png file sent as image/png.
-
-`POST /v1/search` → expected **200**
-
-Checks: products is a non-empty array; 172000-001-hvac is in the top 5 (searched with its own image).
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=10" \
-  -F "image=@test_images/172000-001-hvac.png;type=image/png"
-```
-
-#### B16. TC-043d File without an extension accepted
-
-The file name does not matter; JPEG bytes with no extension are accepted.
-
-`POST /v1/search` → expected **200**
-
-Checks: products is a non-empty array; ao-100018_1 is in the top 5 (searched with its own image).
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=10" \
-  -F "image=@test_images/image_no_extension;type=application/octet-stream"
-```
-
-#### B17. TC-043e Mislabelled content type accepted - the bytes decide
-
-JPEG bytes declared as image/png: the API detects JPEG from the bytes.
-
-`POST /v1/search` → expected **200**
-
-Checks: products is a non-empty array; ao-100018_1 is in the top 5 (searched with its own image).
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=10" \
-  -F "image=@test_images/ao-100018_1.bin;type=image/png"
-```
-
-#### B18. TC-043f GIF image rejected (400)
-
-Only JPEG, PNG and WebP images are accepted; a GIF is rejected.
+A file whose bytes are not a JPEG, PNG or WebP image is rejected (the format is detected from the bytes, not the file name).
 
 `POST /v1/search` → expected **400**
 
 Response:
 
 ```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image. Upload a JPEG, PNG or WebP image."}
+{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image type. Only JPEG, PNG and WebP images are accepted."}
 ```
 
-Checks: code = UNSUPPORTED_IMAGE_TYPE; message = unsupported image.
+Checks: code = UNSUPPORTED_IMAGE_TYPE; message = "Unsupported image type. Only JPEG, PNG and WebP images are accepted."
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=10" \
+  -F "image=@test_images/not_an_image.png;type=image/png"
+```
+
+#### B14. TC-043b GIF image rejected (400)
+
+GIF is not supported: only JPEG, PNG and WebP images are accepted.
+
+`POST /v1/search` → expected **400**
+
+Response:
+
+```json
+{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image type. Only JPEG, PNG and WebP images are accepted."}
+```
+
+Checks: code = UNSUPPORTED_IMAGE_TYPE; message = "Unsupported image type. Only JPEG, PNG and WebP images are accepted."
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1348,19 +1262,19 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/sample.gif;type=image/gif"
 ```
 
-#### B19. TC-043g Unsupported content type rejected (400)
+#### B15. TC-043c Image sent as a text field (Base64) rejected (400)
 
-The image part must be sent as image/jpeg, image/png, image/webp or application/octet-stream; application/pdf is rejected.
+The image sent as a text field (Base64, no file part) is rejected: it must be binary in a multipart file part.
 
 `POST /v1/search` → expected **400**
 
 Response:
 
 ```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image. Upload a JPEG, PNG or WebP image."}
+{"code":"UNSUPPORTED_IMAGE_TYPE","message":"The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp."}
 ```
 
-Checks: code = UNSUPPORTED_IMAGE_TYPE; message = unsupported image.
+Checks: code = UNSUPPORTED_IMAGE_TYPE; message = "The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp."
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1368,10 +1282,33 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=10" \
-  -F "image=@test_images/ao-100018_1.jpg;type=application/pdf"
+  -F "image=$(base64 < test_images/ao-100018_1.jpg | tr -d '\n')"
 ```
 
-#### B20. TC-047 Image larger than 10 MiB (413)
+#### B16. TC-048 Generic binary content type (application/octet-stream) rejected (400)
+
+A JPEG sent with Content-Type application/octet-stream is rejected: the image part must be image/jpeg, image/png or image/webp.
+
+`POST /v1/search` → expected **400**
+
+Response:
+
+```json
+{"code":"UNSUPPORTED_IMAGE_TYPE","message":"The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp."}
+```
+
+Checks: code = UNSUPPORTED_IMAGE_TYPE; message = "The image must be sent as binary in a multipart file part with Content-Type image/jpeg, image/png or image/webp."
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=10" \
+  -F "image=@test_images/ao-100018_1.jpg;type=application/octet-stream"
+```
+
+#### B17. TC-047 Image larger than 10 MiB (413)
 
 Uploads over 10 MiB (10485760 bytes) are rejected before embedding.
 
@@ -1383,18 +1320,18 @@ Response:
 {"code":"IMAGE_TOO_LARGE","message":"Image exceeds the maximum size of 10485760 bytes."}
 ```
 
-Checks: code = IMAGE_TOO_LARGE; message is a non-empty string.
+Checks: code = IMAGE_TOO_LARGE; message = "Image exceeds the maximum size of 10485760 bytes."
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
-  -F "page_size=60" \
-  -F "image=@test_images/oversized.bin;type=application/octet-stream"
+  -F "page_size=10" \
+  -F "image=@test_images/oversized.jpg;type=image/jpeg"
 ```
 
-#### B21. TC-032d Invalid filter value (400)
+#### B18. TC-032d Invalid filter value (400)
 
 `POST /v1/search` → expected **400**
 
@@ -1417,7 +1354,7 @@ curl -s -X POST "${base_url}/v1/search" \
 
 ### Redis (Embedding Cache)
 
-#### B22. TC-057 Unknown / expired request_id
+#### B19. TC-057 Unknown / expired request_id
 
 A well-formed request_id whose search is not in Redis: 400 when Redis is enabled, 503 when disabled.
 
@@ -1440,7 +1377,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=00000000-0000-0000-0000-000000000000"
 ```
 
-#### B23. TC-058 Malformed request_id (400)
+#### B20. TC-058 Malformed request_id (400)
 
 request_id must be a UUID; rejected without touching Redis (same with Redis on or off).
 

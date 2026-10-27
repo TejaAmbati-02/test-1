@@ -3,7 +3,10 @@
 Each image in ``test_images_known/`` is a byte-identical copy of a product image
 and ``expected.json`` names the SKU(s) it belongs to, so the first product
 returned must be one of those SKUs. Also checks that ``request_id``
-reuse returns the same top hit, and that bad uploads get 400 / 413.
+reuse returns the same top hit, and that the upload rules hold: the image is
+binary in a multipart file part with Content-Type image/jpeg, image/png or
+image/webp (max 10 MiB); a text field (Base64), any other Content-Type, GIF or
+non-image bytes get 400 and larger files 413.
 
 Start the API first (python app.py), then:
     python test_api_image_search.py
@@ -12,6 +15,7 @@ Start the API first (python app.py), then:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import mimetypes
 import sys
@@ -23,15 +27,21 @@ from pathlib import Path
 HERE = Path(__file__).parent
 
 
-def post_search(base_url: str, fields: dict[str, str], image: Path | None = None) -> tuple[int, dict]:
-    """POST a multipart /v1/search request; return (status, JSON body)."""
+def post_search(
+    base_url: str, fields: dict[str, str], image: Path | None = None, content_type: str | None = None,
+) -> tuple[int, dict]:
+    """POST a multipart /v1/search request; return (status, JSON body).
+
+    The image goes out as a normal image part with the Content-Type guessed from
+    its file name, unless ``content_type`` overrides it.
+    """
     boundary = uuid.uuid4().hex
     parts: list[bytes] = []
     for name, value in fields.items():
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
     if image is not None:
         # A normal image part, as the frontend sends it; the API detects the format from the bytes.
-        ctype = mimetypes.guess_type(image.name)[0] or "application/octet-stream"
+        ctype = content_type or mimetypes.guess_type(image.name)[0] or "application/octet-stream"
         parts.append(
             f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{image.name}"\r\n'
             f"Content-Type: {ctype}\r\n\r\n".encode() + image.read_bytes() + b"\r\n"
@@ -84,12 +94,22 @@ def run(base_url: str, cases_dir: Path, bad_dir: Path, only: str | None) -> int:
             report(f"  refine by request_id", status2 == 200 and top2 == top and body2.get("request_id") == req_id,
                    f"status={status2} top={top2}")
 
-    # Error handling : a non-image upload or a GIF -> 400, an image over 10 MiB -> 413.
-    for name, code in (("not_an_image.png", 400), ("sample.gif", 400), ("oversized.jpg", 413)):
+    # Upload rules: GIF or non-image bytes -> 400, an image over 10 MiB -> 413.
+    for name, code in (("sample.gif", 400), ("not_an_image.png", 400), ("oversized.jpg", 413)):
         path = bad_dir / name
         if path.exists():
             status, body = post_search(base_url, BASE_FIELDS, path)
             report(name, status == code, f"status={status} (want {code}) body={str(body)[:100]}")
+
+    # Only a normal image part is accepted: a JPEG sent as application/octet-stream,
+    # or the image sent as a Base64 text field, -> 400.
+    jpg = bad_dir / "ao-100018_1.jpg"
+    if jpg.exists():
+        status, body = post_search(base_url, BASE_FIELDS, jpg, content_type="application/octet-stream")
+        report("jpg sent as application/octet-stream", status == 400, f"status={status} (want 400) body={str(body)[:100]}")
+        b64 = base64.b64encode(jpg.read_bytes()).decode()
+        status, body = post_search(base_url, {**BASE_FIELDS, "image": b64})
+        report("image sent as Base64 text field", status == 400, f"status={status} (want 400) body={str(body)[:100]}")
 
     print(f"\n  {passed}/{passed + failed} passed\n")
     return 0 if failed == 0 else 1
@@ -99,7 +119,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Known-answer image search tests against the API.")
     p.add_argument("--base-url", default="http://localhost:8000")
     p.add_argument("--cases-dir", type=Path, default=HERE / "test_images_known")
-    p.add_argument("--bad-dir", type=Path, default=HERE / "test_images", help="Folder with not_an_image.png / sample.gif / oversized.jpg")
+    p.add_argument("--bad-dir", type=Path, default=HERE / "test_images", help="Folder with sample.gif / not_an_image.png / oversized.jpg / ao-100018_1.jpg")
     p.add_argument("--only", help="Run only cases whose image file name contains this text.")
     a = p.parse_args()
     sys.exit(run(a.base_url.rstrip("/"), a.cases_dir, a.bad_dir, a.only))
