@@ -125,7 +125,7 @@ def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
     return SearchFacets(**{key: terms(key) for key in FACETS}, price=price)
 
 
-def _seller_detail(seller: dict[str, Any]) -> SellerDetail:
+def _seller_detail(seller: dict[str, Any], fallback_unavailable: bool | None = None) -> SellerDetail:
     return SellerDetail(
         seller_id=seller.get("seller_id"),
         name=seller.get("seller_name"),
@@ -135,7 +135,9 @@ def _seller_detail(seller: dict[str, Any]) -> SellerDetail:
         # The FE expects "" (not null) when the seller has no MOQ; the index keeps it numeric.
         moq=seller["moq"] if seller.get("moq") is not None else "",
         currency=seller.get("currency"),
-        temporary_unavailable=seller.get("temporary_unavailable"),
+        temporary_unavailable=(
+            seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None else fallback_unavailable
+        ),
     )
 
 
@@ -149,13 +151,12 @@ def _to_product(src: dict[str, Any]) -> ProductItem:
         primary_image_url=src.get("primary_image_url"),
         asmo_material_number=src.get("asmo_material_number"),
         aramco_material_number=src.get("aramco_material_number"),
-        seller_details=[_seller_detail(s) for s in sellers],
-        # Primary (cheapest) seller, seller_details[0]. Read from the root field when
-        # the index has it, else from the nested offer.
-        temporary_unavailable=(
-            src["temporary_unavailable"] if "temporary_unavailable" in src
-            else sellers[0].get("temporary_unavailable") if sellers else None
-        ),
+        # temporary_unavailable is returned per seller only. Older indexes keep it on
+        # the root document (the primary, cheapest seller's offer), so use that for
+        # seller_details[0] when the nested offer has none.
+        seller_details=[
+            _seller_detail(s, src.get("temporary_unavailable") if i == 0 else None) for i, s in enumerate(sellers)
+        ],
     )
 
 

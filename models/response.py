@@ -32,7 +32,6 @@ class ProductItem(BaseModel):
     asmo_material_number: str | None = Field(default=None, description="ASMO material number (source: asmo_material_number)")
     aramco_material_number: str | None = Field(default=None, description="Aramco material number (source: aramco_material_number)")
     seller_details: list[SellerDetail] = Field(default_factory=list, description="Every seller offer, cheapest first (source: seller_details)")
-    temporary_unavailable: bool | None = Field(default=None, description="Primary seller's offer temporarily unavailable (source: temporary_unavailable, else seller_details[0].temporary_unavailable)")
 
 
 class FacetTermValue(BaseModel):

@@ -869,18 +869,6 @@
             "type": "array",
             "title": "Seller Details",
             "description": "Every seller offer, cheapest first (source: seller_details)"
-          },
-          "temporary_unavailable": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Temporary Unavailable",
-            "description": "Primary seller's offer temporarily unavailable (source: temporary_unavailable, else seller_details[0].temporary_unavailable)"
           }
         },
         "type": "object",

@@ -100,8 +100,7 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
           "currency": "SAR",
           "temporary_unavailable": null
         }
-      ],
-      "temporary_unavailable": null
+      ]
     }
   ],
   "facets": {
