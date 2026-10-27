@@ -2,7 +2,7 @@
   "info": {
     "name": "ASMO AI Search API - Frontend",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "ASMO AI Search API for frontend integration.\n\nPOST /v1/search takes multipart/form-data: channel (web|mobile), language (en), and any of search_query, image, filters (JSON string), sort_by (relevance|price), sort_order (asc|desc), page, page_size (1-200), query_embedding_id, image_embedding_id.\n\nImage: send a .bin file (file name ending in .bin) as application/octet-stream, max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image. In the browser: form.append('image', blob, 'image.bin'). Any other file gets 400 \"Incorrect file format. Only .bin files are accepted.\"\n\nErrors always return {\"code\": \"...\", \"message\": \"...\"}.\n\nSet base_url to the API address. Upload files are in test_images/ next to this collection."
+    "description": "ASMO AI Search API for frontend integration.\n\nPOST /v1/search takes multipart/form-data: channel (web|mobile), language (en), and any of search_query, image, filters (JSON string), sort_by (relevance|price), sort_order (asc|desc), page, page_size (1-200), request_id (from a previous response, to refine that search).\n\nImage: send it as a normal binary multipart part (image/jpeg, image/png, image/webp or application/octet-stream), max 10 MiB; the bytes must be a JPEG, PNG or WebP image (GIF is rejected). In the browser: form.append('image', file). Other files get 400 UNSUPPORTED_IMAGE_TYPE; larger ones 413 IMAGE_TOO_LARGE.\n\nErrors always return {\"code\": \"...\", \"message\": \"...\"}.\n\nSet base_url to the API address. Upload files are in test_images/ next to this collection."
   },
   "variable": [
     {
@@ -14,11 +14,11 @@
       "value": "1ba050d2-f900-4a9b-82c0-9dade7948d72"
     },
     {
-      "key": "query_embedding_id",
+      "key": "text_search_request_id",
       "value": ""
     },
     {
-      "key": "image_embedding_id",
+      "key": "image_search_request_id",
       "value": ""
     }
   ],
@@ -162,7 +162,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -281,7 +281,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -420,7 +420,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -559,7 +559,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -678,7 +678,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -817,7 +817,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -936,7 +936,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1055,7 +1055,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1184,7 +1184,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1303,7 +1303,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1422,7 +1422,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1472,7 +1472,7 @@
                 }
               ]
             },
-            "description": "Image only. The image must be a .bin file sent as application/octet-stream (max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image).\n\nExpected: HTTP 200"
+            "description": "Image only. The image must be a .bin file sent as application/octet-stream (max 5 MB; the bytes must be a JPEG, PNG or WebP image).\n\nExpected: HTTP 200"
           },
           "event": [
             {
@@ -1532,7 +1532,7 @@
                     }
                   ]
                 },
-                "description": "Image only. The image must be a .bin file sent as application/octet-stream (max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image).\n\nExpected: HTTP 200"
+                "description": "Image only. The image must be a .bin file sent as application/octet-stream (max 5 MB; the bytes must be a JPEG, PNG or WebP image).\n\nExpected: HTTP 200"
               },
               "status": "OK",
               "code": 200,
@@ -1543,7 +1543,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1674,7 +1674,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1815,7 +1815,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -1946,12 +1946,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
         {
-          "name": "P16 Text search - returns query_embedding_id",
+          "name": "P16 Text search - returns request_id",
           "request": {
             "method": "POST",
             "header": [],
@@ -1965,7 +1965,7 @@
                 "search"
               ]
             },
-            "description": "The response carries query_embedding_id. Sending it back (without search_query) reuses the query. Saved to the query_embedding_id variable.\n\nExpected: HTTP 200",
+            "description": "Every response carries request_id, the search-context handle. Sending it back (with filters / sort / page, without search_query) refines the same search. Saved to the text_search_request_id variable.\n\nExpected: HTTP 200",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -2004,14 +2004,14 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "pm.collectionVariables.set('query_embedding_id', pm.response.json().query_embedding_id || '');"
+                  "pm.collectionVariables.set('text_search_request_id', pm.response.json().request_id || '');"
                 ]
               }
             }
           ],
           "response": [
             {
-              "name": "200 example",
+              "name": "P16 Text search - returns request_id",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -2025,7 +2025,7 @@
                     "search"
                   ]
                 },
-                "description": "The response carries query_embedding_id. Sending it back (without search_query) reuses the query. Saved to the query_embedding_id variable.\n\nExpected: HTTP 200",
+                "description": "Every response carries request_id, the search-context handle. Sending it back (with filters / sort / page, without search_query) refines the same search. Saved to the text_search_request_id variable.\n\nExpected: HTTP 200",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -2066,12 +2066,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
         {
-          "name": "P17 Search by query_embedding_id",
+          "name": "P17 Refine by request_id - sort by price",
           "request": {
             "method": "POST",
             "header": [],
@@ -2085,7 +2085,7 @@
                 "search"
               ]
             },
-            "description": "Reuses the query from the previous request: send query_embedding_id instead of search_query.\n\nExpected: HTTP 200",
+            "description": "Refines the previous search: send request_id with sort / filters / page instead of search_query. The response keeps the same request_id.\n\nExpected: HTTP 200",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -2110,8 +2110,18 @@
                   "type": "text"
                 },
                 {
-                  "key": "query_embedding_id",
-                  "value": "{{query_embedding_id}}",
+                  "key": "request_id",
+                  "value": "{{text_search_request_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
                   "type": "text"
                 }
               ]
@@ -2123,14 +2133,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('same request_id', () => pm.expect(pm.response.json().request_id).to.eql(pm.collectionVariables.get('text_search_request_id')));"
                 ]
               }
             }
           ],
           "response": [
             {
-              "name": "200 example",
+              "name": "P17 Refine by request_id - sort by price",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -2144,7 +2155,7 @@
                     "search"
                   ]
                 },
-                "description": "Reuses the query from the previous request: send query_embedding_id instead of search_query.\n\nExpected: HTTP 200",
+                "description": "Refines the previous search: send request_id with sort / filters / page instead of search_query. The response keeps the same request_id.\n\nExpected: HTTP 200",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -2169,8 +2180,18 @@
                       "type": "text"
                     },
                     {
-                      "key": "query_embedding_id",
-                      "value": "{{query_embedding_id}}",
+                      "key": "request_id",
+                      "value": "{{text_search_request_id}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_by",
+                      "value": "price",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sort_order",
+                      "value": "asc",
                       "type": "text"
                     }
                   ]
@@ -2185,12 +2206,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": null\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
         {
-          "name": "P18 Image search - returns image_embedding_id",
+          "name": "P18 Image search - returns request_id",
           "request": {
             "method": "POST",
             "header": [],
@@ -2204,7 +2225,7 @@
                 "search"
               ]
             },
-            "description": "The response carries image_embedding_id. Sending it back (without image) reuses the image, so it need not be uploaded again. Saved to the image_embedding_id variable.\n\nExpected: HTTP 200",
+            "description": "Sending the response's request_id back (without image) refines the same image search, so the image need not be uploaded again. Saved to the image_search_request_id variable.\n\nExpected: HTTP 200",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -2244,14 +2265,14 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "pm.collectionVariables.set('image_embedding_id', pm.response.json().image_embedding_id || '');"
+                  "pm.collectionVariables.set('image_search_request_id', pm.response.json().request_id || '');"
                 ]
               }
             }
           ],
           "response": [
             {
-              "name": "200 example",
+              "name": "P18 Image search - returns request_id",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -2265,7 +2286,7 @@
                     "search"
                   ]
                 },
-                "description": "The response carries image_embedding_id. Sending it back (without image) reuses the image, so it need not be uploaded again. Saved to the image_embedding_id variable.\n\nExpected: HTTP 200",
+                "description": "Sending the response's request_id back (without image) refines the same image search, so the image need not be uploaded again. Saved to the image_search_request_id variable.\n\nExpected: HTTP 200",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -2307,12 +2328,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
         {
-          "name": "P19 Search by image_embedding_id",
+          "name": "P19 Refine image search by request_id - filters",
           "request": {
             "method": "POST",
             "header": [],
@@ -2326,7 +2347,7 @@
                 "search"
               ]
             },
-            "description": "Reuses the image from the previous request: send image_embedding_id instead of the file.\n\nExpected: HTTP 200",
+            "description": "Refines the previous image search with filters: send request_id instead of the file.\n\nExpected: HTTP 200",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -2351,8 +2372,13 @@
                   "type": "text"
                 },
                 {
-                  "key": "image_embedding_id",
-                  "value": "{{image_embedding_id}}",
+                  "key": "request_id",
+                  "value": "{{image_search_request_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"availability\": [\"IN_STOCK\"]}",
                   "type": "text"
                 }
               ]
@@ -2364,14 +2390,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('same request_id', () => pm.expect(pm.response.json().request_id).to.eql(pm.collectionVariables.get('image_search_request_id')));"
                 ]
               }
             }
           ],
           "response": [
             {
-              "name": "200 example",
+              "name": "P19 Refine image search by request_id - filters",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -2385,7 +2412,7 @@
                     "search"
                   ]
                 },
-                "description": "Reuses the image from the previous request: send image_embedding_id instead of the file.\n\nExpected: HTTP 200",
+                "description": "Refines the previous image search with filters: send request_id instead of the file.\n\nExpected: HTTP 200",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -2410,8 +2437,13 @@
                       "type": "text"
                     },
                     {
-                      "key": "image_embedding_id",
-                      "value": "{{image_embedding_id}}",
+                      "key": "request_id",
+                      "value": "{{image_search_request_id}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "filters",
+                      "value": "{\"availability\": [\"IN_STOCK\"]}",
                       "type": "text"
                     }
                   ]
@@ -2426,12 +2458,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": null,\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
         {
-          "name": "P20 Text + image by embedding ids",
+          "name": "P20 request_id + new search_query - text + image",
           "request": {
             "method": "POST",
             "header": [],
@@ -2445,7 +2477,7 @@
                 "search"
               ]
             },
-            "description": "Both ids together: text + image search without re-sending either.\n\nExpected: HTTP 200",
+            "description": "The image search's request_id plus a search_query: text + image search without re-uploading the image. This is a new search context, so the response carries a new request_id.\n\nExpected: HTTP 200",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -2470,13 +2502,13 @@
                   "type": "text"
                 },
                 {
-                  "key": "query_embedding_id",
-                  "value": "{{query_embedding_id}}",
+                  "key": "search_query",
+                  "value": "battery charger",
                   "type": "text"
                 },
                 {
-                  "key": "image_embedding_id",
-                  "value": "{{image_embedding_id}}",
+                  "key": "request_id",
+                  "value": "{{image_search_request_id}}",
                   "type": "text"
                 }
               ]
@@ -2495,7 +2527,7 @@
           ],
           "response": [
             {
-              "name": "200 example",
+              "name": "P20 request_id + new search_query - text + image",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -2509,7 +2541,7 @@
                     "search"
                   ]
                 },
-                "description": "Both ids together: text + image search without re-sending either.\n\nExpected: HTTP 200",
+                "description": "The image search's request_id plus a search_query: text + image search without re-uploading the image. This is a new search context, so the response carries a new request_id.\n\nExpected: HTTP 200",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -2534,13 +2566,13 @@
                       "type": "text"
                     },
                     {
-                      "key": "query_embedding_id",
-                      "value": "{{query_embedding_id}}",
+                      "key": "search_query",
+                      "value": "battery charger",
                       "type": "text"
                     },
                     {
-                      "key": "image_embedding_id",
-                      "value": "{{image_embedding_id}}",
+                      "key": "request_id",
+                      "value": "{{image_search_request_id}}",
                       "type": "text"
                     }
                   ]
@@ -2555,7 +2587,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"product_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"seller_name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\"\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ]\n    }\n  ],\n  \"facets\": {\n    \"product_type\": [\n      {\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  },\n  \"query_embedding_id\": \"asmo:emb:query:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f\",\n  \"image_embedding_id\": \"asmo:emb:image:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"\n}"
+              "body": "{\n  \"request_id\": \"5b0c1f0e-2b7a-4c1e-9a52-3f1d0e8c9a11\",\n  \"total_results\": 1,\n  \"page\": 1,\n  \"page_size\": 60,\n  \"products\": [\n    {\n      \"product_key\": \"6f1d…\",\n      \"sku_id\": \"172000-001-hvac\",\n      \"sku_name\": \"Air Handling Unit 5 TR\",\n      \"primary_image_url\": \"https://images.cdn.europe-west1.gcp.commercetools.com/…/image.png\",\n      \"asmo_material_number\": \"…\",\n      \"aramco_material_number\": \"…\",\n      \"product_type\": \"HVAC\",\n      \"material_type\": \"9COM\",\n      \"seller_details\": [\n        {\n          \"seller_id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n          \"name\": \"seller_123\",\n          \"lead_time\": 3,\n          \"unit_type\": \"Ea\",\n          \"price\": 123.0,\n          \"moq\": 5,\n          \"currency\": \"SAR\",\n          \"temporary_unavailable\": null\n        }\n      ],\n      \"moq\": 5,\n      \"price\": 123.0,\n      \"currency\": \"SAR\",\n      \"sold_by\": \"seller_123\",\n      \"supplier_count\": 1,\n      \"contract_indicator\": false,\n      \"category_ids\": [\n        \"1ba050d2-f900-4a9b-82c0-9dade7948d72\"\n      ],\n      \"temporary_unavailable\": null\n    }\n  ],\n  \"facets\": {\n    \"category_name\": [\n      {\n        \"id\": \"1ba050d2-f900-4a9b-82c0-9dade7948d72\",\n        \"value\": \"Drilling & Chemicals\",\n        \"count\": 1\n      }\n    ],\n    \"sub_category_name\": [\n      {\n        \"id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\",\n        \"value\": \"Drilling\",\n        \"count\": 1\n      }\n    ],\n    \"product_type\": [\n      {\n        \"id\": \"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\",\n        \"value\": \"HVAC\",\n        \"count\": 1\n      }\n    ],\n    \"sellername\": [\n      {\n        \"id\": \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\",\n        \"value\": \"seller_123\",\n        \"count\": 1\n      }\n    ],\n    \"moq\": [\n      {\n        \"id\": 5,\n        \"value\": \"5\",\n        \"count\": 1\n      }\n    ],\n    \"lead_time\": [\n      {\n        \"id\": 3,\n        \"value\": \"3\",\n        \"count\": 1\n      }\n    ],\n    \"material_type\": [\n      {\n        \"id\": \"9COM\",\n        \"value\": \"9COM\",\n        \"count\": 1\n      }\n    ],\n    \"price\": {\n      \"min\": 123.0,\n      \"max\": 123.0\n    }\n  }\n}"
             }
           ]
         },
@@ -2660,7 +2692,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"query\": \"pres\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ]\n}"
+              "body": "{\n  \"query\": \"pres\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\",\n      \"sku_id\": \"032000-001-instrumentation-1\"\n    },\n    {\n      \"text\": \"Pressure Gauge\",\n      \"sku_id\": \"029000-004-instrumentation-1\"\n    }\n  ]\n}"
             }
           ]
         },
@@ -2765,7 +2797,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"query\": \"pump\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ]\n}"
+              "body": "{\n  \"query\": \"pump\",\n  \"query_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\"\n    },\n    {\n      \"text\": \"Pressure Gauge\"\n    }\n  ],\n  \"product_suggestions\": [\n    {\n      \"text\": \"Pressure Transmitter HART\",\n      \"sku_id\": \"032000-001-instrumentation-1\"\n    },\n    {\n      \"text\": \"Pressure Gauge\",\n      \"sku_id\": \"029000-004-instrumentation-1\"\n    }\n  ]\n}"
             }
           ]
         },
@@ -4332,7 +4364,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Unsupported image. Upload a JPEG, PNG or WebP image.\"\n}"
             }
           ]
         },
@@ -4454,12 +4486,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Unsupported image. Upload a JPEG, PNG or WebP image.\"\n}"
             }
           ]
         },
         {
-          "name": "N15 File without .bin extension rejected (400)",
+          "name": "N15 GIF image rejected (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -4499,12 +4531,12 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/image_no_extension",
-                  "contentType": "application/octet-stream"
+                  "src": "test_images/sample.gif",
+                  "contentType": "image/gif"
                 }
               ]
             },
-            "description": "The file name must end in .bin, even when sent as application/octet-stream.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+            "description": "Only JPEG, PNG and WebP images are accepted; a GIF is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
           },
           "event": [
             {
@@ -4520,7 +4552,7 @@
           ],
           "response": [
             {
-              "name": "400 example",
+              "name": "N15 GIF image rejected (400)",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -4560,12 +4592,12 @@
                     {
                       "key": "image",
                       "type": "file",
-                      "src": "test_images/image_no_extension",
-                      "contentType": "application/octet-stream"
+                      "src": "test_images/sample.gif",
+                      "contentType": "image/gif"
                     }
                   ]
                 },
-                "description": "The file name must end in .bin, even when sent as application/octet-stream.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+                "description": "Only JPEG, PNG and WebP images are accepted; a GIF is rejected.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
               },
               "status": "Error",
               "code": 400,
@@ -4576,12 +4608,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Unsupported image. Upload a JPEG, PNG or WebP image.\"\n}"
             }
           ]
         },
         {
-          "name": "N16 bin file with image content type rejected (400)",
+          "name": "N16 Unsupported content type rejected (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -4621,12 +4653,12 @@
                 {
                   "key": "image",
                   "type": "file",
-                  "src": "test_images/ao-100018_1.bin",
-                  "contentType": "image/png"
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "application/pdf"
                 }
               ]
             },
-            "description": "A .bin file must be sent as application/octet-stream, not image/png.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+            "description": "The image part must be sent as image/jpeg, image/png, image/webp or application/octet-stream.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
           },
           "event": [
             {
@@ -4642,7 +4674,7 @@
           ],
           "response": [
             {
-              "name": "400 example",
+              "name": "N16 Unsupported content type rejected (400)",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -4682,12 +4714,12 @@
                     {
                       "key": "image",
                       "type": "file",
-                      "src": "test_images/ao-100018_1.bin",
-                      "contentType": "image/png"
+                      "src": "test_images/ao-100018_1.jpg",
+                      "contentType": "application/pdf"
                     }
                   ]
                 },
-                "description": "A .bin file must be sent as application/octet-stream, not image/png.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+                "description": "The image part must be sent as image/jpeg, image/png, image/webp or application/octet-stream.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
               },
               "status": "Error",
               "code": 400,
@@ -4698,12 +4730,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Incorrect file format. Only .bin files are accepted.\"\n}"
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Unsupported image. Upload a JPEG, PNG or WebP image.\"\n}"
             }
           ]
         },
         {
-          "name": "N17 bin file that is not an image (400)",
+          "name": "N17 File that is not an image (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -4753,7 +4785,7 @@
                 }
               ]
             },
-            "description": "The bytes inside the .bin must be a PNG, JPEG, GIF or WebP image.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+            "description": "The bytes must be a JPEG, PNG or WebP image.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
           },
           "event": [
             {
@@ -4769,7 +4801,7 @@
           ],
           "response": [
             {
-              "name": "400 example",
+              "name": "N17 File that is not an image (400)",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -4819,7 +4851,7 @@
                     }
                   ]
                 },
-                "description": "The bytes inside the .bin must be a PNG, JPEG, GIF or WebP image.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
+                "description": "The bytes must be a JPEG, PNG or WebP image.\n\nExpected: HTTP 400 `UNSUPPORTED_IMAGE_TYPE`"
               },
               "status": "Error",
               "code": 400,
@@ -4830,12 +4862,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"The uploaded file is not a valid PNG, JPEG, GIF or WebP image.\"\n}"
+              "body": "{\n  \"code\": \"UNSUPPORTED_IMAGE_TYPE\",\n  \"message\": \"Unsupported image. Upload a JPEG, PNG or WebP image.\"\n}"
             }
           ]
         },
         {
-          "name": "N18 Image larger than 5 MB (413)",
+          "name": "N18 Image larger than 10 MiB (413)",
           "request": {
             "method": "POST",
             "header": [],
@@ -4880,7 +4912,7 @@
                 }
               ]
             },
-            "description": "Images over 5 MB are rejected.\n\nExpected: HTTP 413 `IMAGE_TOO_LARGE`"
+            "description": "Images over 10 MiB are rejected.\n\nExpected: HTTP 413 `IMAGE_TOO_LARGE`"
           },
           "event": [
             {
@@ -4896,7 +4928,7 @@
           ],
           "response": [
             {
-              "name": "413 example",
+              "name": "N18 Image larger than 10 MiB (413)",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -4941,7 +4973,7 @@
                     }
                   ]
                 },
-                "description": "Images over 5 MB are rejected.\n\nExpected: HTTP 413 `IMAGE_TOO_LARGE`"
+                "description": "Images over 10 MiB are rejected.\n\nExpected: HTTP 413 `IMAGE_TOO_LARGE`"
               },
               "status": "Error",
               "code": 413,
@@ -4952,12 +4984,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"IMAGE_TOO_LARGE\",\n  \"message\": \"Image exceeds the maximum size of 5242880 bytes.\"\n}"
+              "body": "{\n  \"code\": \"IMAGE_TOO_LARGE\",\n  \"message\": \"Image exceeds the maximum size of 10485760 bytes.\"\n}"
             }
           ]
         },
         {
-          "name": "N19 Unknown or expired embedding id (400)",
+          "name": "N19 Unknown or expired request_id (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -4971,7 +5003,7 @@
                 "search"
               ]
             },
-            "description": "A well-formed id that is not (or no longer) in the cache.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+            "description": "A well-formed request_id whose search is not (or no longer) in the cache.\n\nExpected: HTTP 400 `REQUEST_ID_NOT_FOUND`",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -4996,8 +5028,8 @@
                   "type": "text"
                 },
                 {
-                  "key": "query_embedding_id",
-                  "value": "asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000",
+                  "key": "request_id",
+                  "value": "00000000-0000-0000-0000-000000000000",
                   "type": "text"
                 }
               ]
@@ -5010,14 +5042,14 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('code = EMBEDDING_ID_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('EMBEDDING_ID_NOT_FOUND'));"
+                  "pm.test('code = REQUEST_ID_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('REQUEST_ID_NOT_FOUND'));"
                 ]
               }
             }
           ],
           "response": [
             {
-              "name": "400 example",
+              "name": "N19 Unknown or expired request_id (400)",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -5031,7 +5063,7 @@
                     "search"
                   ]
                 },
-                "description": "A well-formed id that is not (or no longer) in the cache.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+                "description": "A well-formed request_id whose search is not (or no longer) in the cache.\n\nExpected: HTTP 400 `REQUEST_ID_NOT_FOUND`",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -5056,8 +5088,8 @@
                       "type": "text"
                     },
                     {
-                      "key": "query_embedding_id",
-                      "value": "asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000",
+                      "key": "request_id",
+                      "value": "00000000-0000-0000-0000-000000000000",
                       "type": "text"
                     }
                   ]
@@ -5072,12 +5104,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"EMBEDDING_ID_NOT_FOUND\",\n  \"message\": \"asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000\"\n}"
+              "body": "{\n  \"code\": \"REQUEST_ID_NOT_FOUND\",\n  \"message\": \"request_id '00000000-0000-0000-0000-000000000000' was not found or its search has expired\"\n}"
             }
           ]
         },
         {
-          "name": "N20 Malformed embedding id (400)",
+          "name": "N20 Malformed request_id (400)",
           "request": {
             "method": "POST",
             "header": [],
@@ -5091,7 +5123,7 @@
                 "search"
               ]
             },
-            "description": "Embedding ids look like asmo:emb:image:<64 hex chars>.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+            "description": "request_id must be a UUID.\n\nExpected: HTTP 400 `REQUEST_ID_NOT_FOUND`",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -5116,7 +5148,7 @@
                   "type": "text"
                 },
                 {
-                  "key": "image_embedding_id",
+                  "key": "request_id",
                   "value": "not-an-id",
                   "type": "text"
                 }
@@ -5130,14 +5162,14 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('code = EMBEDDING_ID_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('EMBEDDING_ID_NOT_FOUND'));"
+                  "pm.test('code = REQUEST_ID_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('REQUEST_ID_NOT_FOUND'));"
                 ]
               }
             }
           ],
           "response": [
             {
-              "name": "400 example",
+              "name": "N20 Malformed request_id (400)",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -5151,7 +5183,7 @@
                     "search"
                   ]
                 },
-                "description": "Embedding ids look like asmo:emb:image:<64 hex chars>.\n\nExpected: HTTP 400 `EMBEDDING_ID_NOT_FOUND`",
+                "description": "request_id must be a UUID.\n\nExpected: HTTP 400 `REQUEST_ID_NOT_FOUND`",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -5176,7 +5208,7 @@
                       "type": "text"
                     },
                     {
-                      "key": "image_embedding_id",
+                      "key": "request_id",
                       "value": "not-an-id",
                       "type": "text"
                     }
@@ -5192,7 +5224,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"code\": \"EMBEDDING_ID_NOT_FOUND\",\n  \"message\": \"'not-an-id' is not a valid image embedding id\"\n}"
+              "body": "{\n  \"code\": \"REQUEST_ID_NOT_FOUND\",\n  \"message\": \"'not-an-id' is not a valid request_id\"\n}"
             }
           ]
         }

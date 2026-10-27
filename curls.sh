@@ -7,14 +7,15 @@
 #   base_url=https://my-host ./curls.sh         # against another server
 # On Windows use Git Bash or WSL.
 #
-# Image uploads: only .bin files are accepted (file name ending in .bin, sent as
-# application/octet-stream). Any other file gets 400 "Incorrect file format".
+# Image uploads: a normal binary multipart part (image/jpeg, image/png, image/webp
+# or application/octet-stream), max 10 MiB. The bytes must be a JPEG, PNG or WebP
+# image; GIF and other files get 400 UNSUPPORTED_IMAGE_TYPE.
 # test_images_known/ lives in the data-pipeline repo; copy it next to this file.
 base_url="${base_url:-http://localhost:8000}"
 category_id="${category_id:-1ba050d2-f900-4a9b-82c0-9dade7948d72}"
 # Filled in by TC-050 / TC-053 below (Redis embedding cache).
-query_embedding_id="${query_embedding_id:-}"
-image_embedding_id="${image_embedding_id:-}"
+text_search_request_id="${text_search_request_id:-}"
+image_search_request_id="${image_search_request_id:-}"
 
 PY="$(command -v python3 || command -v python)"
 _json_field() {  # _json_field <field>  — read a top-level field from JSON on stdin
@@ -486,7 +487,7 @@ echo "=== TC-035c Unsupported language on suggestions (400) ==="
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=fr"
 echo
 
-echo "=== TC-043 Non-image file sent as bin (400) ==="
+echo "=== TC-043 Non-image file (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -496,7 +497,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/not_an_image.bin;type=application/octet-stream"
 echo
 
-echo "=== TC-043b JPG file rejected - only .bin accepted (400) ==="
+echo "=== TC-043b JPEG image part (image/jpeg) accepted ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -505,7 +506,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 echo
 
-echo "=== TC-043c PNG file rejected - only .bin accepted (400) ==="
+echo "=== TC-043c PNG image part (image/png) accepted ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -514,7 +515,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/172000-001-hvac.png;type=image/png"
 echo
 
-echo "=== TC-043d File without .bin extension rejected (400) ==="
+echo "=== TC-043d File without an extension accepted ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -523,7 +524,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/image_no_extension;type=application/octet-stream"
 echo
 
-echo "=== TC-043e .bin file declared image-png rejected (400) ==="
+echo "=== TC-043e Mislabelled content type accepted - the bytes decide ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -532,7 +533,25 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.bin;type=image/png"
 echo
 
-echo "=== TC-047 Image larger than 5 MB (413) ==="
+echo "=== TC-043f GIF image rejected (400) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=10" \
+  -F "image=@test_images/sample.gif;type=image/gif"
+echo
+
+echo "=== TC-043g Unsupported content type rejected (400) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=10" \
+  -F "image=@test_images/ao-100018_1.jpg;type=application/pdf"
+echo
+
+echo "=== TC-047 Image larger than 10 MiB (413) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -572,7 +591,7 @@ echo "=== TC-049 Health reports Redis status ==="
 curl -s "${base_url}/health"
 echo
 
-echo "=== TC-050 Text search returns query_embedding_id ==="
+echo "=== TC-050 Text search returns request_id ==="
 resp=$(curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -580,29 +599,31 @@ resp=$(curl -s -X POST "${base_url}/v1/search" \
   -F "page_size=60" \
   -F "search_query=gate valve")
 echo "$resp"
-query_embedding_id=$(printf '%s' "$resp" | _json_field query_embedding_id)
-echo "-> query_embedding_id=${query_embedding_id}"
+text_search_request_id=$(printf '%s' "$resp" | _json_field request_id)
+echo "-> text_search_request_id=${text_search_request_id}"
 echo
 
-echo "=== TC-051 Same query again (different case/spaces) returns the same id ==="
+echo "=== TC-051 Refine by request_id - sort by price, same request_id ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "search_query=  Gate   VALVE "
+  -F "request_id=${text_search_request_id}" \
+  -F "sort_by=price" \
+  -F "sort_order=asc"
 echo
 
-echo "=== TC-052 Search by query_embedding_id only (no search_query) ==="
+echo "=== TC-052 Refine by request_id only - replays the query ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "query_embedding_id=${query_embedding_id}"
+  -F "request_id=${text_search_request_id}"
 echo
 
-echo "=== TC-053 Image search returns image_embedding_id ==="
+echo "=== TC-053 Image search returns request_id ==="
 resp=$(curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
@@ -610,52 +631,52 @@ resp=$(curl -s -X POST "${base_url}/v1/search" \
   -F "page_size=60" \
   -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream")
 echo "$resp"
-image_embedding_id=$(printf '%s' "$resp" | _json_field image_embedding_id)
-echo "-> image_embedding_id=${image_embedding_id}"
+image_search_request_id=$(printf '%s' "$resp" | _json_field request_id)
+echo "-> image_search_request_id=${image_search_request_id}"
 echo
 
-echo "=== TC-054 Same image again returns the same id ==="
+echo "=== TC-054 Refine image search by request_id - page 2 ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=2" \
+  -F "page_size=10" \
+  -F "request_id=${image_search_request_id}"
+echo
+
+echo "=== TC-055 Refine by request_id only - replays the image ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
+  -F "request_id=${image_search_request_id}"
 echo
 
-echo "=== TC-055 Search by image_embedding_id only (no image) ==="
+echo "=== TC-056 request_id + new search_query - text + image, keeps the image ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image_embedding_id=${image_embedding_id}"
+  -F "request_id=${image_search_request_id}" \
+  -F "search_query=battery charger"
 echo
 
-echo "=== TC-056 Text + image by both ids ==="
+echo "=== TC-057 Unknown / expired request_id ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "query_embedding_id=${query_embedding_id}" \
-  -F "image_embedding_id=${image_embedding_id}"
+  -F "request_id=00000000-0000-0000-0000-000000000000"
 echo
 
-echo "=== TC-057 Unknown / expired embedding id ==="
+echo "=== TC-058 Malformed request_id (400) ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "query_embedding_id=asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000"
-echo
-
-echo "=== TC-058 Malformed embedding id (400) ==="
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=60" \
-  -F "image_embedding_id=not-an-id"
+  -F "request_id=not-an-id"
 echo

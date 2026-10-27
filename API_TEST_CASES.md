@@ -1,6 +1,6 @@
 # ASMO AI Search API — Test Cases (curl)
 
-Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 50 cases that succeed; **Part B** lists the 21 cases that must be rejected, with the exact error returned.
+Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 50 cases that succeed; **Part B** lists the 23 error-path cases: 19 that must be rejected, with the exact error returned, and 4 upload variants (TC-043b–e) that are accepted.
 
 ## How to run
 
@@ -11,7 +11,7 @@ export category_id=1ba050d2-f900-4a9b-82c0-9dade7948d72
 
 - Run from the API repo folder: image paths are relative to it (`test_images/`, `test_images_known/`).
 - Commands are bash. On Windows use Git Bash, or `curl.exe` in PowerShell / cmd with each command on one line.
-- `query_embedding_id` / `image_embedding_id` come from the responses of TC-050 / TC-053 (Part A, Redis section).
+- `text_search_request_id` / `image_search_request_id` are the `request_id` returned by TC-050 / TC-053 (Part A, Redis section).
 - The same commands are in `curls.sh`, which runs them all in order.
 
 ## Request rules
@@ -23,24 +23,48 @@ export category_id=1ba050d2-f900-4a9b-82c0-9dade7948d72
 | `channel` | yes | `web` or `mobile` |
 | `language` | yes | `en` (English only) |
 | `search_query` | no | free text |
-| `image` | no | **`.bin` file only** — file name ending in `.bin`, sent as `application/octet-stream`; max 5 MB; the bytes must be a PNG, JPEG, GIF or WebP image |
+| `image` | no | binary multipart part — any file name, sent as `image/jpeg`, `image/png`, `image/webp` or `application/octet-stream`; max 10 MiB; the bytes must be a JPEG, PNG or WebP image (GIF is rejected) |
 | `filters` | no | JSON object as a string, e.g. `{"price": {"gte": 50, "lte": 150}, "material_type": ["9CAT"]}` |
 | `sort_by` | no | `relevance` (default) or `price` |
 | `sort_order` | no | `desc` (default) or `asc` |
 | `page` | no | 1-based, default `1` |
 | `page_size` | no | 1–200, default `60` |
-| `query_embedding_id` | no | id from a previous response; reuses that query when `search_query` is omitted |
-| `image_embedding_id` | no | id from a previous response; reuses that image when `image` is omitted |
+| `request_id` | no | `request_id` of a previous response; refines that search — its query and/or image are reused for whichever of `search_query` / `image` is omitted |
 
-At least one of `search_query`, `image`, `filters` or an embedding id is required.
+At least one of `search_query`, `image`, `filters` or `request_id` is required.
 
-**Sending the image from the browser** — give the part a `.bin` file name:
+**request_id (search context)** — every response's `request_id` (a UUID) identifies its search: the query and/or image embeddings are stored as **one** Redis entry under it (the image itself is not stored; the entry expires 1 hour after it was last used). Send it back as `request_id` with only `filters` / `sort_by` / `sort_order` / `page` / `page_size` to refine the same search; the response keeps the same `request_id`. A `search_query` or `image` sent with it replaces that part — e.g. a new query over the previously uploaded image — which is a new search, so the response carries a new `request_id`.
+
+#### Filter keys
+
+Every facet key in the response is also a filter key: send back the facet's `id`. A value may be a single value or a list (matches any); numeric keys also take a range object (`gt` / `gte` / `lt` / `lte`). Any other key returns `400 INVALID_FILTER_KEY`.
+
+| Filter key | Takes | Matches |
+|---|---|---|
+| `category_name` | category id (facet `id`) | `category_ids` |
+| `sub_category_name` | sub-category id (facet `id`) | `sub_category_id` |
+| `product_type` | product-type id (facet `id`); the product-type name is also accepted | `product_type_id` / `product_type` |
+| `sellername` | seller id (facet `id`) | any `seller_details[].seller_id` |
+| `moq` | number or range (facet `id`) | primary seller's `moq` |
+| `lead_time` | days, number or range (facet `id`) | any `seller_details[].lead_time` |
+| `material_type` | value, e.g. `9CAT` (facet `id`) | `material_type` |
+| `price` | number or range, e.g. `{"gte": 50, "lte": 150}` (bounds from the `price` facet) | primary seller's `price` |
+| `availability` | value, e.g. `IN_STOCK` | `availability` |
+| `category_ids` | category id (same as `category_name`) | `category_ids` |
+| `currency` | ISO 4217 code | primary seller's `currency` |
+| `contract_indicator` | `true` / `false` | `contract_indicator` |
+| `temporary_unavailable` | `true` / `false` | primary seller's `temporary_unavailable` |
+| `supplier_count` | number or range | `supplier_count` |
+
+Also accepted, by exact value: `sub_category_id`, `product_type_id`, `sold_by`, `sku_id`, `product_key`, `asmo_material_number`, `aramco_material_number`.
+
+**Sending the image from the browser** — append the file as a normal part:
 
 ```js
 const form = new FormData();
 form.append('channel', 'web');
 form.append('language', 'en');
-form.append('image', new Blob([fileBytes], { type: 'application/octet-stream' }), 'image.bin');
+form.append('image', file);  // a File from <input type="file">, or a Blob with its image type
 await fetch(`${baseUrl}/v1/search`, { method: 'POST', body: form });  // do not set Content-Type yourself
 ```
 
@@ -62,7 +86,7 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
     {
       "product_key": "\u2026",
       "sku_id": "172000-001-hvac",
-      "product_name": "Air Handling Unit 5 TR",
+      "sku_name": "Air Handling Unit 5 TR",
       "primary_image_url": "https://\u2026",
       "asmo_material_number": "\u2026",
       "aramco_material_number": "\u2026",
@@ -71,12 +95,13 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
       "seller_details": [
         {
           "seller_id": "3a7b23e0-\u2026",
-          "seller_name": "seller_123",
+          "name": "seller_123",
           "lead_time": 3,
           "unit_type": "Ea",
           "price": 123.0,
           "moq": 5,
-          "currency": "SAR"
+          "currency": "SAR",
+          "temporary_unavailable": null
         }
       ],
       "moq": 5,
@@ -87,18 +112,56 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
       "contract_indicator": false,
       "category_ids": [
         "1ba050d2-\u2026"
-      ]
+      ],
+      "temporary_unavailable": null
     }
   ],
   "facets": {
+    "category_name": [
+      {
+        "id": "1ba050d2-f900-4a9b-82c0-9dade7948d72",
+        "value": "Drilling & Chemicals",
+        "count": 1
+      }
+    ],
+    "sub_category_name": [
+      {
+        "id": "13b62da1-d0f8-4208-8ff4-2f18df36fac4",
+        "value": "Drilling",
+        "count": 1
+      }
+    ],
     "product_type": [
       {
+        "id": "0aca63c8-d90d-4dc0-b3a8-17b318cb2865",
         "value": "\u2026",
+        "count": 1
+      }
+    ],
+    "sellername": [
+      {
+        "id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "value": "seller_123",
+        "count": 1
+      }
+    ],
+    "moq": [
+      {
+        "id": 5,
+        "value": "5",
+        "count": 1
+      }
+    ],
+    "lead_time": [
+      {
+        "id": 3,
+        "value": "3",
         "count": 1
       }
     ],
     "material_type": [
       {
+        "id": "9COM",
         "value": "9COM",
         "count": 1
       }
@@ -107,9 +170,7 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
       "min": 123.0,
       "max": 123.0
     }
-  },
-  "query_embedding_id": null,
-  "image_embedding_id": "asmo:emb:image:\u2026"
+  }
 }
 ```
 
@@ -125,7 +186,8 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
   ],
   "product_suggestions": [
     {
-      "text": "Pressure Transmitter HART"
+      "text": "Pressure Transmitter HART",
+      "sku_id": "172000-001-hvac"
     }
   ]
 }
@@ -140,15 +202,15 @@ Every error has the same body: `{"code": "…", "message": "…"}`.
 | 400 | `UNSUPPORTED_CHANNEL` | `channel` is not `web` / `mobile` |
 | 400 | `UNSUPPORTED_LANGUAGE` | `language` is not `en` |
 | 400 | `INVALID_SORT_BY` | `sort_by` is not `relevance` / `price` |
-| 400 | `EMPTY_REQUEST` | no `search_query`, `image`, `filters` or embedding id |
+| 400 | `EMPTY_REQUEST` | no `search_query`, `image`, `filters` or `request_id` |
 | 400 | `INVALID_FILTER` | `filters` is not a valid JSON object |
 | 400 | `INVALID_FILTER_KEY` | a filter key is not supported |
 | 400 | `INVALID_FILTER_VALUE` | a filter value has the wrong type |
 | 400 | `VALIDATION_ERROR` | a field is missing or out of range (e.g. `page_size` > 200, `page` < 1) |
-| 400 | `UNSUPPORTED_IMAGE_TYPE` | the file is not a `.bin` (`Incorrect file format. Only .bin files are accepted.`), or its bytes are not a PNG/JPEG/GIF/WebP image |
-| 413 | `IMAGE_TOO_LARGE` | image larger than 5 MB |
-| 400 | `EMBEDDING_ID_NOT_FOUND` | embedding id is malformed, unknown or expired |
-| 503 | `EMBEDDING_STORE_UNAVAILABLE` | an embedding id was sent but the cache (Redis) is unavailable |
+| 400 | `UNSUPPORTED_IMAGE_TYPE` | the part's content type is not JPEG / PNG / WebP / `application/octet-stream`, or its bytes are not a JPEG, PNG or WebP image — GIF included (`Unsupported image. Upload a JPEG, PNG or WebP image.`) |
+| 413 | `IMAGE_TOO_LARGE` | image larger than 10 MiB |
+| 400 | `REQUEST_ID_NOT_FOUND` | `request_id` is not a UUID, unknown, or its search has expired |
+| 503 | `EMBEDDING_STORE_UNAVAILABLE` | a `request_id` was sent but the cache (Redis) is unavailable |
 | 404 | `INDEX_NOT_FOUND` | the search index does not exist |
 | 500 | `INTERNAL_ERROR` | unexpected server error |
 
@@ -832,13 +894,13 @@ Checks: redis_connected = true; redis_connected = null (disabled).
 curl -s "${base_url}/health"
 ```
 
-#### A44. TC-050 Text search returns query_embedding_id
+#### A44. TC-050 Text search returns request_id
 
-First text search: the query embedding is stored in Redis and its id returned (saved as query_embedding_id).
+First text search: its query embedding is stored in Redis under the response's request_id (saved as text_search_request_id).
 
 `POST /v1/search` → expected **200**
 
-Checks: image_embedding_id is null; query_embedding_id returned; query_embedding_id is null (Redis disabled).
+Checks: request_id is a UUID.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -849,30 +911,13 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "search_query=gate valve"
 ```
 
-#### A45. TC-051 Same query again (different case/spaces) returns the same id
+#### A45. TC-051 Refine by request_id - sort by price, same request_id
 
-Same query after normalisation (trim, collapse spaces, lower-case) is served from Redis.
-
-`POST /v1/search` → expected **200**
-
-Checks: same query_embedding_id as before; query_embedding_id is null (Redis disabled).
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=60" \
-  -F "search_query=  Gate   VALVE "
-```
-
-#### A46. TC-052 Search by query_embedding_id only (no search_query)
-
-Reuses the stored query text and embedding. Redis disabled → 503.
+request_id plus sort_by / sort_order only: the same search (query reused, not re-sent), re-sorted. The response keeps the same request_id. Redis disabled → 503.
 
 `POST /v1/search` → expected **200** (or **503** `EMBEDDING_STORE_UNAVAILABLE` when Redis is disabled)
 
-Checks: products is an array; query_embedding_id echoed back.
+Checks: products is an array; same request_id (same search context); prices non-decreasing.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -880,16 +925,35 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "query_embedding_id=${query_embedding_id}"
+  -F "request_id=${text_search_request_id}" \
+  -F "sort_by=price" \
+  -F "sort_order=asc"
 ```
 
-#### A47. TC-053 Image search returns image_embedding_id
+#### A46. TC-052 Refine by request_id only - replays the query
 
-Image embedding and the image (base64) are stored in Redis; the id is saved as image_embedding_id.
+request_id alone reruns the same search from the stored query and embedding. Redis disabled → 503.
+
+`POST /v1/search` → expected **200** (or **503** `EMBEDDING_STORE_UNAVAILABLE` when Redis is disabled)
+
+Checks: products is an array; same request_id (same search context).
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=60" \
+  -F "request_id=${text_search_request_id}"
+```
+
+#### A47. TC-053 Image search returns request_id
+
+The image embedding is stored in Redis under the response's request_id (saved as image_search_request_id); the image itself is not stored.
 
 `POST /v1/search` → expected **200**
 
-Checks: query_embedding_id is null; image_embedding_id returned; image_embedding_id is null (Redis disabled).
+Checks: request_id is a UUID.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -900,47 +964,30 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
 ```
 
-#### A48. TC-054 Same image again returns the same id
+#### A48. TC-054 Refine image search by request_id - page 2
 
-Identical image bytes are served from Redis.
-
-`POST /v1/search` → expected **200**
-
-Checks: same image_embedding_id as before; image_embedding_id is null (Redis disabled).
-
-```bash
-curl -s -X POST "${base_url}/v1/search" \
-  -F "channel=web" \
-  -F "language=en" \
-  -F "page=1" \
-  -F "page_size=60" \
-  -F "image=@test_images/ao-100018_1.bin;type=application/octet-stream"
-```
-
-#### A49. TC-055 Search by image_embedding_id only (no image)
-
-Image search using the stored embedding; no upload. Redis disabled → 503.
+request_id plus page: the next page of the same image search, without re-uploading the image. Redis disabled → 503.
 
 `POST /v1/search` → expected **200** (or **503** `EMBEDDING_STORE_UNAVAILABLE` when Redis is disabled)
 
-Checks: products is an array; image_embedding_id echoed back; ao-100018_1 in top 5.
+Checks: products is an array; same request_id (same search context).
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \
   -F "language=en" \
-  -F "page=1" \
-  -F "page_size=60" \
-  -F "image_embedding_id=${image_embedding_id}"
+  -F "page=2" \
+  -F "page_size=10" \
+  -F "request_id=${image_search_request_id}"
 ```
 
-#### A50. TC-056 Text + image by both ids
+#### A49. TC-055 Refine by request_id only - replays the image
 
-Multimodal search entirely from Redis. Redis disabled → 503.
+request_id alone reruns the image search from the stored embedding; no upload. Redis disabled → 503.
 
 `POST /v1/search` → expected **200** (or **503** `EMBEDDING_STORE_UNAVAILABLE` when Redis is disabled)
 
-Checks: products is an array; query_embedding_id echoed back; image_embedding_id echoed back.
+Checks: products is an array; same request_id (same search context); ao-100018_1 in top 5.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -948,8 +995,25 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "query_embedding_id=${query_embedding_id}" \
-  -F "image_embedding_id=${image_embedding_id}"
+  -F "request_id=${image_search_request_id}"
+```
+
+#### A50. TC-056 request_id + new search_query - text + image, keeps the image
+
+The image search's request_id plus a search_query: the stored image is reused (not re-uploaded) with the new query. That is a new search context, so the response has a new request_id. Redis disabled → 503.
+
+`POST /v1/search` → expected **200** (or **503** `EMBEDDING_STORE_UNAVAILABLE` when Redis is disabled)
+
+Checks: products is an array; a new request_id for the new search context.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=60" \
+  -F "request_id=${image_search_request_id}" \
+  -F "search_query=battery charger"
 ```
 
 ## Part B — Fail cases (must be rejected)
@@ -1028,7 +1092,7 @@ curl -s -X POST "${base_url}/v1/search" \
 Response:
 
 ```json
-{"code":"EMPTY_REQUEST","message":"At least one of search_query, image, filters or an embedding id must be provided"}
+{"code":"EMPTY_REQUEST","message":"At least one of search_query, image, filters or request_id must be provided"}
 ```
 
 Checks: code = EMPTY_REQUEST; message is a non-empty string; flat error body (no wrapper).
@@ -1195,16 +1259,16 @@ Checks: code = UNSUPPORTED_LANGUAGE; message is a non-empty string; flat error b
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=fr"
 ```
 
-#### B13. TC-043 Non-image file sent as bin (400)
+#### B13. TC-043 Non-image file (400)
 
-A .bin file whose bytes are not a PNG, JPEG, GIF or WebP image is rejected by the byte check.
+A file whose bytes are not a JPEG, PNG or WebP image is rejected by the byte check.
 
 `POST /v1/search` → expected **400**
 
 Response:
 
 ```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"The uploaded file is not a valid PNG, JPEG, GIF or WebP image."}
+{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image. Upload a JPEG, PNG or WebP image."}
 ```
 
 Checks: code = UNSUPPORTED_IMAGE_TYPE; message is a non-empty string.
@@ -1219,19 +1283,13 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/not_an_image.bin;type=application/octet-stream"
 ```
 
-#### B14. TC-043b JPG file rejected - only .bin accepted (400)
+#### B14. TC-043b JPEG image part (image/jpeg) accepted
 
-A .jpg file sent as image/jpeg is rejected: only .bin files are accepted.
+A normal image part: a .jpg file sent as image/jpeg.
 
-`POST /v1/search` → expected **400**
+`POST /v1/search` → expected **200**
 
-Response:
-
-```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Incorrect file format. Only .bin files are accepted."}
-```
-
-Checks: code = UNSUPPORTED_IMAGE_TYPE; message = incorrect file format.
+Checks: products is a non-empty array; ao-100018_1 is in the top 5 (searched with its own image).
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1242,19 +1300,13 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 ```
 
-#### B15. TC-043c PNG file rejected - only .bin accepted (400)
+#### B15. TC-043c PNG image part (image/png) accepted
 
-A .png file sent as image/png is rejected: only .bin files are accepted.
+A normal image part: a .png file sent as image/png.
 
-`POST /v1/search` → expected **400**
+`POST /v1/search` → expected **200**
 
-Response:
-
-```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Incorrect file format. Only .bin files are accepted."}
-```
-
-Checks: code = UNSUPPORTED_IMAGE_TYPE; message = incorrect file format.
+Checks: products is a non-empty array; 172000-001-hvac is in the top 5 (searched with its own image).
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1265,19 +1317,13 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/172000-001-hvac.png;type=image/png"
 ```
 
-#### B16. TC-043d File without .bin extension rejected (400)
+#### B16. TC-043d File without an extension accepted
 
-A file whose name does not end in .bin is rejected even when sent as application/octet-stream.
+The file name does not matter; JPEG bytes with no extension are accepted.
 
-`POST /v1/search` → expected **400**
+`POST /v1/search` → expected **200**
 
-Response:
-
-```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Incorrect file format. Only .bin files are accepted."}
-```
-
-Checks: code = UNSUPPORTED_IMAGE_TYPE; message = incorrect file format.
+Checks: products is a non-empty array; ao-100018_1 is in the top 5 (searched with its own image).
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1288,19 +1334,13 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/image_no_extension;type=application/octet-stream"
 ```
 
-#### B17. TC-043e .bin file declared image-png rejected (400)
+#### B17. TC-043e Mislabelled content type accepted - the bytes decide
 
-A .bin file must be sent as application/octet-stream (or with no content type); image/png is rejected.
+JPEG bytes declared as image/png: the API detects JPEG from the bytes.
 
-`POST /v1/search` → expected **400**
+`POST /v1/search` → expected **200**
 
-Response:
-
-```json
-{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Incorrect file format. Only .bin files are accepted."}
-```
-
-Checks: code = UNSUPPORTED_IMAGE_TYPE; message = incorrect file format.
+Checks: products is a non-empty array; ao-100018_1 is in the top 5 (searched with its own image).
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1311,16 +1351,62 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.bin;type=image/png"
 ```
 
-#### B18. TC-047 Image larger than 5 MB (413)
+#### B18. TC-043f GIF image rejected (400)
 
-Oversized upload must be rejected before embedding.
+Only JPEG, PNG and WebP images are accepted; a GIF is rejected.
+
+`POST /v1/search` → expected **400**
+
+Response:
+
+```json
+{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image. Upload a JPEG, PNG or WebP image."}
+```
+
+Checks: code = UNSUPPORTED_IMAGE_TYPE; message = unsupported image.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=10" \
+  -F "image=@test_images/sample.gif;type=image/gif"
+```
+
+#### B19. TC-043g Unsupported content type rejected (400)
+
+The image part must be sent as image/jpeg, image/png, image/webp or application/octet-stream; application/pdf is rejected.
+
+`POST /v1/search` → expected **400**
+
+Response:
+
+```json
+{"code":"UNSUPPORTED_IMAGE_TYPE","message":"Unsupported image. Upload a JPEG, PNG or WebP image."}
+```
+
+Checks: code = UNSUPPORTED_IMAGE_TYPE; message = unsupported image.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "page=1" \
+  -F "page_size=10" \
+  -F "image=@test_images/ao-100018_1.jpg;type=application/pdf"
+```
+
+#### B20. TC-047 Image larger than 10 MiB (413)
+
+Uploads over 10 MiB (10485760 bytes) are rejected before embedding.
 
 `POST /v1/search` → expected **413**
 
 Response:
 
 ```json
-{"code":"IMAGE_TOO_LARGE","message":"Image exceeds the maximum size of 5242880 bytes."}
+{"code":"IMAGE_TOO_LARGE","message":"Image exceeds the maximum size of 10485760 bytes."}
 ```
 
 Checks: code = IMAGE_TOO_LARGE; message is a non-empty string.
@@ -1334,7 +1420,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/oversized.bin;type=application/octet-stream"
 ```
 
-#### B19. TC-032d Invalid filter value (400)
+#### B21. TC-032d Invalid filter value (400)
 
 `POST /v1/search` → expected **400**
 
@@ -1357,19 +1443,19 @@ curl -s -X POST "${base_url}/v1/search" \
 
 ### Redis (Embedding Cache)
 
-#### B20. TC-057 Unknown / expired embedding id
+#### B22. TC-057 Unknown / expired request_id
 
-Well-formed id that is not in Redis: 400 when Redis is enabled, 503 when disabled.
+A well-formed request_id whose search is not in Redis: 400 when Redis is enabled, 503 when disabled.
 
 `POST /v1/search` → expected **400** (or **503** `EMBEDDING_STORE_UNAVAILABLE` when Redis is disabled)
 
 Response:
 
 ```json
-{"code":"EMBEDDING_ID_NOT_FOUND","message":"asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000"}
+{"code":"REQUEST_ID_NOT_FOUND","message":"request_id '00000000-0000-0000-0000-000000000000' was not found or its search has expired"}
 ```
 
-Checks: code = EMBEDDING_ID_NOT_FOUND; code = EMBEDDING_STORE_UNAVAILABLE.
+Checks: code = REQUEST_ID_NOT_FOUND; code = EMBEDDING_STORE_UNAVAILABLE.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1377,22 +1463,22 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "query_embedding_id=asmo:emb:query:0000000000000000000000000000000000000000000000000000000000000000"
+  -F "request_id=00000000-0000-0000-0000-000000000000"
 ```
 
-#### B21. TC-058 Malformed embedding id (400)
+#### B23. TC-058 Malformed request_id (400)
 
-Ids must look like asmo:emb:image:<sha256>; rejected without touching Redis (same with Redis on or off).
+request_id must be a UUID; rejected without touching Redis (same with Redis on or off).
 
 `POST /v1/search` → expected **400**
 
 Response:
 
 ```json
-{"code":"EMBEDDING_ID_NOT_FOUND","message":"'not-an-id' is not a valid image embedding id"}
+{"code":"REQUEST_ID_NOT_FOUND","message":"'not-an-id' is not a valid request_id"}
 ```
 
-Checks: code = EMBEDDING_ID_NOT_FOUND.
+Checks: code = REQUEST_ID_NOT_FOUND.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -1400,5 +1486,5 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "language=en" \
   -F "page=1" \
   -F "page_size=60" \
-  -F "image_embedding_id=not-an-id"
+  -F "request_id=not-an-id"
 ```

@@ -29,6 +29,12 @@ TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"
 # clause runs against — the same name, or its ``.keyword`` sub-field for text
 # fields so exact-match term filters work.
 FILTER_KEY_MAP: dict[str, str] = {
+    # Facet filters: send back the facet's ``id`` (see FACETS below).
+    "category_name": "category_ids",
+    "sub_category_name": "sub_category_id",
+    "sellername": "seller_details.seller_id",
+    "lead_time": "seller_details.lead_time",
+    # Other filters.
     "category_ids": "category_ids",
     "sub_category_id": "sub_category_id",
     "product_type_id": "product_type_id",
@@ -41,21 +47,34 @@ FILTER_KEY_MAP: dict[str, str] = {
     "sold_by": "sold_by.keyword",
     "supplier_count": "supplier_count",
     "contract_indicator": "contract_indicator",
+    "temporary_unavailable": "temporary_unavailable",
     "sku_id": "sku_id",
     "product_key": "product_key",
     "asmo_material_number": "asmo_material_number",
     "aramco_material_number": "aramco_material_number",
 }
 ALLOWED_FILTER_KEYS: frozenset[str] = frozenset(FILTER_KEY_MAP)
+# Filter keys on a nested field: the clause is wrapped in a nested query on this path.
+NESTED_FILTER_PATHS: dict[str, str] = {"sellername": "seller_details", "lead_time": "seller_details"}
+# Filter keys that match any of several fields: product_type takes the facet id
+# (product_type_id) or, as before, the product-type name.
+FILTER_ALT_FIELDS: dict[str, tuple[str, ...]] = {"product_type": ("product_type_id", "product_type.keyword")}
 
-# Facets exposed to the frontend (§2.4). The contract defines exactly three:
-# two term facets (product_type, material_type) and one price range (min/max).
-# They are computed over the full matching population, not just the current page
-# (OpenSearch aggregations run across the whole query result set, not from/size).
-FACET_TERMS: dict[str, str] = {
-    "product_type": "product_type.keyword",
-    "material_type": "material_type",
+# Facets returned to the frontend, computed over the full matching population, not
+# just the current page (aggregations run across the whole result set, not from/size).
+# Each is {id, value, count}: ``id`` is what the frontend sends back as the filter
+# with the same key, ``value`` is the label. ``count`` counts products.
+#   key -> (id field, label field or None to show the id, nested path or None)
+FACETS: dict[str, tuple[str, str | None, str | None]] = {
+    "category_name":     ("category_ids", "category_name.keyword", None),
+    "sub_category_name": ("sub_category_id", "sub_category_name.keyword", None),
+    "product_type":      ("product_type_id", "product_type.keyword", None),
+    "sellername":        ("seller_details.seller_id", "seller_details.seller_name.keyword", "seller_details"),
+    "moq":               ("moq", None, None),
+    "lead_time":         ("seller_details.lead_time", None, "seller_details"),
+    "material_type":     ("material_type", None, None),
 }
+FACET_SIZE = 50
 PRICE_FIELD = "price"
 
 # Nested image field written by the ingest pipeline: [{image_url, image_vector}, ...].
@@ -70,42 +89,53 @@ KEYWORD_FIELDS = [
 
 
 def _build_aggs() -> dict[str, Any]:
-    aggs: dict[str, Any] = {
-        api_key: {"terms": {"field": os_field, "size": 50}}
-        for api_key, os_field in FACET_TERMS.items()
-    }
+    aggs: dict[str, Any] = {}
+    for key, (id_field, label_field, nested_path) in FACETS.items():
+        terms: dict[str, Any] = {"terms": {"field": id_field, "size": FACET_SIZE}}
+        sub: dict[str, Any] = {}
+        if label_field:
+            sub["label"] = {"terms": {"field": label_field, "size": 1}}
+        if nested_path:
+            # Count products, not seller offers.
+            sub["products"] = {"reverse_nested": {}}
+        if sub:
+            terms["aggs"] = sub
+        aggs[key] = {"nested": {"path": nested_path}, "aggs": {"values": terms}} if nested_path else terms
     aggs["price"] = {"stats": {"field": PRICE_FIELD}}
     return aggs
 
 
 def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
     def terms(api_key: str) -> list[FacetTermValue]:
-        return [
-            FacetTermValue(value=str(b["key"]), count=b["doc_count"])
-            for b in aggs_raw.get(api_key, {}).get("buckets", [])
-        ]
+        _id_field, label_field, nested_path = FACETS[api_key]
+        raw = aggs_raw.get(api_key, {})
+        buckets = raw.get("values", {}).get("buckets", []) if nested_path else raw.get("buckets", [])
+        out = []
+        for b in buckets:
+            labels = b.get("label", {}).get("buckets", [])
+            label = labels[0]["key"] if label_field and labels else b["key"]
+            count = b["products"]["doc_count"] if nested_path else b["doc_count"]
+            out.append(FacetTermValue(id=b["key"], value=str(label), count=count))
+        return out
 
     price_stats = aggs_raw.get("price", {})
     pmin, pmax = price_stats.get("min"), price_stats.get("max")
     # OpenSearch stats returns null min/max when zero documents matched.
     price = PriceFacet(min=pmin, max=pmax) if pmin is not None else None
 
-    return SearchFacets(
-        product_type=terms("product_type"),
-        material_type=terms("material_type"),
-        price=price,
-    )
+    return SearchFacets(**{key: terms(key) for key in FACETS}, price=price)
 
 
 def _seller_detail(seller: dict[str, Any]) -> SellerDetail:
     return SellerDetail(
         seller_id=seller.get("seller_id"),
-        seller_name=seller.get("seller_name"),
+        name=seller.get("seller_name"),
         lead_time=seller.get("lead_time"),
         unit_type=seller.get("unit_type"),
         price=seller.get("price"),
         moq=seller.get("moq"),
         currency=seller.get("currency"),
+        temporary_unavailable=seller.get("temporary_unavailable"),
     )
 
 
@@ -114,16 +144,18 @@ def _to_product(src: dict[str, Any]) -> ProductItem:
 
     Index field names equal the contract keys, so each key is read as-is.
     """
+    sellers = src.get("seller_details") or []
     return ProductItem(
         product_key=src.get("product_key"),
         sku_id=src.get("sku_id"),
-        product_name=src.get("product_name"),
+        # sku_name is written by ingest_json.py; older indexes only carry product_name.
+        sku_name=src.get("sku_name") or src.get("product_name"),
         primary_image_url=src.get("primary_image_url"),
         asmo_material_number=src.get("asmo_material_number"),
         aramco_material_number=src.get("aramco_material_number"),
         product_type=src.get("product_type"),
         material_type=src.get("material_type"),
-        seller_details=[_seller_detail(s) for s in src.get("seller_details") or []],
+        seller_details=[_seller_detail(s) for s in sellers],
         moq=src.get("moq"),
         price=src.get("price"),
         currency=src.get("currency"),
@@ -132,6 +164,12 @@ def _to_product(src: dict[str, Any]) -> ProductItem:
         # Indexed as "" until a source is agreed; anything falsy means no contract.
         contract_indicator=bool(src.get("contract_indicator")),
         category_ids=src.get("category_ids") or [],
+        # Primary seller (seller_details[0]), like price / moq / sold_by. Read from the
+        # root field when the index has it, else from the nested offer.
+        temporary_unavailable=(
+            src["temporary_unavailable"] if "temporary_unavailable" in src
+            else sellers[0].get("temporary_unavailable") if sellers else None
+        ),
     )
 
 
@@ -455,7 +493,7 @@ class SearchService:
             product_body: dict[str, Any] = {
                 # Enough hits to fill both the product and the query suggestions.
                 "size": max(product_limit, query_limit),
-                "_source": [name_field],
+                "_source": [name_field, "sku_id"],
                 "query": {"match_phrase_prefix": {name_field: {"query": query, "max_expansions": 20}}},
             }
             logger.debug("SearchService.get_suggestions — executing product query")
@@ -466,7 +504,7 @@ class SearchService:
                 src = h.get("_source", {})
                 text = src.get(name_field) or ""
                 if text:
-                    product_suggestions.append(ProductSuggestion(text=text))
+                    product_suggestions.append(ProductSuggestion(text=text, sku_id=src.get("sku_id")))
             logger.debug(f"SearchService.get_suggestions — parsed {len(product_suggestions)} product suggestions")
 
             # Query suggestions: distinct product-name phrases (order-preserving dedup).

@@ -10,12 +10,13 @@ class SellerDetail(BaseModel):
     """One seller offer for the SKU (source: seller_details[])."""
 
     seller_id: str | None = Field(default=None, description="Seller identifier (source: seller_details[].seller_id)")
-    seller_name: str | None = Field(default=None, description="Seller name (source: seller_details[].seller_name)")
+    name: str | None = Field(default=None, description="Seller name (source: seller_details[].seller_name)")
     lead_time: int | None = Field(default=None, description="Lead time in days (source: seller_details[].lead_time)")
     unit_type: str | None = Field(default=None, description="Unit of measure, e.g. Ea (source: seller_details[].unit_type)")
     price: float | None = Field(default=None, description="Unit price (source: seller_details[].price)")
     moq: int | None = Field(default=None, description="Minimum order quantity (source: seller_details[].moq)")
     currency: str | None = Field(default=None, description="ISO 4217 currency code (source: seller_details[].currency)")
+    temporary_unavailable: bool | None = Field(default=None, description="Seller offer temporarily unavailable (source: seller_details[].temporary_unavailable)")
 
 
 class ProductItem(BaseModel):
@@ -26,7 +27,7 @@ class ProductItem(BaseModel):
 
     product_key: str | None = Field(default=None, description="Stable product identifier (source: product_key)")
     sku_id: str | None = Field(default=None, description="SKU identifier (source: sku_id)")
-    product_name: str | None = Field(default=None, description="Product name (source: product_name)")
+    sku_name: str | None = Field(default=None, description="Product name (source: sku_name, else product_name)")
     primary_image_url: str | None = Field(default=None, description="Primary product image URL (source: primary_image_url)")
     asmo_material_number: str | None = Field(default=None, description="ASMO material number (source: asmo_material_number)")
     aramco_material_number: str | None = Field(default=None, description="Aramco material number (source: aramco_material_number)")
@@ -40,11 +41,13 @@ class ProductItem(BaseModel):
     supplier_count: int | None = Field(default=None, description="Number of sellers offering this SKU (source: supplier_count)")
     contract_indicator: bool = Field(default=False, description="True when the product has one or more contracts (source: contract_indicator)")
     category_ids: list[str] = Field(default_factory=list, description="Category ids the product belongs to (source: category_ids)")
+    temporary_unavailable: bool | None = Field(default=None, description="Primary seller's offer temporarily unavailable (source: temporary_unavailable, else seller_details[0].temporary_unavailable)")
 
 
 class FacetTermValue(BaseModel):
-    value: str = Field(description="Facet bucket value")
-    count: int = Field(description="Number of matching documents with this value")
+    id: str | int | float = Field(description="Value to send back as the filter for this facet (an id, or the number for moq / lead_time)")
+    value: str = Field(description="Facet bucket label to display")
+    count: int = Field(description="Number of matching products with this value")
 
 
 class PriceFacet(BaseModel):
@@ -55,20 +58,23 @@ class PriceFacet(BaseModel):
 class SearchFacets(BaseModel):
     """Facets keyed by field, computed over the full matching population (§2.4 facet rule)."""
 
-    product_type: list[FacetTermValue] = Field(default_factory=list, description="Product-type term buckets")
-    material_type: list[FacetTermValue] = Field(default_factory=list, description="Material-type term buckets")
+    category_name: list[FacetTermValue] = Field(default_factory=list, description="Categories (id = category id; filter key category_name)")
+    sub_category_name: list[FacetTermValue] = Field(default_factory=list, description="Sub-categories (id = sub-category id; filter key sub_category_name)")
+    product_type: list[FacetTermValue] = Field(default_factory=list, description="Product types (id = product type id; filter key product_type)")
+    sellername: list[FacetTermValue] = Field(default_factory=list, description="Sellers (id = seller id; filter key sellername)")
+    moq: list[FacetTermValue] = Field(default_factory=list, description="Minimum order quantities of the primary seller (id = the number; filter key moq)")
+    lead_time: list[FacetTermValue] = Field(default_factory=list, description="Seller lead times in days (id = the number; filter key lead_time)")
+    material_type: list[FacetTermValue] = Field(default_factory=list, description="Material types (id = the value; filter key material_type)")
     price: PriceFacet | None = Field(default=None, description="Price range (min/max) across the result set")
 
 
 class SearchApiResponse(BaseModel):
-    request_id: str | None = Field(default=None, description="Per-request identifier, useful for tracing and support")
+    request_id: str | None = Field(default=None, description="Search-context handle: send it back as request_id (with filters / sort / page) to refine this search. Refining returns the same request_id; a new query or image gets a new one")
     total_results: int = Field(description="Total number of matching products before pagination")
     page: int = Field(description="Current 1-based page number")
     page_size: int = Field(description="Number of products returned per page")
     products: list[ProductItem] = Field(description="Products for the requested page")
     facets: SearchFacets = Field(default_factory=SearchFacets, description="Facets computed across the full result set")
-    query_embedding_id: str | None = Field(default=None, description="Redis id of the query embedding; send it back as query_embedding_id to reuse the query")
-    image_embedding_id: str | None = Field(default=None, description="Redis id of the image embedding; send it back as image_embedding_id to reuse the image")
 
 
 
@@ -82,6 +88,7 @@ class QuerySuggestion(BaseModel):
 
 class ProductSuggestion(BaseModel):
     text: str = Field(description="Suggested product name to display in the autocomplete dropdown")
+    sku_id: str | None = Field(default=None, description="SKU of the suggested product, to link to its detail page (source: sku_id)")
 
 
 class SuggestionsResponse(BaseModel):

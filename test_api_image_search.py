@@ -2,7 +2,7 @@
 
 Each image in ``test_images_known/`` is a byte-identical copy of a product image
 and ``expected.json`` names the SKU(s) it belongs to, so the first product
-returned must be one of those SKUs. Also checks that ``image_embedding_id``
+returned must be one of those SKUs. Also checks that ``request_id``
 reuse returns the same top hit, and that bad uploads get 400 / 413.
 
 Start the API first (python app.py), then:
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
 import sys
 import urllib.error
 import urllib.request
@@ -29,10 +30,11 @@ def post_search(base_url: str, fields: dict[str, str], image: Path | None = None
     for name, value in fields.items():
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
     if image is not None:
-        # Sent as a generic .bin binary, as the frontend does; the API detects the format from the bytes.
+        # A normal image part, as the frontend sends it; the API detects the format from the bytes.
+        ctype = mimetypes.guess_type(image.name)[0] or "application/octet-stream"
         parts.append(
-            f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{image.stem}.bin"\r\n'
-            f"Content-Type: application/octet-stream\r\n\r\n".encode() + image.read_bytes() + b"\r\n"
+            f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{image.name}"\r\n'
+            f"Content-Type: {ctype}\r\n\r\n".encode() + image.read_bytes() + b"\r\n"
         )
     parts.append(f"--{boundary}--\r\n".encode())
     req = urllib.request.Request(
@@ -75,14 +77,15 @@ def run(base_url: str, cases_dir: Path, bad_dir: Path, only: str | None) -> int:
                + ("" if ok else f" expected={c['expected_skus'][:3]} body={str(body)[:120]}"))
 
         # Reuse the cached embedding: same top hit without re-uploading the image.
-        emb_id = body.get("image_embedding_id")
-        if ok and emb_id:
-            status2, body2 = post_search(base_url, {**BASE_FIELDS, "image_embedding_id": emb_id})
+        req_id = body.get("request_id")
+        if ok and req_id:
+            status2, body2 = post_search(base_url, {**BASE_FIELDS, "request_id": req_id})
             top2 = ((body2.get("products") or [{}])[0]).get("sku_id")
-            report(f"  reuse image_embedding_id", status2 == 200 and top2 == top, f"status={status2} top={top2}")
+            report(f"  refine by request_id", status2 == 200 and top2 == top and body2.get("request_id") == req_id,
+                   f"status={status2} top={top2}")
 
-    # Error handling : a non-image upload -> 400, an image over 5 MiB -> 413.
-    for name, code in (("not_an_image.png", 400), ("oversized.jpg", 413)):
+    # Error handling : a non-image upload or a GIF -> 400, an image over 10 MiB -> 413.
+    for name, code in (("not_an_image.png", 400), ("sample.gif", 400), ("oversized.jpg", 413)):
         path = bad_dir / name
         if path.exists():
             status, body = post_search(base_url, BASE_FIELDS, path)
@@ -96,7 +99,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Known-answer image search tests against the API.")
     p.add_argument("--base-url", default="http://localhost:8000")
     p.add_argument("--cases-dir", type=Path, default=HERE / "test_images_known")
-    p.add_argument("--bad-dir", type=Path, default=HERE / "test_images", help="Folder with not_an_image.png / oversized.jpg")
+    p.add_argument("--bad-dir", type=Path, default=HERE / "test_images", help="Folder with not_an_image.png / sample.gif / oversized.jpg")
     p.add_argument("--only", help="Run only cases whose image file name contains this text.")
     a = p.parse_args()
     sys.exit(run(a.base_url.rstrip("/"), a.cases_dir, a.bad_dir, a.only))

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import uuid
 from tempfile import SpooledTemporaryFile
 from typing import Annotated, Any
 
@@ -24,13 +25,11 @@ from models.response import (
 )
 from services.opensearch import IndexNotFoundError, OpenSearchQueryError
 from services.embedding_store import (
-    EmbeddingIdNotFound,
     EmbeddingStoreUnavailable,
-    ImageEmbedding,
-    QueryEmbedding,
+    RequestIdNotFound,
     embedding_store,
 )
-from services.search import ALLOWED_FILTER_KEYS, FILTER_KEY_MAP, search_service
+from services.search import ALLOWED_FILTER_KEYS, FILTER_ALT_FIELDS, FILTER_KEY_MAP, NESTED_FILTER_PATHS, search_service
 
 index_router = APIRouter(prefix="/indices", tags=["Indices"])
 v1_router = APIRouter(prefix="/v1", tags=["V1 Search API"])
@@ -47,13 +46,13 @@ SUPPORTED_SORT_BY = frozenset({"relevance", "price"})
 SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
 
 # Image constraints : unsupported type -> 400, oversized -> 413.
-# Only .bin files are accepted: the part's file name must end in .bin and its
-# content type must be application/octet-stream (or absent). Anything else —
-# .jpg, .png, .pdf, a part with no file name, ... — is a 400. The bytes inside
-# the .bin decide the image format (PNG, JPEG, GIF or WebP).
-GENERIC_BINARY_TYPES = frozenset({"", "application/octet-stream"})
-INCORRECT_FILE_FORMAT = "Incorrect file format. Only .bin files are accepted."
-MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MiB
+# The image is a normal binary multipart part (any file name, or none). Its
+# declared content type must be JPEG, PNG or WebP — or generic binary / absent —
+# and the bytes themselves must be a JPEG, PNG or WebP image (GIF is rejected).
+# The bytes decide the format, so a mislabelled part still works.
+ACCEPTED_IMAGE_TYPES = frozenset({"", "application/octet-stream", "image/jpeg", "image/jpg", "image/png", "image/webp"})
+UNSUPPORTED_IMAGE = "Unsupported image. Upload a JPEG, PNG or WebP image."
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MiB
 # Multipart parts may be up to this size (above MAX_IMAGE_BYTES so oversized
 # images reach the 413 check rather than a parser error).
 MAX_PART_BYTES = 2 * MAX_IMAGE_BYTES
@@ -72,21 +71,23 @@ class _InMemorySpool(SpooledTemporaryFile):
 _starlette_formparsers.SpooledTemporaryFile = _InMemorySpool
 
 _ERROR_RESPONSES = {
-    400: {"model": ErrorResponse, "description": "Bad request — unsupported channel/language, invalid filter, or empty request"},
+    400: {"model": ErrorResponse, "description": "Bad request — unsupported channel/language, invalid filter, unknown request_id, or empty request"},
     404: {"model": ErrorResponse, "description": "Not found — the target index does not exist"},
     413: {"model": ErrorResponse, "description": "Payload too large — uploaded image exceeds the size limit"},
     500: {"model": ErrorResponse, "description": "Internal server error"},
 }
+_SEARCH_ERROR_RESPONSES = {
+    **_ERROR_RESPONSES,
+    503: {"model": ErrorResponse, "description": "Service unavailable — a request_id was sent but the search-context store (Redis) is unreachable"},
+}
 
 
 def _image_mime(data: bytes) -> str | None:
-    """Return the MIME type for PNG/JPEG/GIF/WebP bytes, else None."""
+    """Return the MIME type for PNG/JPEG/WebP bytes, else None."""
     if data[:8].startswith(b"\x89PNG"):
         return "image/png"
     if data[:3] == b"\xff\xd8\xff":
         return "image/jpeg"
-    if data[:6] in (b"GIF87a", b"GIF89a"):
-        return "image/gif"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
     return None
@@ -117,8 +118,8 @@ def _parse_filters(raw: str | None) -> dict[str, Any]:
 
 # Value types per filter key (§5: invalid filter value -> 400). Keys not listed
 # here are keyword fields and take strings.
-NUMERIC_FILTER_KEYS = frozenset({"price", "moq", "supplier_count"})
-BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator"})
+NUMERIC_FILTER_KEYS = frozenset({"price", "moq", "supplier_count", "lead_time"})
+BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator", "temporary_unavailable"})
 RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
 
 
@@ -163,16 +164,23 @@ def _build_os_filters(filters: dict[str, Any]) -> list[dict]:
             )
             raise _api_error(400, "INVALID_FILTER_KEY", f"The filter key '{k}' is not supported.")
         _validate_filter_value(k, v)
-        os_field = FILTER_KEY_MAP[k]
-        # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
-        if isinstance(v, dict):
-            clause = {"range": {os_field: v}}
-        elif isinstance(v, list):
-            clause = {"terms": {os_field: v}}
-        else:
-            clause = {"term": {os_field: v}}
+
+        def clause_for(os_field: str) -> dict:
+            # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
+            if isinstance(v, dict):
+                return {"range": {os_field: v}}
+            if isinstance(v, list):
+                return {"terms": {os_field: v}}
+            return {"term": {os_field: v}}
+
+        fields = FILTER_ALT_FIELDS.get(k, (FILTER_KEY_MAP[k],))
+        clause = clause_for(fields[0]) if len(fields) == 1 else {
+            "bool": {"should": [clause_for(f) for f in fields], "minimum_should_match": 1}
+        }
+        if k in NESTED_FILTER_PATHS:
+            clause = {"nested": {"path": NESTED_FILTER_PATHS[k], "query": clause}}
         os_filters.append(clause)
-        logger.debug(f"POST /v1/search — filter: {k} -> {os_field}")
+        logger.debug(f"POST /v1/search — filter: {k} -> {fields}")
     return os_filters
 
 
@@ -197,11 +205,17 @@ class SearchForm(BaseModel):
     search_query: str | None = Field(default=None, description="Free-text query. Omit for filter-only browse")
     sort_by: str | None = Field(default=None, description="Sort field — 'relevance' or 'price'")
     sort_order: str = Field(default="desc", description="Sort direction — 'asc' or 'desc'")
-    filters: str | None = Field(default=None, description="Filter object encoded as a JSON string")
+    filters: str | None = Field(default=None, description=(
+        "Filter object encoded as a JSON string, e.g. {\"category_name\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. "
+        "Every facet key is a filter key and takes the facet's id: category_name, sub_category_name, product_type, sellername, "
+        "moq, lead_time, material_type. Also: price (number or range), availability, category_ids, currency, contract_indicator, "
+        "temporary_unavailable, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, "
+        "asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take "
+        "{gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
+    ))
     page: int = Field(default=1, ge=1, description="1-based page number")
     page_size: int = Field(default=60, ge=1, le=200, description="Results per page (frontend default 60)")
-    query_embedding_id: str | None = Field(default=None, description="Embedding id from a previous response; reuses that query (and its embedding) when search_query is omitted")
-    image_embedding_id: str | None = Field(default=None, description="Embedding id from a previous response; reuses that image (and its embedding) when image is omitted")
+    request_id: str | None = Field(default=None, description="request_id of a previous response: refines that search — its query and/or image are reused for whichever of search_query / image is omitted")
 
 
 # The multipart body is parsed in the handler (not by FastAPI) so the image part
@@ -216,7 +230,7 @@ _SEARCH_REQUEST_BODY = {
                 "required": ["channel", "language"],
                 "properties": {
                     **SearchForm.model_json_schema()["properties"],
-                    "image": {"type": "string", "format": "binary", "description": "Optional image for image / text+image search, sent as a .bin file (file name ending in .bin, application/octet-stream); any other file gets 400. The bytes must be a PNG, JPEG, GIF or WebP"},
+                    "image": {"type": "string", "format": "binary", "description": "Optional image for image / text+image search, as a binary multipart part (image/jpeg, image/png, image/webp or application/octet-stream). The bytes must be a JPEG, PNG or WebP image, max 10 MiB; GIF and other formats get 400, larger files 413"},
                 },
             }
         }
@@ -268,43 +282,16 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, bytes | None,
     return parsed, (data or None), declared, filename
 
 
-async def _resolve_embeddings(
-    query: str | None,
-    query_id: str | None,
-    image: tuple[bytes, str] | None,
-    image_id: str | None,
-) -> tuple[QueryEmbedding | None, ImageEmbedding | None]:
-    """Resolve the query and image embeddings concurrently.
-
-    Raw input is embedded through the Redis cache (a repeat query / image reuses
-    the stored vector); an embedding id is loaded straight from Redis.
-    """
-    async def for_query() -> QueryEmbedding | None:
-        if query:
-            return await embedding_store.query_embedding(query)
-        if query_id:
-            return await embedding_store.load_query(query_id)
-        return None
-
-    async def for_image() -> ImageEmbedding | None:
-        if image:
-            return await embedding_store.image_embedding(*image)
-        if image_id:
-            return await embedding_store.load_image(image_id)
-        return None
-
-    return await asyncio.gather(for_query(), for_image())
-
-
 @v1_router.post(
     "/search",
     response_model=SearchApiResponse,
-    responses=_ERROR_RESPONSES,
+    responses=_SEARCH_ERROR_RESPONSES,
     summary="Search products (text / image / text+image / filter-browse)",
     openapi_extra={"requestBody": _SEARCH_REQUEST_BODY},
 )
 async def v1_search(request: Request) -> SearchApiResponse:
-    request_id: str = getattr(request.state, "request_id", "")
+    # This HTTP request's id (set by the app middleware); a new search context is stored under it.
+    request_id: str = getattr(request.state, "request_id", "") or str(uuid.uuid4())
     _t0 = time.perf_counter()
 
     form, image_bytes, declared_type, image_filename = await _read_search_form(request)
@@ -319,10 +306,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
         _validate_enum(sort_by, SUPPORTED_SORT_BY, "sort_by", "INVALID_SORT_BY")
     _validate_enum(sort_order, SUPPORTED_SORT_ORDER, "sort_order", "INVALID_SORT_ORDER")
 
-    # A raw query / image wins over an embedding id when both are sent.
-    query_id = None if (search_query and search_query.strip()) else form.query_embedding_id
-    image_id = None if image_bytes is not None else form.image_embedding_id
-    has_image = image_bytes is not None or bool(image_id)
+    query_text = search_query.strip() if search_query and search_query.strip() else None
+    previous_request_id = form.request_id
 
     logger.info(
         "POST /v1/search — received",
@@ -337,9 +322,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 "sort_by": sort_by,
                 "sort_order": sort_order,
                 "has_filters": bool(filters),
-                "has_image": has_image,
-                "query_embedding_id": query_id,
-                "image_embedding_id": image_id,
+                "has_image": image_bytes is not None,
+                "previous_request_id": previous_request_id,
             },
         },
     )
@@ -347,19 +331,17 @@ async def v1_search(request: Request) -> SearchApiResponse:
     # Image validation : unsupported type -> 400, oversized -> 413
     image_input: tuple[bytes, str] | None = None
     if image_bytes is not None:
-        if not image_filename.lower().endswith(".bin") or declared_type not in GENERIC_BINARY_TYPES:
-            logger.warning(
-                f"POST /v1/search — rejected file '{image_filename}' (type '{declared_type}'): only .bin files accepted"
-            )
-            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", INCORRECT_FILE_FORMAT)
+        if declared_type not in ACCEPTED_IMAGE_TYPES:
+            logger.warning(f"POST /v1/search — rejected file '{image_filename}': unsupported content type '{declared_type}'")
+            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
         if len(image_bytes) > MAX_IMAGE_BYTES:
             logger.warning(f"POST /v1/search — image too large: {len(image_bytes)} bytes")
             raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
         # Trust the bytes, not the declared header: the embedder rejects anything else.
         detected = _image_mime(image_bytes)
         if detected is None:
-            logger.warning(f"POST /v1/search — image bytes are not PNG/JPEG/GIF/WebP (declared '{declared_type}')")
-            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", "The uploaded file is not a valid PNG, JPEG, GIF or WebP image.")
+            logger.warning(f"POST /v1/search — image bytes are not JPEG/PNG/WebP (declared '{declared_type}')")
+            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
         image_input = (image_bytes, detected)
 
     # 'relevance' means default (no explicit sort field).
@@ -368,41 +350,41 @@ async def v1_search(request: Request) -> SearchApiResponse:
     logger.debug("POST /v1/search — parsing filters and building OpenSearch clauses")
     os_filters = _build_os_filters(_parse_filters(filters))
 
-    has_query = bool(search_query and search_query.strip()) or bool(query_id)
     has_filters = bool(os_filters)
 
     # Operation decision (§2.2) --
-    if not has_query and not has_image and not has_filters:
+    if not query_text and image_input is None and not previous_request_id and not has_filters:
         logger.warning("POST /v1/search — rejected: no query, no image and no filters provided")
-        raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or an embedding id must be provided")
-
-    mode = (
-        "text+image" if has_query and has_image
-        else "image" if has_image
-        else "text" if has_query
-        else "filter-browse"
-    )
-    logger.info(f"POST /v1/search — dispatching: mode={mode} filters={len(os_filters)}")
+        raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or request_id must be provided")
 
     embed_ms: float | None = None
     try:
+        # One Redis entry per search — its query and/or image embeddings — under
+        # its request_id. Sending a previous request_id refines that search; the
+        # mode follows from the resolved context.
+        _t_emb = time.perf_counter()
+        ctx = await embedding_store.resolve(request_id, query_text, image_input, previous_request_id)
+        embed_ms = (time.perf_counter() - _t_emb) * 1000
+        logger.info(
+            f"POST /v1/search — search context {ctx.request_id} resolved in {embed_ms:.1f}ms "
+            f"({'reused from request_id' if ctx.reused else 'new'})"
+        )
+        has_query = bool(ctx.query)
+        has_image = ctx.image_vector is not None
+        mode = (
+            "text+image" if has_query and has_image
+            else "image" if has_image
+            else "text" if has_query
+            else "filter-browse"
+        )
+        logger.info(f"POST /v1/search — dispatching: mode={mode} filters={len(os_filters)}")
+
         if has_query or has_image:
-            _t_emb = time.perf_counter()
-            query_emb, image_emb = await _resolve_embeddings(
-                search_query.strip() if search_query and search_query.strip() else None,
-                query_id, image_input, image_id,
-            )
-            embed_ms = (time.perf_counter() - _t_emb) * 1000
-            logger.info(
-                f"POST /v1/search — embeddings resolved in {embed_ms:.1f}ms "
-                f"(query cached={query_emb.cached if query_emb else None}, "
-                f"image cached={image_emb.cached if image_emb else None})"
-            )
             result = await search_service.search_v1(
                 index=_cfg.opensearch_index_name,
-                query=query_emb.query if query_emb else None,
-                query_vector=query_emb.vector if query_emb else None,
-                image_vector=image_emb.vector if image_emb else None,
+                query=ctx.query,
+                query_vector=ctx.query_vector,
+                image_vector=ctx.image_vector,
                 vector_field=_cfg.opensearch_vector_field,
                 language=language,
                 filters=os_filters,
@@ -413,10 +395,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 retrieval_k=_RETRIEVAL_K,
                 ef_search=_EF_SEARCH,
                 image_min_score=_cfg.image_min_score,
-                request_id=request_id,
+                request_id=ctx.request_id,
             )
-            result.query_embedding_id = query_emb.key if query_emb else None
-            result.image_embedding_id = image_emb.key if image_emb else None
         else:
             result = await search_service.filter_browse(
                 index=_cfg.opensearch_index_name,
@@ -425,7 +405,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 sort_order=sort_order,
                 page=page,
                 page_size=page_size,
-                request_id=request_id,
+                request_id=ctx.request_id,
             )
 
         elapsed_ms = (time.perf_counter() - _t0) * 1000
@@ -440,6 +420,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 "channel": channel,
                 "response_payload": {
                     "request_id": request_id,
+                    "context_request_id": result.request_id,
                     "total_results": result.total_results,
                     "returned": len(result.products),
                     "api_latency_ms": round(elapsed_ms, 1),
@@ -450,12 +431,12 @@ async def v1_search(request: Request) -> SearchApiResponse:
         return result
     except HTTPException:
         raise
-    except EmbeddingIdNotFound as exc:
-        logger.warning(f"POST /v1/search — embedding id not found: {exc}")
-        raise _api_error(400, "EMBEDDING_ID_NOT_FOUND", str(exc))
+    except RequestIdNotFound as exc:
+        logger.warning(f"POST /v1/search — request_id not found: {exc}")
+        raise _api_error(400, "REQUEST_ID_NOT_FOUND", str(exc))
     except EmbeddingStoreUnavailable as exc:
-        logger.warning(f"POST /v1/search — Redis unavailable while resolving an embedding id: {exc}")
-        raise _api_error(503, "EMBEDDING_STORE_UNAVAILABLE", f"Embedding ids cannot be resolved ({exc}); send search_query / image instead.")
+        logger.warning(f"POST /v1/search — Redis unavailable while resolving a request_id: {exc}")
+        raise _api_error(503, "EMBEDDING_STORE_UNAVAILABLE", f"request_id cannot be resolved ({exc}); send search_query / image instead.")
     except IndexNotFoundError as exc:
         logger.warning(f"POST /v1/search — index not found: {exc}", extra={"status": "error", "error_details": str(exc)})
         raise _api_error(404, "INDEX_NOT_FOUND", str(exc))
