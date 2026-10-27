@@ -118,11 +118,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -131,7 +130,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -219,11 +217,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -232,7 +229,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -310,11 +306,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -323,7 +318,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -404,17 +398,16 @@
                   "  pm.expect(b).to.not.have.property('search_type');",
                   "});",
                   "pm.test('prices non-decreasing', () => {",
-                  "  const ps = b.products.map(p => p.price).filter(v => v != null);",
+                  "  const ps = b.products.map(p => (p.seller_details[0] || {}).price).filter(v => v != null);",
                   "  for (let i=1;i<ps.length;i++) pm.expect(ps[i]).to.be.at.least(ps[i-1]);",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -423,7 +416,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -509,17 +501,16 @@
                   "  pm.expect(b).to.not.have.property('search_type');",
                   "});",
                   "pm.test('prices non-increasing', () => {",
-                  "  const ps = b.products.map(p => p.price).filter(v => v != null);",
+                  "  const ps = b.products.map(p => (p.seller_details[0] || {}).price).filter(v => v != null);",
                   "  for (let i=1;i<ps.length;i++) pm.expect(ps[i]).to.be.at.most(ps[i-1]);",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -528,7 +519,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -621,11 +611,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -634,7 +623,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -710,16 +698,15 @@
                   "  pm.expect(b).to.not.have.property('search_type');",
                   "});",
                   "pm.test('prices within 50..150', () => {",
-                  "  b.products.forEach(p => { if (p.price != null) { pm.expect(p.price).to.be.at.least(50); pm.expect(p.price).to.be.at.most(150); } });",
+                  "  b.products.forEach(p => { const pr = (p.seller_details[0] || {}).price; if (pr != null) { pm.expect(pr).to.be.at.least(50); pm.expect(pr).to.be.at.most(150); } });",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -728,7 +715,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -816,11 +802,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -829,9 +814,8 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});",
-                  "pm.test('every product is 9CAT', () => b.products.forEach(p => pm.expect(p.material_type).to.eql('9CAT')));"
+                  "pm.test('material_type facet is only 9CAT', () => b.facets.material_type.forEach(f => pm.expect(f.id).to.eql('9CAT')));"
                 ]
               }
             }
@@ -908,11 +892,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -921,9 +904,8 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});",
-                  "pm.test('every product is in the category', () => b.products.forEach(p => pm.expect(p.category_ids).to.include(pm.collectionVariables.get('category_id'))));"
+                  "pm.test('category facet is only the category', () => b.facets.category_name.forEach(f => pm.expect(f.id).to.eql(pm.collectionVariables.get('category_id'))));"
                 ]
               }
             }
@@ -1006,11 +988,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -1019,7 +1000,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -1102,11 +1082,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -1115,7 +1094,6 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});"
                 ]
               }
@@ -1198,11 +1176,10 @@
                   "pm.test('products expose spec fields', () => {",
                   "  if (b.products.length === 0) return;",
                   "  const p = b.products[0];",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',\n   'asmo_material_number','aramco_material_number','product_type','material_type',\n   'seller_details','moq','price','currency','sold_by','supplier_count',\n   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
                   "  pm.expect(p).to.not.have.property('material_id');",
                   "  pm.expect(p).to.not.have.property('lead_time');",
-                  "  pm.expect(p.category_ids).to.be.an('array');",
-                  "  pm.expect(p.contract_indicator).to.be.a('boolean');",
                   "  pm.expect(p.seller_details).to.be.an('array');",
                   "});",
                   "pm.test('seller_details expose spec fields', () => {",
@@ -1211,9 +1188,11 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "  pm.expect(p.supplier_count).to.eql(p.seller_details.length);",
                   "});",
-                  "pm.test('filters honoured', () => b.products.forEach(p => { pm.expect(p.material_type).to.eql('9CAT'); if (p.price != null) pm.expect(p.price).to.be.at.most(500); }));"
+                  "pm.test('filters honoured', () => {",
+                  "  b.facets.material_type.forEach(f => pm.expect(f.id).to.eql('9CAT'));",
+                  "  b.products.forEach(p => { const pr = (p.seller_details[0] || {}).price; if (pr != null) pm.expect(pr).to.be.at.most(500); });",
+                  "});"
                 ]
               }
             }
@@ -1464,10 +1443,8 @@
                   "  pm.expect(b.facets.material_type).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',",
-                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
-                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
-                  "   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.not.have.property(k));",
                   "});",
                   "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
                   "pm.test('ao-100018_1 is in the top 5 (searched with its own image)', () => {",
@@ -1542,10 +1519,8 @@
                   "  pm.expect(b.facets.material_type).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',",
-                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
-                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
-                  "   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.not.have.property(k));",
                   "});",
                   "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
                   "pm.test('a-880000629771 is in the top 5 (searched with its own image)', () => {",
@@ -1625,10 +1600,8 @@
                   "  pm.expect(b.facets.material_type).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',",
-                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
-                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
-                  "   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.not.have.property(k));",
                   "});",
                   "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
                   "pm.test('172000-001-hvac is in the top 3 (searched with its own image)', () => {",
@@ -1708,17 +1681,15 @@
                   "  pm.expect(b.facets.material_type).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',",
-                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
-                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
-                  "   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.not.have.property(k));",
                   "});",
                   "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
                   "pm.test('a-880000629771 is in the top 5 (searched with its own image)', () => {",
                   "  const skus = b.products.slice(0, 5).map(p => p.sku_id);",
                   "  pm.expect(skus).to.include('a-880000629771');",
                   "});",
-                  "pm.test('every product is 9COM', () => b.products.forEach(p => pm.expect(p.material_type).to.eql('9COM')));"
+                  "pm.test('material_type facet is only 9COM', () => b.facets.material_type.forEach(f => pm.expect(f.id).to.eql('9COM')));"
                 ]
               }
             }
@@ -1797,14 +1768,12 @@
                   "  pm.expect(b.facets.material_type).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',",
-                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
-                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
-                  "   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.not.have.property(k));",
                   "});",
                   "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
                   "pm.test('prices non-decreasing', () => {",
-                  "  const ps = b.products.map(p => p.price).filter(v => v != null);",
+                  "  const ps = b.products.map(p => (p.seller_details[0] || {}).price).filter(v => v != null);",
                   "  for (let i = 1; i < ps.length; i++) pm.expect(ps[i]).to.be.at.least(ps[i-1]);",
                   "});"
                 ]
@@ -1875,10 +1844,8 @@
                   "  pm.expect(b.facets.material_type).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
-                  "  ['product_key','sku_id','sku_name','primary_image_url',",
-                  "   'asmo_material_number','aramco_material_number','product_type','material_type',",
-                  "   'seller_details','moq','price','currency','sold_by','supplier_count',",
-                  "   'contract_indicator','category_ids','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details','temporary_unavailable'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(b.products[0]).to.not.have.property(k));",
                   "});",
                   "pm.test('no image vectors leak into products', () => b.products.forEach(p => pm.expect(p).to.not.have.property('images')));",
                   "pm.test('172000-001-hvac is in the top 5 (searched with its own image)', () => {",
@@ -4520,7 +4487,7 @@
                   "  pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
                   "  pm.test('same request_id (same search context)', () => pm.expect(b.request_id).to.eql(pm.collectionVariables.get('text_search_request_id')));",
                   "  pm.test('prices non-decreasing', () => {",
-                  "    const prices = b.products.map(p => p.price).filter(p => p != null);",
+                  "    const prices = b.products.map(p => (p.seller_details[0] || {}).price).filter(p => p != null);",
                   "    for (let i = 1; i < prices.length; i++) pm.expect(prices[i]).to.be.at.least(prices[i - 1]);",
                   "  });",
                   "} else {",

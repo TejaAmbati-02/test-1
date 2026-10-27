@@ -45,8 +45,8 @@ Every facet key in the response is also a filter key: send back the facet's `id`
 | `sub_category_name` | sub-category id (facet `id`) | `sub_category_id` |
 | `product_type` | product-type id (facet `id`); the product-type name is also accepted | `product_type_id` / `product_type` |
 | `sellername` | seller id (facet `id`) | any `seller_details[].seller_id` |
-| `moq` | number or range (facet `id`) | primary seller's `moq` |
-| `lead_time` | days, number or range (facet `id`) | any `seller_details[].lead_time` |
+| `moq` | number or range | primary seller's `moq` |
+| `lead_time` | days, number or range | any `seller_details[].lead_time` |
 | `material_type` | value, e.g. `9CAT` (facet `id`) | `material_type` |
 | `price` | number or range, e.g. `{"gte": 50, "lte": 150}` (bounds from the `price` facet) | primary seller's `price` |
 | `availability` | value, e.g. `IN_STOCK` | `availability` |
@@ -84,14 +84,11 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
   "page_size": 60,
   "products": [
     {
-      "product_key": "\u2026",
       "sku_id": "172000-001-hvac",
       "sku_name": "Air Handling Unit 5 TR",
       "primary_image_url": "https://\u2026",
       "asmo_material_number": "\u2026",
       "aramco_material_number": "\u2026",
-      "product_type": "\u2026",
-      "material_type": "9COM",
       "seller_details": [
         {
           "seller_id": "3a7b23e0-\u2026",
@@ -103,15 +100,6 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
           "currency": "SAR",
           "temporary_unavailable": null
         }
-      ],
-      "moq": 5,
-      "price": 123.0,
-      "currency": "SAR",
-      "sold_by": "seller_123",
-      "supplier_count": 1,
-      "contract_indicator": false,
-      "category_ids": [
-        "1ba050d2-\u2026"
       ],
       "temporary_unavailable": null
     }
@@ -142,20 +130,6 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
       {
         "id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
         "value": "seller_123",
-        "count": 1
-      }
-    ],
-    "moq": [
-      {
-        "id": 5,
-        "value": "5",
-        "count": 1
-      }
-    ],
-    "lead_time": [
-      {
-        "id": 3,
-        "value": "3",
         "count": 1
       }
     ],
@@ -359,7 +333,7 @@ curl -s -X POST "${base_url}/v1/search" \
 
 `POST /v1/search` → expected **200**
 
-Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; every product is 9CAT.
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; material_type facet is only 9CAT.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -376,7 +350,7 @@ Category browse: same endpoint, no search_query, category passed inside filters.
 
 `POST /v1/search` → expected **200**
 
-Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; every product is in the category.
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; category facet is only the category.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -529,7 +503,7 @@ Image search combined with filters; every result must satisfy the filters.
 
 `POST /v1/search` → expected **200**
 
-Checks: total_results is a number; products is a non-empty array; facets is a keyed object; products expose spec fields; no image vectors leak into products; a-880000629771 is in the top 5 (searched with its own image); every product is 9COM.
+Checks: total_results is a number; products is a non-empty array; facets is a keyed object; products expose spec fields; no image vectors leak into products; a-880000629771 is in the top 5 (searched with its own image); material_type facet is only 9COM.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \

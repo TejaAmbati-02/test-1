@@ -33,6 +33,7 @@ FILTER_KEY_MAP: dict[str, str] = {
     "category_name": "category_ids",
     "sub_category_name": "sub_category_id",
     "sellername": "seller_details.seller_id",
+    # Not facets, but filterable by a number or range.
     "lead_time": "seller_details.lead_time",
     # Other filters.
     "category_ids": "category_ids",
@@ -70,8 +71,6 @@ FACETS: dict[str, tuple[str, str | None, str | None]] = {
     "sub_category_name": ("sub_category_id", "sub_category_name.keyword", None),
     "product_type":      ("product_type_id", "product_type.keyword", None),
     "sellername":        ("seller_details.seller_id", "seller_details.seller_name.keyword", "seller_details"),
-    "moq":               ("moq", None, None),
-    "lead_time":         ("seller_details.lead_time", None, "seller_details"),
     "material_type":     ("material_type", None, None),
 }
 FACET_SIZE = 50
@@ -133,39 +132,26 @@ def _seller_detail(seller: dict[str, Any]) -> SellerDetail:
         lead_time=seller.get("lead_time"),
         unit_type=seller.get("unit_type"),
         price=seller.get("price"),
-        moq=seller.get("moq"),
+        # The FE expects "" (not null) when the seller has no MOQ; the index keeps it numeric.
+        moq=seller["moq"] if seller.get("moq") is not None else "",
         currency=seller.get("currency"),
         temporary_unavailable=seller.get("temporary_unavailable"),
     )
 
 
 def _to_product(src: dict[str, Any]) -> ProductItem:
-    """Map a raw OpenSearch _source document to the frontend product contract (§2.4).
-
-    Index field names equal the contract keys, so each key is read as-is.
-    """
+    """Map a raw OpenSearch _source document to the frontend product contract (§2.4)."""
     sellers = src.get("seller_details") or []
     return ProductItem(
-        product_key=src.get("product_key"),
         sku_id=src.get("sku_id"),
-        # sku_name is written by ingest_json.py; older indexes only carry product_name.
+        # sku_name is written by the data pipeline; older indexes only carry product_name.
         sku_name=src.get("sku_name") or src.get("product_name"),
         primary_image_url=src.get("primary_image_url"),
         asmo_material_number=src.get("asmo_material_number"),
         aramco_material_number=src.get("aramco_material_number"),
-        product_type=src.get("product_type"),
-        material_type=src.get("material_type"),
         seller_details=[_seller_detail(s) for s in sellers],
-        moq=src.get("moq"),
-        price=src.get("price"),
-        currency=src.get("currency"),
-        sold_by=src.get("sold_by"),
-        supplier_count=src.get("supplier_count"),
-        # Indexed as "" until a source is agreed; anything falsy means no contract.
-        contract_indicator=bool(src.get("contract_indicator")),
-        category_ids=src.get("category_ids") or [],
-        # Primary seller (seller_details[0]), like price / moq / sold_by. Read from the
-        # root field when the index has it, else from the nested offer.
+        # Primary (cheapest) seller, seller_details[0]. Read from the root field when
+        # the index has it, else from the nested offer.
         temporary_unavailable=(
             src["temporary_unavailable"] if "temporary_unavailable" in src
             else sellers[0].get("temporary_unavailable") if sellers else None

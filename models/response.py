@@ -14,38 +14,29 @@ class SellerDetail(BaseModel):
     lead_time: int | None = Field(default=None, description="Lead time in days (source: seller_details[].lead_time)")
     unit_type: str | None = Field(default=None, description="Unit of measure, e.g. Ea (source: seller_details[].unit_type)")
     price: float | None = Field(default=None, description="Unit price (source: seller_details[].price)")
-    moq: int | None = Field(default=None, description="Minimum order quantity (source: seller_details[].moq)")
+    moq: int | str = Field(default="", description="Minimum order quantity (source: seller_details[].moq); \"\" when the seller has none")
     currency: str | None = Field(default=None, description="ISO 4217 currency code (source: seller_details[].currency)")
     temporary_unavailable: bool | None = Field(default=None, description="Seller offer temporarily unavailable (source: seller_details[].temporary_unavailable)")
 
 
 class ProductItem(BaseModel):
-    """A single product in the search response, shaped per the frontend contract.
+    """A single product in the search response, shaped per the agreed frontend contract.
 
-    Every key matches the OpenSearch index field of the same name.
+    The primary (cheapest) seller is ``seller_details[0]``; its price is what
+    ``sort_by=price`` orders by.
     """
 
-    product_key: str | None = Field(default=None, description="Stable product identifier (source: product_key)")
     sku_id: str | None = Field(default=None, description="SKU identifier (source: sku_id)")
     sku_name: str | None = Field(default=None, description="Product name (source: sku_name, else product_name)")
     primary_image_url: str | None = Field(default=None, description="Primary product image URL (source: primary_image_url)")
     asmo_material_number: str | None = Field(default=None, description="ASMO material number (source: asmo_material_number)")
     aramco_material_number: str | None = Field(default=None, description="Aramco material number (source: aramco_material_number)")
-    product_type: str | None = Field(default=None, description="Product type (source: product_type)")
-    material_type: str | None = Field(default=None, description="Material classification (source: material_type)")
     seller_details: list[SellerDetail] = Field(default_factory=list, description="Every seller offer, cheapest first (source: seller_details)")
-    moq: int | None = Field(default=None, description="Minimum order quantity of the primary seller (source: moq)")
-    price: float | None = Field(default=None, description="Unit price of the primary seller (source: price)")
-    currency: str | None = Field(default=None, description="ISO 4217 currency code of the primary seller (source: currency)")
-    sold_by: str | None = Field(default=None, description="Primary seller name (source: sold_by)")
-    supplier_count: int | None = Field(default=None, description="Number of sellers offering this SKU (source: supplier_count)")
-    contract_indicator: bool = Field(default=False, description="True when the product has one or more contracts (source: contract_indicator)")
-    category_ids: list[str] = Field(default_factory=list, description="Category ids the product belongs to (source: category_ids)")
     temporary_unavailable: bool | None = Field(default=None, description="Primary seller's offer temporarily unavailable (source: temporary_unavailable, else seller_details[0].temporary_unavailable)")
 
 
 class FacetTermValue(BaseModel):
-    id: str | int | float = Field(description="Value to send back as the filter for this facet (an id, or the number for moq / lead_time)")
+    id: str = Field(description="Value to send back as the filter for this facet (the category / sub-category / product-type / seller id, or the material type)")
     value: str = Field(description="Facet bucket label to display")
     count: int = Field(description="Number of matching products with this value")
 
@@ -62,8 +53,6 @@ class SearchFacets(BaseModel):
     sub_category_name: list[FacetTermValue] = Field(default_factory=list, description="Sub-categories (id = sub-category id; filter key sub_category_name)")
     product_type: list[FacetTermValue] = Field(default_factory=list, description="Product types (id = product type id; filter key product_type)")
     sellername: list[FacetTermValue] = Field(default_factory=list, description="Sellers (id = seller id; filter key sellername)")
-    moq: list[FacetTermValue] = Field(default_factory=list, description="Minimum order quantities of the primary seller (id = the number; filter key moq)")
-    lead_time: list[FacetTermValue] = Field(default_factory=list, description="Seller lead times in days (id = the number; filter key lead_time)")
     material_type: list[FacetTermValue] = Field(default_factory=list, description="Material types (id = the value; filter key material_type)")
     price: PriceFacet | None = Field(default=None, description="Price range (min/max) across the result set")
 

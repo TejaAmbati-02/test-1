@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     text_image_image_weight: float = 0.6
  
  
-    # Redis — embedding cache for /v1/search. Each query / image embedding is an
-    # entry in one Redis hash (the collection) keyed by its embedding id, and
-    # expires redis_ttl_seconds after it is written.
+    # Redis — search-context store for /v1/search. Each search is one key, its
+    # request_id, holding {"text_emb", "image_emb", "query"}; it expires
+    # redis_ttl_seconds after it was last used.
     redis_enabled: bool = True
     redis_host: str = ""
     redis_port: int = 443
@@ -54,7 +54,6 @@ class Settings(BaseSettings):
     redis_ssl: bool = True
     redis_ssl_cert_reqs: str = "none"
     redis_timeout: int = 10
-    redis_collection: str = "asmo:embeddings"
     redis_ttl_seconds: int = 3600
 
     # Logging — every log line always prints to the console; LOG_TO_FILE=true

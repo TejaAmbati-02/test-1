@@ -129,7 +129,7 @@
                       }
                     ],
                     "title": "Filters",
-                    "description": "Filter object encoded as a JSON string, e.g. {\"category_name\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. Every facet key is a filter key and takes the facet's id: category_name, sub_category_name, product_type, sellername, moq, lead_time, material_type. Also: price (number or range), availability, category_ids, currency, contract_indicator, temporary_unavailable, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take {gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
+                    "description": "Filter object encoded as a JSON string, e.g. {\"category_name\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. Every facet key is a filter key and takes the facet's id: category_name, sub_category_name, product_type, sellername, material_type. Also: price, moq, lead_time (number or range), availability, category_ids, currency, contract_indicator, temporary_unavailable, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take {gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
                   },
                   "page": {
                     "type": "integer",
@@ -552,19 +552,9 @@
       "FacetTermValue": {
         "properties": {
           "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer"
-              },
-              {
-                "type": "number"
-              }
-            ],
+            "type": "string",
             "title": "Id",
-            "description": "Value to send back as the filter for this facet (an id, or the number for moq / lead_time)"
+            "description": "Value to send back as the filter for this facet (the category / sub-category / product-type / seller id, or the material type)"
           },
           "value": {
             "type": "string",
@@ -812,18 +802,6 @@
       },
       "ProductItem": {
         "properties": {
-          "product_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Product Key",
-            "description": "Stable product identifier (source: product_key)"
-          },
           "sku_id": {
             "anyOf": [
               {
@@ -884,30 +862,6 @@
             "title": "Aramco Material Number",
             "description": "Aramco material number (source: aramco_material_number)"
           },
-          "product_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Product Type",
-            "description": "Product type (source: product_type)"
-          },
-          "material_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Material Type",
-            "description": "Material classification (source: material_type)"
-          },
           "seller_details": {
             "items": {
               "$ref": "#/components/schemas/SellerDetail"
@@ -915,80 +869,6 @@
             "type": "array",
             "title": "Seller Details",
             "description": "Every seller offer, cheapest first (source: seller_details)"
-          },
-          "moq": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Moq",
-            "description": "Minimum order quantity of the primary seller (source: moq)"
-          },
-          "price": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Price",
-            "description": "Unit price of the primary seller (source: price)"
-          },
-          "currency": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Currency",
-            "description": "ISO 4217 currency code of the primary seller (source: currency)"
-          },
-          "sold_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sold By",
-            "description": "Primary seller name (source: sold_by)"
-          },
-          "supplier_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplier Count",
-            "description": "Number of sellers offering this SKU (source: supplier_count)"
-          },
-          "contract_indicator": {
-            "type": "boolean",
-            "title": "Contract Indicator",
-            "description": "True when the product has one or more contracts (source: contract_indicator)",
-            "default": false
-          },
-          "category_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Category Ids",
-            "description": "Category ids the product belongs to (source: category_ids)"
           },
           "temporary_unavailable": {
             "anyOf": [
@@ -1005,7 +885,7 @@
         },
         "type": "object",
         "title": "ProductItem",
-        "description": "A single product in the search response, shaped per the frontend contract.\n\nEvery key matches the OpenSearch index field of the same name."
+        "description": "A single product in the search response, shaped per the agreed frontend contract.\n\nThe primary (cheapest) seller is ``seller_details[0]``; its price is what\n``sort_by=price`` orders by."
       },
       "ProductSuggestion": {
         "properties": {
@@ -1132,22 +1012,6 @@
             "title": "Sellername",
             "description": "Sellers (id = seller id; filter key sellername)"
           },
-          "moq": {
-            "items": {
-              "$ref": "#/components/schemas/FacetTermValue"
-            },
-            "type": "array",
-            "title": "Moq",
-            "description": "Minimum order quantities of the primary seller (id = the number; filter key moq)"
-          },
-          "lead_time": {
-            "items": {
-              "$ref": "#/components/schemas/FacetTermValue"
-            },
-            "type": "array",
-            "title": "Lead Time",
-            "description": "Seller lead times in days (id = the number; filter key lead_time)"
-          },
           "material_type": {
             "items": {
               "$ref": "#/components/schemas/FacetTermValue"
@@ -1240,11 +1104,12 @@
                 "type": "integer"
               },
               {
-                "type": "null"
+                "type": "string"
               }
             ],
             "title": "Moq",
-            "description": "Minimum order quantity (source: seller_details[].moq)"
+            "description": "Minimum order quantity (source: seller_details[].moq); \"\" when the seller has none",
+            "default": ""
           },
           "currency": {
             "anyOf": [
