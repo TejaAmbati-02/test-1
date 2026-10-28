@@ -206,9 +206,10 @@ class SearchForm(BaseModel):
     sort_by: str | None = Field(default=None, description="Sort field — 'relevance' or 'price'")
     sort_order: str = Field(default="desc", description="Sort direction — 'asc' or 'desc'")
     filters: str | None = Field(default=None, description=(
-        "Filter object encoded as a JSON string, e.g. {\"category_name\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. "
-        "Every facet key is a filter key and takes the facet's id: category_name, sub_category_name, product_type, sellername, "
-        "material_type. Also: price, moq, lead_time (number or range), availability, category_ids, currency, contract_indicator, "
+        "Filter object encoded as a JSON string, e.g. {\"category\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. "
+        "Every facet key is a filter key and takes the facet's id: category, sub_category, product_type, seller "
+        "(category_name, sub_category_name and sellername are still accepted). Also: price, moq, lead_time (number or range), "
+        "material_type, availability, category_ids, currency, contract_indicator, "
         "temporary_unavailable, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, "
         "asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take "
         "{gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"

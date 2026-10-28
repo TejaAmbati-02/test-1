@@ -6,7 +6,6 @@ from typing import Any
 
 from models.response import (
     FacetTermValue,
-    PriceFacet,
     ProductItem,
     ProductSuggestion,
     QuerySuggestion,
@@ -30,6 +29,10 @@ TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"
 # fields so exact-match term filters work.
 FILTER_KEY_MAP: dict[str, str] = {
     # Facet filters: send back the facet's ``id`` (see FACETS below).
+    "category": "category_ids",
+    "sub_category": "sub_category_id",
+    "seller": "seller_details.seller_id",
+    # Earlier names of the facet filters, still accepted.
     "category_name": "category_ids",
     "sub_category_name": "sub_category_id",
     "sellername": "seller_details.seller_id",
@@ -56,7 +59,9 @@ FILTER_KEY_MAP: dict[str, str] = {
 }
 ALLOWED_FILTER_KEYS: frozenset[str] = frozenset(FILTER_KEY_MAP)
 # Filter keys on a nested field: the clause is wrapped in a nested query on this path.
-NESTED_FILTER_PATHS: dict[str, str] = {"sellername": "seller_details", "lead_time": "seller_details"}
+NESTED_FILTER_PATHS: dict[str, str] = {
+    "seller": "seller_details", "sellername": "seller_details", "lead_time": "seller_details",
+}
 # Filter keys that match any of several fields: product_type takes the facet id
 # (product_type_id) or, as before, the product-type name.
 FILTER_ALT_FIELDS: dict[str, tuple[str, ...]] = {"product_type": ("product_type_id", "product_type.keyword")}
@@ -67,14 +72,12 @@ FILTER_ALT_FIELDS: dict[str, tuple[str, ...]] = {"product_type": ("product_type_
 # with the same key, ``value`` is the label. ``count`` counts products.
 #   key -> (id field, label field or None to show the id, nested path or None)
 FACETS: dict[str, tuple[str, str | None, str | None]] = {
-    "category_name":     ("category_ids", "category_name.keyword", None),
-    "sub_category_name": ("sub_category_id", "sub_category_name.keyword", None),
-    "product_type":      ("product_type_id", "product_type.keyword", None),
-    "sellername":        ("seller_details.seller_id", "seller_details.seller_name.keyword", "seller_details"),
-    "material_type":     ("material_type", None, None),
+    "category":     ("category_ids", "category_name.keyword", None),
+    "sub_category": ("sub_category_id", "sub_category_name.keyword", None),
+    "product_type": ("product_type_id", "product_type.keyword", None),
+    "seller":       ("seller_details.seller_id", "seller_details.seller_name.keyword", "seller_details"),
 }
 FACET_SIZE = 50
-PRICE_FIELD = "price"
 
 # Nested image field written by the ingest pipeline: [{image_url, image_vector}, ...].
 IMAGE_PATH = "images"
@@ -100,7 +103,6 @@ def _build_aggs() -> dict[str, Any]:
         if sub:
             terms["aggs"] = sub
         aggs[key] = {"nested": {"path": nested_path}, "aggs": {"values": terms}} if nested_path else terms
-    aggs["price"] = {"stats": {"field": PRICE_FIELD}}
     return aggs
 
 
@@ -117,12 +119,7 @@ def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
             out.append(FacetTermValue(id=b["key"], value=str(label), count=count))
         return out
 
-    price_stats = aggs_raw.get("price", {})
-    pmin, pmax = price_stats.get("min"), price_stats.get("max")
-    # OpenSearch stats returns null min/max when zero documents matched.
-    price = PriceFacet(min=pmin, max=pmax) if pmin is not None else None
-
-    return SearchFacets(**{key: terms(key) for key in FACETS}, price=price)
+    return SearchFacets(**{key: terms(key) for key in FACETS})
 
 
 def _seller_detail(seller: dict[str, Any], fallback_unavailable: bool | None = None) -> SellerDetail:

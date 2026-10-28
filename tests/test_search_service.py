@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from models.response import PriceFacet
 from services.search import (
     ALLOWED_FILTER_KEYS,
     FILTER_KEY_MAP,
@@ -20,9 +19,11 @@ from services.search import (
 from tests.conftest import os_search_result
 
 AGGS = {
-    "product_type": {"buckets": [{"key": "Valve", "doc_count": 3}]},
-    "material_type": {"buckets": [{"key": 101, "doc_count": 2}]},
-    "price": {"min": 5.0, "max": 50.0},
+    "category": {"buckets": [{"key": "c1", "doc_count": 4, "label": {"buckets": [{"key": "Valves"}]}}]},
+    "product_type": {"buckets": [{"key": "pt1", "doc_count": 3, "label": {"buckets": [{"key": "Valve"}]}}]},
+    "seller": {"values": {"buckets": [
+        {"key": "s1", "doc_count": 5, "label": {"buckets": [{"key": "Wholesale Warehouse"}]}, "products": {"doc_count": 2}},
+    ]}},
 }
 
 
@@ -53,24 +54,32 @@ class TestHelpers:
         assert FILTER_KEY_MAP["sold_by"] == "sold_by.keyword"
 
     def test_build_aggs(self):
-        assert _build_aggs() == {
-            "product_type": {"terms": {"field": "product_type.keyword", "size": 50}},
-            "material_type": {"terms": {"field": "material_type", "size": 50}},
-            "price": {"stats": {"field": "price"}},
+        aggs = _build_aggs()
+        assert set(aggs) == {"category", "sub_category", "product_type", "seller"}
+        assert aggs["product_type"] == {
+            "terms": {"field": "product_type_id", "size": 50},
+            "aggs": {"label": {"terms": {"field": "product_type.keyword", "size": 1}}},
         }
+        assert aggs["seller"]["nested"] == {"path": "seller_details"}
+        assert aggs["seller"]["aggs"]["values"]["aggs"]["products"] == {"reverse_nested": {}}
 
     def test_parse_facets(self):
         facets = _parse_facets(AGGS)
-        assert facets.product_type[0].value == "Valve"
-        assert facets.product_type[0].count == 3
-        assert facets.material_type[0].value == "101"  # keys are stringified
-        assert facets.price == PriceFacet(min=5.0, max=50.0)
+        assert facets.category[0].model_dump() == {"id": "c1", "value": "Valves", "count": 4}
+        assert facets.product_type[0].model_dump() == {"id": "pt1", "value": "Valve", "count": 3}
+        # Seller counts products (reverse_nested), not seller offers.
+        assert facets.seller[0].model_dump() == {"id": "s1", "value": "Wholesale Warehouse", "count": 2}
+        assert facets.sub_category == []
+        assert set(facets.model_dump()) == {"category", "sub_category", "product_type", "seller"}
 
     def test_parse_facets_empty(self):
-        facets = _parse_facets({"price": {"min": None, "max": None}})
-        assert facets.product_type == [] and facets.material_type == []
-        assert facets.price is None
-        assert _parse_facets({}).price is None
+        facets = _parse_facets({})
+        assert facets.category == facets.sub_category == facets.product_type == facets.seller == []
+
+    def test_new_facet_filter_keys(self):
+        assert FILTER_KEY_MAP["category"] == FILTER_KEY_MAP["category_name"] == "category_ids"
+        assert FILTER_KEY_MAP["sub_category"] == FILTER_KEY_MAP["sub_category_name"] == "sub_category_id"
+        assert FILTER_KEY_MAP["seller"] == FILTER_KEY_MAP["sellername"] == "seller_details.seller_id"
 
     def test_to_product_maps_all_fields(self):
         product = _to_product({
@@ -161,7 +170,7 @@ class TestFilterBrowse:
         assert result.total_results == 42
         assert result.page == 3 and result.page_size == 20
         assert result.products[0].sku_id == "SKU-1"
-        assert result.facets.price.max == 50.0
+        assert result.facets.seller[0].value == "Wholesale Warehouse"
 
     async def test_without_filters_matches_all(self, service, os_client):
         await service.filter_browse("idx", [], None, "desc", page=1, page_size=10)

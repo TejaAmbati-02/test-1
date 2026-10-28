@@ -34,6 +34,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized — missing, malformed, invalid or expired Keycloak bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found — the target index does not exist",
             "content": {
@@ -129,7 +139,7 @@
                       }
                     ],
                     "title": "Filters",
-                    "description": "Filter object encoded as a JSON string, e.g. {\"category_name\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. Every facet key is a filter key and takes the facet's id: category_name, sub_category_name, product_type, sellername, material_type. Also: price, moq, lead_time (number or range), availability, category_ids, currency, contract_indicator, temporary_unavailable, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take {gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
+                    "description": "Filter object encoded as a JSON string, e.g. {\"category\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. Every facet key is a filter key and takes the facet's id: category, sub_category, product_type, seller (category_name, sub_category_name and sellername are still accepted). Also: price, moq, lead_time (number or range), material_type, availability, category_ids, currency, contract_indicator, temporary_unavailable, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take {gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
                   },
                   "page": {
                     "type": "integer",
@@ -187,6 +197,16 @@
           },
           "400": {
             "description": "Bad request — unsupported channel/language, invalid filter, unknown request_id, or empty request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — missing, malformed, invalid or expired Keycloak bearer token",
             "content": {
               "application/json": {
                 "schema": {
@@ -322,6 +342,16 @@
           },
           "400": {
             "description": "Bad request — unsupported channel/language, invalid filter, unknown request_id, or empty request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — missing, malformed, invalid or expired Keycloak bearer token",
             "content": {
               "application/json": {
                 "schema": {
@@ -554,7 +584,7 @@
           "id": {
             "type": "string",
             "title": "Id",
-            "description": "Value to send back as the filter for this facet (the category / sub-category / product-type / seller id, or the material type)"
+            "description": "Value to send back as the filter for this facet (the category / sub-category / product-type / seller id)"
           },
           "value": {
             "type": "string",
@@ -770,36 +800,6 @@
         ],
         "title": "LatencyResponse"
       },
-      "PriceFacet": {
-        "properties": {
-          "min": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Min",
-            "description": "Minimum price across the matching result population"
-          },
-          "max": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max",
-            "description": "Maximum price across the matching result population"
-          }
-        },
-        "type": "object",
-        "title": "PriceFacet"
-      },
       "ProductItem": {
         "properties": {
           "sku_id": {
@@ -968,21 +968,21 @@
       },
       "SearchFacets": {
         "properties": {
-          "category_name": {
+          "category": {
             "items": {
               "$ref": "#/components/schemas/FacetTermValue"
             },
             "type": "array",
-            "title": "Category Name",
-            "description": "Categories (id = category id; filter key category_name)"
+            "title": "Category",
+            "description": "Categories (id = category id; filter key category)"
           },
-          "sub_category_name": {
+          "sub_category": {
             "items": {
               "$ref": "#/components/schemas/FacetTermValue"
             },
             "type": "array",
-            "title": "Sub Category Name",
-            "description": "Sub-categories (id = sub-category id; filter key sub_category_name)"
+            "title": "Sub Category",
+            "description": "Sub-categories (id = sub-category id; filter key sub_category)"
           },
           "product_type": {
             "items": {
@@ -992,32 +992,13 @@
             "title": "Product Type",
             "description": "Product types (id = product type id; filter key product_type)"
           },
-          "sellername": {
+          "seller": {
             "items": {
               "$ref": "#/components/schemas/FacetTermValue"
             },
             "type": "array",
-            "title": "Sellername",
-            "description": "Sellers (id = seller id; filter key sellername)"
-          },
-          "material_type": {
-            "items": {
-              "$ref": "#/components/schemas/FacetTermValue"
-            },
-            "type": "array",
-            "title": "Material Type",
-            "description": "Material types (id = the value; filter key material_type)"
-          },
-          "price": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PriceFacet"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Price range (min/max) across the result set"
+            "title": "Seller",
+            "description": "Sellers (id = seller id; filter key seller)"
           }
         },
         "type": "object",

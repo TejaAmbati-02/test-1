@@ -41,16 +41,16 @@ Every facet key in the response is also a filter key: send back the facet's `id`
 
 | Filter key | Takes | Matches |
 |---|---|---|
-| `category_name` | category id (facet `id`) | `category_ids` |
-| `sub_category_name` | sub-category id (facet `id`) | `sub_category_id` |
+| `category` | category id (facet `id`); `category_name` is also accepted | `category_ids` |
+| `sub_category` | sub-category id (facet `id`); `sub_category_name` is also accepted | `sub_category_id` |
 | `product_type` | product-type id (facet `id`); the product-type name is also accepted | `product_type_id` / `product_type` |
-| `sellername` | seller id (facet `id`) | any `seller_details[].seller_id` |
+| `seller` | seller id (facet `id`); `sellername` is also accepted | any `seller_details[].seller_id` |
 | `moq` | number or range | primary seller's `moq` |
 | `lead_time` | days, number or range | any `seller_details[].lead_time` |
-| `material_type` | value, e.g. `9CAT` (facet `id`) | `material_type` |
-| `price` | number or range, e.g. `{"gte": 50, "lte": 150}` (bounds from the `price` facet) | primary seller's `price` |
+| `material_type` | value, e.g. `9CAT` | `material_type` |
+| `price` | number or range, e.g. `{"gte": 50, "lte": 150}` | primary seller's `price` |
 | `availability` | value, e.g. `IN_STOCK` | `availability` |
-| `category_ids` | category id (same as `category_name`) | `category_ids` |
+| `category_ids` | category id (same as `category`) | `category_ids` |
 | `currency` | ISO 4217 code | primary seller's `currency` |
 | `contract_indicator` | `true` / `false` | `contract_indicator` |
 | `temporary_unavailable` | `true` / `false` | primary seller's `temporary_unavailable` |
@@ -104,14 +104,14 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
     }
   ],
   "facets": {
-    "category_name": [
+    "category": [
       {
         "id": "1ba050d2-f900-4a9b-82c0-9dade7948d72",
         "value": "Drilling & Chemicals",
         "count": 1
       }
     ],
-    "sub_category_name": [
+    "sub_category": [
       {
         "id": "13b62da1-d0f8-4208-8ff4-2f18df36fac4",
         "value": "Drilling",
@@ -125,24 +125,13 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
         "count": 1
       }
     ],
-    "sellername": [
+    "seller": [
       {
         "id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
         "value": "seller_123",
         "count": 1
       }
-    ],
-    "material_type": [
-      {
-        "id": "9COM",
-        "value": "9COM",
-        "count": 1
-      }
-    ],
-    "price": {
-      "min": 123.0,
-      "max": 123.0
-    }
+    ]
   }
 }
 ```
@@ -333,7 +322,7 @@ curl -s -X POST "${base_url}/v1/search" \
 
 `POST /v1/search` → expected **200**
 
-Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; material_type facet is only 9CAT.
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -744,7 +733,7 @@ A list matches any of its values.
 
 `POST /v1/search` → expected **200**
 
-Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; material_type facet within the list.
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results.
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \
@@ -847,7 +836,7 @@ Image search combined with filters; every result must satisfy the filters.
 
 `POST /v1/search` → expected **200**
 
-Checks: total_results is a number; products is a non-empty array; facets is a keyed object; products expose spec fields; no image vectors leak into products; a-880000629771 is in the top 5 (searched with its own image); material_type facet is only 9COM.
+Checks: total_results is a number; products is a non-empty array; facets is a keyed object; products expose spec fields; no image vectors leak into products; a-880000629771 is in the top 5 (searched with its own image).
 
 ```bash
 curl -s -X POST "${base_url}/v1/search" \

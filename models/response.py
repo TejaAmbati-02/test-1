@@ -35,25 +35,18 @@ class ProductItem(BaseModel):
 
 
 class FacetTermValue(BaseModel):
-    id: str = Field(description="Value to send back as the filter for this facet (the category / sub-category / product-type / seller id, or the material type)")
+    id: str = Field(description="Value to send back as the filter for this facet (the category / sub-category / product-type / seller id)")
     value: str = Field(description="Facet bucket label to display")
     count: int = Field(description="Number of matching products with this value")
-
-
-class PriceFacet(BaseModel):
-    min: float | None = Field(default=None, description="Minimum price across the matching result population")
-    max: float | None = Field(default=None, description="Maximum price across the matching result population")
 
 
 class SearchFacets(BaseModel):
     """Facets keyed by field, computed over the full matching population (§2.4 facet rule)."""
 
-    category_name: list[FacetTermValue] = Field(default_factory=list, description="Categories (id = category id; filter key category_name)")
-    sub_category_name: list[FacetTermValue] = Field(default_factory=list, description="Sub-categories (id = sub-category id; filter key sub_category_name)")
+    category: list[FacetTermValue] = Field(default_factory=list, description="Categories (id = category id; filter key category)")
+    sub_category: list[FacetTermValue] = Field(default_factory=list, description="Sub-categories (id = sub-category id; filter key sub_category)")
     product_type: list[FacetTermValue] = Field(default_factory=list, description="Product types (id = product type id; filter key product_type)")
-    sellername: list[FacetTermValue] = Field(default_factory=list, description="Sellers (id = seller id; filter key sellername)")
-    material_type: list[FacetTermValue] = Field(default_factory=list, description="Material types (id = the value; filter key material_type)")
-    price: PriceFacet | None = Field(default=None, description="Price range (min/max) across the result set")
+    seller: list[FacetTermValue] = Field(default_factory=list, description="Sellers (id = seller id; filter key seller)")
 
 
 class SearchApiResponse(BaseModel):

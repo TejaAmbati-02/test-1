@@ -33,7 +33,7 @@ def test_product_item_nests_seller_details():
 def test_search_response_defaults_empty_facets():
     r = SearchApiResponse(total_results=0, page=1, page_size=10, products=[])
     assert r.facets == SearchFacets()
-    assert r.facets.price is None
+    assert r.facets.category == [] and r.facets.seller == []
     assert r.query_embedding_id is None
     assert r.image_embedding_id is None
 

@@ -108,7 +108,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -207,7 +207,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -296,7 +296,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -390,7 +390,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -493,7 +493,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -601,7 +601,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -690,7 +690,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -792,7 +792,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -814,8 +814,7 @@
                   "  const s = p.seller_details[0];",
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
-                  "});",
-                  "pm.test('material_type facet is only 9CAT', () => b.facets.material_type.forEach(f => pm.expect(f.id).to.eql('9CAT')));"
+                  "});"
                 ]
               }
             }
@@ -882,7 +881,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -905,7 +904,7 @@
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
                   "});",
-                  "pm.test('category facet is only the category', () => b.facets.category_name.forEach(f => pm.expect(f.id).to.eql(pm.collectionVariables.get('category_id'))));"
+                  "pm.test('category facet is only the category', () => b.facets.category.forEach(f => pm.expect(f.id).to.eql(pm.collectionVariables.get('category_id'))));"
                 ]
               }
             }
@@ -978,7 +977,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1072,7 +1071,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1166,7 +1165,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1190,7 +1189,6 @@
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
                   "});",
                   "pm.test('filters honoured', () => {",
-                  "  b.facets.material_type.forEach(f => pm.expect(f.id).to.eql('9CAT'));",
                   "  b.products.forEach(p => { const pr = (p.seller_details[0] || {}).price; if (pr != null) pm.expect(pr).to.be.at.most(500); });",
                   "});"
                 ]
@@ -1269,7 +1267,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1293,7 +1291,7 @@
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
                   "});",
                   "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
-                  "pm.test('category facet is only the category', () => b.facets.category_name.forEach(f => pm.expect(f.id).to.eql(pm.collectionVariables.get('category_id'))));"
+                  "pm.test('category facet is only the category', () => b.facets.category.forEach(f => pm.expect(f.id).to.eql(pm.collectionVariables.get('category_id'))));"
                 ]
               }
             }
@@ -1360,7 +1358,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1384,7 +1382,7 @@
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
                   "});",
                   "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
-                  "pm.test('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category_name.forEach(f => pm.expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));"
+                  "pm.test('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category.forEach(f => pm.expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));"
                 ]
               }
             }
@@ -1451,7 +1449,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1475,7 +1473,7 @@
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
                   "});",
                   "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
-                  "pm.test('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category_name.forEach(f => pm.expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));"
+                  "pm.test('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category.forEach(f => pm.expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));"
                 ]
               }
             }
@@ -1542,7 +1540,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1633,7 +1631,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1724,7 +1722,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1815,7 +1813,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1906,7 +1904,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -1997,7 +1995,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2088,7 +2086,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2179,7 +2177,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2270,7 +2268,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2361,7 +2359,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2452,7 +2450,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2542,7 +2540,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2633,7 +2631,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2724,7 +2722,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2815,7 +2813,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2906,7 +2904,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -2997,7 +2995,7 @@
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets).to.be.an('object');",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('no legacy fields', () => {",
                   "  pm.expect(b).to.not.have.property('total');",
@@ -3020,8 +3018,7 @@
                   "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
                   "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
                   "});",
-                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
-                  "pm.test('material_type facet within the list', () => b.facets.material_type.forEach(f => pm.expect(['9CAT', '9COM']).to.include(f.id)));"
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));"
                 ]
               }
             }
@@ -3264,7 +3261,7 @@
                   "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
@@ -3340,7 +3337,7 @@
                   "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
@@ -3421,7 +3418,7 @@
                   "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
@@ -3502,7 +3499,7 @@
                   "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
@@ -3512,8 +3509,7 @@
                   "pm.test('a-880000629771 is in the top 5 (searched with its own image)', () => {",
                   "  const skus = b.products.slice(0, 5).map(p => p.sku_id);",
                   "  pm.expect(skus).to.include('a-880000629771');",
-                  "});",
-                  "pm.test('material_type facet is only 9COM', () => b.facets.material_type.forEach(f => pm.expect(f.id).to.eql('9COM')));"
+                  "});"
                 ]
               }
             }
@@ -3589,7 +3585,7 @@
                   "pm.test('products is a non-empty array', () => pm.expect(b.products).to.be.an('array').that.is.not.empty);",
                   "pm.test('facets is a keyed object', () => {",
                   "  pm.expect(b.facets.product_type).to.be.an('array');",
-                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "  pm.expect(b.facets.seller).to.be.an('array');",
                   "});",
                   "pm.test('products expose spec fields', () => {",
                   "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(b.products[0]).to.have.property(k));",
