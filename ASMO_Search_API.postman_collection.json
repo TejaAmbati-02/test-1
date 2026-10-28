@@ -1250,6 +1250,1830 @@
       ]
     },
     {
+      "name": "Filter Coverage",
+      "item": [
+        {
+          "name": "TC-F01 Filter — category_name (facet id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('category facet is only the category', () => b.facets.category_name.forEach(f => pm.expect(f.id).to.eql(pm.collectionVariables.get('category_id'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"category_name\": [\"{{category_id}}\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F02 Filter — sub_category_name (facet id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category_name.forEach(f => pm.expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"sub_category_name\": [\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F03 Filter — sub_category_id (single value)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category_name.forEach(f => pm.expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"sub_category_id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F04 Filter — product_type (facet id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865', () => b.facets.product_type.forEach(f => pm.expect(f.id).to.eql(\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"product_type\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F05 Filter — product_type (name)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865', () => b.facets.product_type.forEach(f => pm.expect(f.id).to.eql(\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"product_type\": [\"Producing Equipment\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F06 Filter — product_type_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865', () => b.facets.product_type.forEach(f => pm.expect(f.id).to.eql(\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"product_type_id\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F07 Filter — sellername (seller id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('every product has the seller', () => b.products.forEach(p => pm.expect(p.seller_details.some(s => s.seller_id === '7f67afea-9853-43b5-bc5b-69904e4e2a6f')).to.be.true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"sellername\": [\"7f67afea-9853-43b5-bc5b-69904e4e2a6f\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F08 Filter — lead_time range (lte 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('a seller has lead_time <= 1', () => b.products.forEach(p => pm.expect(p.seller_details.some(s => s.lead_time != null && s.lead_time <= 1)).to.be.true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"lead_time\": {\"lte\": 1}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F09 Filter — moq range (lte 3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('a seller has moq <= 3', () => b.products.forEach(p => pm.expect(p.seller_details.some(s => typeof s.moq === 'number' && s.moq <= 3)).to.be.true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"moq\": {\"lte\": 3}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F10 Filter — price exact value (120)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('prices = 120', () => b.products.forEach(p => { const pr = (p.seller_details[0] || {}).price; if (pr != null) pm.expect(pr).to.eql(120); }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": 120}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F11 Filter — currency USD",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('a seller prices in USD', () => b.products.forEach(p => pm.expect(p.seller_details.some(s => s.currency === 'USD')).to.be.true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"currency\": [\"USD\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F12 Filter — supplier_count range (gte 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('2+ seller offers', () => b.products.forEach(p => pm.expect(p.seller_details.length).to.be.at.least(2)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"supplier_count\": {\"gte\": 2}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F13 Filter — sold_by (single value)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('a seller is GCC Control', () => b.products.forEach(p => pm.expect(p.seller_details.some(s => s.name === 'GCC Control')).to.be.true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"sold_by\": \"GCC Control\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F14 Filter — contract_indicator false",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"contract_indicator\": false}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F15 Filter — temporary_unavailable true",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('a seller is temporarily unavailable', () => b.products.forEach(p => pm.expect(p.seller_details.some(s => s.temporary_unavailable === true)).to.be.true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"temporary_unavailable\": true}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F16 Filter — sku_id (single value)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('exactly one product', () => pm.expect(b.total_results).to.eql(1));",
+                  "pm.test('product is the SKU', () => pm.expect(b.products[0].sku_id).to.eql('001000-001-chemicals'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"sku_id\": \"001000-001-chemicals\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F17 Filter — product_key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('includes the known SKU', () => pm.expect(b.products.map(p => p.sku_id)).to.include('001000-001-chemicals'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"product_key\": [\"a1ae8159-88a2-4ba5-87b3-279163e6312a\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F18 Filter — asmo_material_number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('asmo_material_number honoured', () => b.products.forEach(p => pm.expect(p.asmo_material_number).to.eql('001000-001-chemicals')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"asmo_material_number\": [\"001000-001-chemicals\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F19 Filter — aramco_material_number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('aramco_material_number honoured', () => b.products.forEach(p => pm.expect(p.aramco_material_number).to.eql('HW405')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"aramco_material_number\": [\"HW405\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-F20 Filter — material_type list (9CAT or 9COM)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('total_results is a number', () => pm.expect(b.total_results).to.be.a('number'));",
+                  "pm.test('products is an array', () => pm.expect(b.products).to.be.an('array'));",
+                  "pm.test('page = 1', () => pm.expect(b.page).to.eql(1));",
+                  "pm.test('page_size = 60', () => pm.expect(b.page_size).to.eql(60));",
+                  "pm.test('request_id is a UUID', () => pm.expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.test('facets is a keyed object', () => {",
+                  "  pm.expect(b.facets).to.be.an('object');",
+                  "  pm.expect(b.facets.product_type).to.be.an('array');",
+                  "  pm.expect(b.facets.material_type).to.be.an('array');",
+                  "});",
+                  "pm.test('no legacy fields', () => {",
+                  "  pm.expect(b).to.not.have.property('total');",
+                  "  pm.expect(b).to.not.have.property('results');",
+                  "  pm.expect(b).to.not.have.property('search_type');",
+                  "});",
+                  "pm.test('products expose spec fields', () => {",
+                  "  if (b.products.length === 0) return;",
+                  "  const p = b.products[0];",
+                  "  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => pm.expect(p).to.have.property(k));",
+                  "  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => pm.expect(p).to.not.have.property(k));",
+                  "  pm.expect(p).to.not.have.property('material_id');",
+                  "  pm.expect(p).to.not.have.property('lead_time');",
+                  "  pm.expect(p.seller_details).to.be.an('array');",
+                  "});",
+                  "pm.test('seller_details expose spec fields', () => {",
+                  "  const p = b.products[0];",
+                  "  if (!p || !p.seller_details.length) return;",
+                  "  const s = p.seller_details[0];",
+                  "  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => pm.expect(s).to.have.property(k));",
+                  "  if (s.lead_time != null) pm.expect(s.lead_time).to.be.a('number');",
+                  "});",
+                  "pm.test('has results', () => pm.expect(b.total_results).to.be.above(0));",
+                  "pm.test('material_type facet within the list', () => b.facets.material_type.forEach(f => pm.expect(['9CAT', '9COM']).to.include(f.id)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9CAT\", \"9COM\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "60",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Pagination",
       "item": [
         {

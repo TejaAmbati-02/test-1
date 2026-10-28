@@ -15,6 +15,7 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import settings as _cfg
+from utils.keycloak_auth import require_auth
 from utils.logger import logger
 from models.response import (
     ErrorResponse,
@@ -69,6 +70,7 @@ _starlette_formparsers.SpooledTemporaryFile = _InMemorySpool
 
 _ERROR_RESPONSES = {
     400: {"model": ErrorResponse, "description": "Bad request — unsupported channel/language, invalid filter, unknown request_id, or empty request"},
+    401: {"model": ErrorResponse, "description": "Unauthorized — missing, malformed, invalid or expired Keycloak bearer token"},
     404: {"model": ErrorResponse, "description": "Not found — the target index does not exist"},
     413: {"model": ErrorResponse, "description": "Payload too large — uploaded image exceeds the size limit"},
     500: {"model": ErrorResponse, "description": "Internal server error"},
@@ -182,6 +184,7 @@ def _build_os_filters(filters: dict[str, Any]) -> list[dict]:
 
 
 @index_router.get("", response_model=IndicesResponse, responses=_ERROR_RESPONSES, summary="List all indices")
+@require_auth
 async def list_indices(_request: Request) -> IndicesResponse:
     logger.info("GET /indices")
     try:
@@ -279,6 +282,7 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, tuple[bytes, 
     summary="Search products (text / image / text+image / filter-browse)",
     openapi_extra={"requestBody": _SEARCH_REQUEST_BODY},
 )
+@require_auth
 async def v1_search(request: Request) -> SearchApiResponse:
     # This HTTP request's id (set by the app middleware); a new search context is stored under it.
     request_id: str = getattr(request.state, "request_id", "") or str(uuid.uuid4())
@@ -462,6 +466,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
     responses=_ERROR_RESPONSES,
     summary="Autocomplete suggestions",
 )
+@require_auth
 async def v1_suggestions(
     _request: Request,
     q: Annotated[str, Query(min_length=1, description="Partial text entered by the user")],

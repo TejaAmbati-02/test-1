@@ -1,6 +1,6 @@
 # ASMO AI Search API — Test Cases (curl)
 
-Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 49 cases that succeed; **Part B** lists the 21 cases that must be rejected, with the exact error returned.
+Every request in the **Bruno** (`ASMO_Search_API.bruno_collection.json`) and **Postman** (`ASMO_Search_API.postman_collection.json`) collections, as curl commands, with the same **TC IDs** and order. **Part A** lists the 69 cases that succeed; **Part B** lists the 21 cases that must be rejected, with the exact error returned.
 
 ## How to run
 
@@ -411,9 +411,353 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page_size=60"
 ```
 
+### Filter Coverage
+
+One case per filter key not covered above, plus the single-value, list and range forms. Values are real index values (sample SKU `001000-001-chemicals`, seller GCC Control).
+
+#### A15. TC-F01 Filter — category_name (facet id)
+
+Category facet filter: send back the category facet's id.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; category facet is only the category.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"category_name\": [\"${category_id}\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A16. TC-F02 Filter — sub_category_name (facet id)
+
+Sub-category facet filter: send back the sub_category_name facet's id.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sub_category_name\": [\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A17. TC-F03 Filter — sub_category_id (single value)
+
+Same field as sub_category_name; a single value instead of a list.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sub_category_id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A18. TC-F04 Filter — product_type (facet id)
+
+Product-type facet filter by id.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_type\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A19. TC-F05 Filter — product_type (name)
+
+product_type also accepts the product-type name; same results as by id.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_type\": [\"Producing Equipment\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A20. TC-F06 Filter — product_type_id
+
+Product-type id field directly.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_type_id\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A21. TC-F07 Filter — sellername (seller id)
+
+Seller facet filter (nested): a product matches if any of its sellers has this id.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; every product has the seller.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sellername\": [\"7f67afea-9853-43b5-bc5b-69904e4e2a6f\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A22. TC-F08 Filter — lead_time range (lte 1)
+
+Nested numeric range: a product matches if any seller's lead_time is within the range.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; a seller has lead_time <= 1.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"lead_time\": {\"lte\": 1}}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A23. TC-F09 Filter — moq range (lte 3)
+
+Numeric range on the primary seller's moq.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; a seller has moq <= 3.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"moq\": {\"lte\": 3}}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A24. TC-F10 Filter — price exact value (120)
+
+A numeric filter given as a single number matches that exact value.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; prices = 120.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"price\": 120}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A25. TC-F11 Filter — currency USD
+
+Currency of the primary seller (ISO 4217).
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; a seller prices in USD.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"currency\": [\"USD\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A26. TC-F12 Filter — supplier_count range (gte 2)
+
+Products offered by two or more suppliers.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; 2+ seller offers.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"supplier_count\": {\"gte\": 2}}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A27. TC-F13 Filter — sold_by (single value)
+
+Exact sold_by name.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; a seller is GCC Control.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sold_by\": \"GCC Control\"}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A28. TC-F14 Filter — contract_indicator false
+
+Boolean filter. contract_indicator is not in the response, so only a non-empty result is checked.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"contract_indicator\": false}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A29. TC-F15 Filter — temporary_unavailable true
+
+Boolean filter on the primary seller's temporary_unavailable.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; a seller is temporarily unavailable.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"temporary_unavailable\": true}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A30. TC-F16 Filter — sku_id (single value)
+
+Exact SKU: exactly one product.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; exactly one product; product is the SKU.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sku_id\": \"001000-001-chemicals\"}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A31. TC-F17 Filter — product_key
+
+All SKUs of one product; product_key is not in the response, so the known SKU must be among them.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; includes the known SKU.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_key\": [\"a1ae8159-88a2-4ba5-87b3-279163e6312a\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A32. TC-F18 Filter — asmo_material_number
+
+Exact ASMO material number.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; asmo_material_number honoured.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"asmo_material_number\": [\"001000-001-chemicals\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A33. TC-F19 Filter — aramco_material_number
+
+Exact Aramco material number.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; aramco_material_number honoured.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"aramco_material_number\": [\"HW405\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
+#### A34. TC-F20 Filter — material_type list (9CAT or 9COM)
+
+A list matches any of its values.
+
+`POST /v1/search` → expected **200**
+
+Checks: total_results is a number; products is an array; page = 1; page_size = 60; request_id is a UUID; facets is a keyed object; no legacy fields; products expose spec fields; seller_details expose spec fields; has results; material_type facet within the list.
+
+```bash
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"material_type\": [\"9CAT\", \"9COM\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+```
+
 ### Pagination
 
-#### A15. TC-024 Pagination — page 1
+#### A35. TC-024 Pagination — page 1
 
 `POST /v1/search` → expected **200**
 
@@ -428,7 +772,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "page_size=60"
 ```
 
-#### A16. TC-025 Pagination — page 2 differs from page 1
+#### A36. TC-025 Pagination — page 2 differs from page 1
 
 `POST /v1/search` → expected **200**
 
@@ -445,7 +789,7 @@ curl -s -X POST "${base_url}/v1/search" \
 
 ### Image Search
 
-#### A17. TC-041 Image-only search — JPEG (Charger, Battery)
+#### A37. TC-041 Image-only search — JPEG (Charger, Battery)
 
 Image search: binary JPEG upload, no search_query. Uses SKU ao-100018_1's own product image.
 
@@ -462,7 +806,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 ```
 
-#### A18. TC-042 Image-only search — PNG (HPE X242 40G QSFP)
+#### A38. TC-042 Image-only search — PNG (HPE X242 40G QSFP)
 
 Image search: binary PNG upload, no search_query. Uses SKU a-880000629771's own product image.
 
@@ -479,7 +823,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/a-880000629771.png;type=image/png"
 ```
 
-#### A19. TC-044 Text + image search (Air Handling Unit)
+#### A39. TC-044 Text + image search (Air Handling Unit)
 
 Multimodal search: search_query and binary image together.
 
@@ -497,7 +841,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/172000-001-hvac.png;type=image/png"
 ```
 
-#### A20. TC-045 Image + filters (material_type 9COM)
+#### A40. TC-045 Image + filters (material_type 9COM)
 
 Image search combined with filters; every result must satisfy the filters.
 
@@ -515,7 +859,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/a-880000629771.png;type=image/png"
 ```
 
-#### A21. TC-046 Image search sorted by price asc
+#### A41. TC-046 Image search sorted by price asc
 
 Image search with sorting.
 
@@ -536,7 +880,7 @@ curl -s -X POST "${base_url}/v1/search" \
 
 ### Image Search - Known Answers
 
-#### A22. TC-IMG-01 Air Handling Unit 5 TR - 172000-001-hvac
+#### A42. TC-IMG-01 Air Handling Unit 5 TR - 172000-001-hvac
 
 Known-answer image search: 172000-001-hvac__img0.png is a byte-identical copy of the product image ingested for 172000-001-hvac, so it must rank first.
 
@@ -553,7 +897,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/172000-001-hvac__img0.png;type=image/png"
 ```
 
-#### A23. TC-IMG-02 Cooling Tower 3 TR - 172000-003-hvac
+#### A43. TC-IMG-02 Cooling Tower 3 TR - 172000-003-hvac
 
 Known-answer image search: 172000-003-hvac__img0.png is a byte-identical copy of the product image ingested for 172000-003-hvac, so it must rank first.
 
@@ -570,7 +914,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/172000-003-hvac__img0.png;type=image/png"
 ```
 
-#### A24. TC-IMG-03 Cooling Tower 3 TR - 174000-001-hvac
+#### A44. TC-IMG-03 Cooling Tower 3 TR - 174000-001-hvac
 
 Known-answer image search: 174000-001-hvac__img0.jpg is a byte-identical copy of the product image ingested for 174000-001-hvac, so it must rank first.
 
@@ -587,7 +931,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/174000-001-hvac__img0.jpg;type=image/jpeg"
 ```
 
-#### A25. TC-IMG-04 HPE X242 40G QSFP - a-880000629771
+#### A45. TC-IMG-04 HPE X242 40G QSFP - a-880000629771
 
 Known-answer image search: a-880000629771__img0.png is a byte-identical copy of the product image ingested for a-880000629771, so it must rank first.
 
@@ -604,7 +948,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/a-880000629771__img0.png;type=image/png"
 ```
 
-#### A26. TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch - a-880000629773
+#### A46. TC-IMG-05 5412R 92GT PoE+-4SFP+ v3 zl2 Swch - a-880000629773
 
 Known-answer image search: a-880000629773__img1.png is a byte-identical copy of the product image ingested for a-880000629773, so it must rank first.
 
@@ -621,7 +965,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/a-880000629773__img1.png;type=image/png"
 ```
 
-#### A27. TC-IMG-06 Stapler Standard Duty Black - ao-100004_1
+#### A47. TC-IMG-06 Stapler Standard Duty Black - ao-100004_1
 
 Known-answer image search: ao-100004_1__img1.png is a byte-identical copy of the product image ingested for ao-100004_1, so it must rank first.
 
@@ -638,7 +982,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/ao-100004_1__img1.png;type=image/png"
 ```
 
-#### A28. TC-IMG-07 Scissors Stainless Steel 8 Inch - ao-100014_1
+#### A48. TC-IMG-07 Scissors Stainless Steel 8 Inch - ao-100014_1
 
 Known-answer image search: ao-100014_1__img0.png is a byte-identical copy of the product image ingested for ao-100014_1, so it must rank first.
 
@@ -655,7 +999,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/ao-100014_1__img0.png;type=image/png"
 ```
 
-#### A29. TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA - ao-100018_1
+#### A49. TC-IMG-08 Charger Battery (Uk PIN) 2100MAH AA - ao-100018_1
 
 Known-answer image search: ao-100018_1__img0.jpg is a byte-identical copy of the product image ingested for ao-100018_1, so it must rank first.
 
@@ -672,7 +1016,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/ao-100018_1__img0.jpg;type=image/jpeg"
 ```
 
-#### A30. TC-IMG-09 Calculator Desktop 12 Digit - ao-100021_1
+#### A50. TC-IMG-09 Calculator Desktop 12 Digit - ao-100021_1
 
 Known-answer image search: ao-100021_1__img0.png is a byte-identical copy of the product image ingested for ao-100021_1, so it must rank first.
 
@@ -689,7 +1033,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/ao-100021_1__img0.png;type=image/png"
 ```
 
-#### A31. TC-IMG-10 7X50 A211 ACULON BINO NIKON - ao-100027_1
+#### A51. TC-IMG-10 7X50 A211 ACULON BINO NIKON - ao-100027_1
 
 Known-answer image search: ao-100027_1__img0.png is a byte-identical copy of the product image ingested for ao-100027_1, so it must rank first.
 
@@ -706,7 +1050,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/ao-100027_1__img0.png;type=image/png"
 ```
 
-#### A32. TC-IMG-11 Book 20 Pages Sz Letter 80GSM - ao-100031_1
+#### A52. TC-IMG-11 Book 20 Pages Sz Letter 80GSM - ao-100031_1
 
 Known-answer image search: ao-100031_1__img2.png is a byte-identical copy of the product image ingested for ao-100031_1, so it must rank first.
 
@@ -723,7 +1067,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/ao-100031_1__img2.png;type=image/png"
 ```
 
-#### A33. TC-IMG-12 AeroDry Smart Dehumidifier 20L - qa-product-01
+#### A53. TC-IMG-12 AeroDry Smart Dehumidifier 20L - qa-product-01
 
 Known-answer image search: qa-product-01__img3.png is a byte-identical copy of the product image ingested for qa-product-01, so it must rank first.
 
@@ -740,7 +1084,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/qa-product-01__img3.png;type=image/png"
 ```
 
-#### A34. TC-IMG-13 Control Valve Positioner HART - 105 SKUs
+#### A54. TC-IMG-13 Control Valve Positioner HART - 105 SKUs
 
 Known-answer image search: shared__105_skus.jpg is a byte-identical copy of the product image ingested for one of the 105 SKUs sharing this image, so it must rank first.
 
@@ -757,7 +1101,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images_known/shared__105_skus.jpg;type=image/jpeg"
 ```
 
-#### A35. TC-IMG-14 Text + image - extra unmatched word still finds 172000-001-hvac
+#### A55. TC-IMG-14 Text + image - extra unmatched word still finds 172000-001-hvac
 
 Text + image fusion: 'zzqx' appears in no product, which used to filter every result out (all words had to match). With weighted RRF the text only helps ranking, so the image match must still rank in the top 3. Fails with 0 products if the cluster rejected weighted RRF (API log: 'weighted RRF not available').
 
@@ -777,7 +1121,7 @@ curl -s -X POST "${base_url}/v1/search" \
 
 ### Suggestions
 
-#### A36. TC-026 Suggestions — 'pres' prefix
+#### A56. TC-026 Suggestions — 'pres' prefix
 
 `GET /v1/search/suggestions` → expected **200**
 
@@ -787,7 +1131,7 @@ Checks: response keys are exactly the spec keys; query echoed; query_suggestions
 curl -s "${base_url}/v1/search/suggestions?q=pres&channel=web&language=en&query_limit=4&product_limit=5"
 ```
 
-#### A37. TC-027 Suggestions — 'pump' prefix (limit 3)
+#### A57. TC-027 Suggestions — 'pump' prefix (limit 3)
 
 `GET /v1/search/suggestions` → expected **200**
 
@@ -797,7 +1141,7 @@ Checks: product_suggestions count <= 3.
 curl -s "${base_url}/v1/search/suggestions?q=pump&channel=web&language=en&query_limit=4&product_limit=3"
 ```
 
-#### A38. TC-029 Suggestions — no match
+#### A58. TC-029 Suggestions — no match
 
 `GET /v1/search/suggestions` → expected **200**
 
@@ -809,7 +1153,7 @@ curl -s "${base_url}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&qu
 
 ### Diagnostics (operations only — not needed by the frontend)
 
-#### A39. OpenSearch latency
+#### A59. OpenSearch latency
 
 `GET /health/latency/opensearch` → expected **200**
 
@@ -817,7 +1161,7 @@ curl -s "${base_url}/v1/search/suggestions?q=zzzzzzzz&channel=web&language=en&qu
 curl -s "${base_url}/health/latency/opensearch?samples=5"
 ```
 
-#### A40. OCI latency
+#### A60. OCI latency
 
 `GET /health/latency/oci` → expected **200**
 
@@ -827,7 +1171,7 @@ curl -s "${base_url}/health/latency/oci?samples=5"
 
 ### Redis (Embedding Cache)
 
-#### A41. Redis latency
+#### A61. Redis latency
 
 Round-trip PING to Redis. With redis_enabled=false the API reports ok=false and that Redis is disabled.
 
@@ -839,7 +1183,7 @@ Checks: Redis reachable; reported as disabled.
 curl -s "${base_url}/health/latency/redis?samples=5"
 ```
 
-#### A42. TC-049 Health reports Redis status
+#### A62. TC-049 Health reports Redis status
 
 redis_connected is true when Redis is enabled and reachable, null when disabled.
 
@@ -851,7 +1195,7 @@ Checks: redis_connected = true; redis_connected = null (disabled).
 curl -s "${base_url}/health"
 ```
 
-#### A43. TC-050 Text search returns request_id
+#### A63. TC-050 Text search returns request_id
 
 First text search: its query embedding is stored in Redis under the response's request_id (saved as text_search_request_id).
 
@@ -868,7 +1212,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "search_query=gate valve"
 ```
 
-#### A44. TC-051 Refine by request_id - sort by price, same request_id
+#### A64. TC-051 Refine by request_id - sort by price, same request_id
 
 request_id plus sort_by / sort_order only: the same search (query reused, not re-sent), re-sorted. The response keeps the same request_id. Redis disabled → 503.
 
@@ -887,7 +1231,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "sort_order=asc"
 ```
 
-#### A45. TC-052 Refine by request_id only - replays the query
+#### A65. TC-052 Refine by request_id only - replays the query
 
 request_id alone reruns the same search from the stored query and embedding. Redis disabled → 503.
 
@@ -904,7 +1248,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=${text_search_request_id}"
 ```
 
-#### A46. TC-053 Image search returns request_id
+#### A66. TC-053 Image search returns request_id
 
 The image embedding is stored in Redis under the response's request_id (saved as image_search_request_id); the image itself is not stored.
 
@@ -921,7 +1265,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "image=@test_images/ao-100018_1.jpg;type=image/jpeg"
 ```
 
-#### A47. TC-054 Refine image search by request_id - page 2
+#### A67. TC-054 Refine image search by request_id - page 2
 
 request_id plus page: the next page of the same image search, without re-uploading the image. Redis disabled → 503.
 
@@ -938,7 +1282,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=${image_search_request_id}"
 ```
 
-#### A48. TC-055 Refine by request_id only - replays the image
+#### A68. TC-055 Refine by request_id only - replays the image
 
 request_id alone reruns the image search from the stored embedding; no upload. Redis disabled → 503.
 
@@ -955,7 +1299,7 @@ curl -s -X POST "${base_url}/v1/search" \
   -F "request_id=${image_search_request_id}"
 ```
 
-#### A49. TC-056 request_id + new search_query - text + image, keeps the image
+#### A69. TC-056 request_id + new search_query - text + image, keeps the image
 
 The image search's request_id plus a search_query: the stored image is reused (not re-uploaded) with the new query. That is a new search context, so the response has a new request_id. Redis disabled → 503.
 

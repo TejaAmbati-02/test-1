@@ -168,6 +168,186 @@ echo
 
 # Pagination
 
+echo "=== TC-F01 Filter — category_name (facet id) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"category_name\": [\"${category_id}\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F02 Filter — sub_category_name (facet id) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sub_category_name\": [\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F03 Filter — sub_category_id (single value) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sub_category_id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F04 Filter — product_type (facet id) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_type\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F05 Filter — product_type (name) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_type\": [\"Producing Equipment\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F06 Filter — product_type_id ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_type_id\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F07 Filter — sellername (seller id) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sellername\": [\"7f67afea-9853-43b5-bc5b-69904e4e2a6f\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F08 Filter — lead_time range (lte 1) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"lead_time\": {\"lte\": 1}}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F09 Filter — moq range (lte 3) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"moq\": {\"lte\": 3}}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F10 Filter — price exact value (120) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"price\": 120}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F11 Filter — currency USD ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"currency\": [\"USD\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F12 Filter — supplier_count range (gte 2) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"supplier_count\": {\"gte\": 2}}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F13 Filter — sold_by (single value) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sold_by\": \"GCC Control\"}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F14 Filter — contract_indicator false ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"contract_indicator\": false}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F15 Filter — temporary_unavailable true ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"temporary_unavailable\": true}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F16 Filter — sku_id (single value) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"sku_id\": \"001000-001-chemicals\"}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F17 Filter — product_key ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"product_key\": [\"a1ae8159-88a2-4ba5-87b3-279163e6312a\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F18 Filter — asmo_material_number ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"asmo_material_number\": [\"001000-001-chemicals\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F19 Filter — aramco_material_number ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"aramco_material_number\": [\"HW405\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
+echo "=== TC-F20 Filter — material_type list (9CAT or 9COM) ==="
+curl -s -X POST "${base_url}/v1/search" \
+  -F "channel=web" \
+  -F "language=en" \
+  -F "filters={\"material_type\": [\"9CAT\", \"9COM\"]}" \
+  -F "page=1" \
+  -F "page_size=60"
+echo
+
 echo "=== TC-024 Pagination — page 1 ==="
 curl -s -X POST "${base_url}/v1/search" \
   -F "channel=web" \

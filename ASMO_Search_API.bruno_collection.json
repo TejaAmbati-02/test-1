@@ -972,8 +972,1336 @@
     },
     {
       "type": "folder",
-      "name": "Pagination",
+      "name": "Filter Coverage",
       "seq": 6,
+      "root": {},
+      "items": [
+        {
+          "type": "http-request",
+          "name": "TC-F01 Filter - category_name (facet id)",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"category_name\": [\"{{category_id}}\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('category facet is only the category', () => b.facets.category_name.forEach(f => expect(f.id).to.eql(bru.getVar('category_id'))));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F02 Filter - sub_category_name (facet id)",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"sub_category_name\": [\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category_name.forEach(f => expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F03 Filter - sub_category_id (single value)",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"sub_category_id\": \"13b62da1-d0f8-4208-8ff4-2f18df36fac4\"}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('sub_category_name facet is only 13b62da1-d0f8-4208-8ff4-2f18df36fac4', () => b.facets.sub_category_name.forEach(f => expect(f.id).to.eql(\"13b62da1-d0f8-4208-8ff4-2f18df36fac4\")));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F04 Filter - product_type (facet id)",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"product_type\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865', () => b.facets.product_type.forEach(f => expect(f.id).to.eql(\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\")));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F05 Filter - product_type (name)",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"product_type\": [\"Producing Equipment\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865', () => b.facets.product_type.forEach(f => expect(f.id).to.eql(\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\")));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F06 Filter - product_type_id",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"product_type_id\": [\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('product_type facet is only 0aca63c8-d90d-4dc0-b3a8-17b318cb2865', () => b.facets.product_type.forEach(f => expect(f.id).to.eql(\"0aca63c8-d90d-4dc0-b3a8-17b318cb2865\")));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F07 Filter - sellername (seller id)",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"sellername\": [\"7f67afea-9853-43b5-bc5b-69904e4e2a6f\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('every product has the seller', () => b.products.forEach(p => expect(p.seller_details.some(s => s.seller_id === '7f67afea-9853-43b5-bc5b-69904e4e2a6f')).to.be.true));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F08 Filter - lead_time range (lte 1)",
+          "seq": 8,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"lead_time\": {\"lte\": 1}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('a seller has lead_time <= 1', () => b.products.forEach(p => expect(p.seller_details.some(s => s.lead_time != null && s.lead_time <= 1)).to.be.true));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F09 Filter - moq range (lte 3)",
+          "seq": 9,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"moq\": {\"lte\": 3}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('a seller has moq <= 3', () => b.products.forEach(p => expect(p.seller_details.some(s => typeof s.moq === 'number' && s.moq <= 3)).to.be.true));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F10 Filter - price exact value (120)",
+          "seq": 10,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": 120}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('prices = 120', () => b.products.forEach(p => { const pr = (p.seller_details[0] || {}).price; if (pr != null) expect(pr).to.eql(120); }));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F11 Filter - currency USD",
+          "seq": 11,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"currency\": [\"USD\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('a seller prices in USD', () => b.products.forEach(p => expect(p.seller_details.some(s => s.currency === 'USD')).to.be.true));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F12 Filter - supplier_count range (gte 2)",
+          "seq": 12,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"supplier_count\": {\"gte\": 2}}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('2+ seller offers', () => b.products.forEach(p => expect(p.seller_details.length).to.be.at.least(2)));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F13 Filter - sold_by (single value)",
+          "seq": 13,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"sold_by\": \"GCC Control\"}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('a seller is GCC Control', () => b.products.forEach(p => expect(p.seller_details.some(s => s.name === 'GCC Control')).to.be.true));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F14 Filter - contract_indicator false",
+          "seq": 14,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"contract_indicator\": false}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F15 Filter - temporary_unavailable true",
+          "seq": 15,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"temporary_unavailable\": true}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('a seller is temporarily unavailable', () => b.products.forEach(p => expect(p.seller_details.some(s => s.temporary_unavailable === true)).to.be.true));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F16 Filter - sku_id (single value)",
+          "seq": 16,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"sku_id\": \"001000-001-chemicals\"}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('exactly one product', () => expect(b.total_results).to.eql(1));\ntest('product is the SKU', () => expect(b.products[0].sku_id).to.eql('001000-001-chemicals'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F17 Filter - product_key",
+          "seq": 17,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"product_key\": [\"a1ae8159-88a2-4ba5-87b3-279163e6312a\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('includes the known SKU', () => expect(b.products.map(p => p.sku_id)).to.include('001000-001-chemicals'));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F18 Filter - asmo_material_number",
+          "seq": 18,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"asmo_material_number\": [\"001000-001-chemicals\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('asmo_material_number honoured', () => b.products.forEach(p => expect(p.asmo_material_number).to.eql('001000-001-chemicals')));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F19 Filter - aramco_material_number",
+          "seq": 19,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"aramco_material_number\": [\"HW405\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('aramco_material_number honoured', () => b.products.forEach(p => expect(p.aramco_material_number).to.eql('HW405')));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        },
+        {
+          "type": "http-request",
+          "name": "TC-F20 Filter - material_type list (9CAT or 9COM)",
+          "seq": 20,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9CAT\", \"9COM\"]}",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page",
+                  "value": "1",
+                  "enabled": true
+                },
+                {
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "60",
+                  "enabled": true
+                }
+              ],
+              "file": []
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Status 200', () => expect(res.getStatus()).to.equal(200));\nconst b = res.getBody();\ntest('total_results is a number', () => expect(b.total_results).to.be.a('number'));\ntest('products is an array', () => expect(b.products).to.be.an('array'));\ntest('page = 1', () => expect(b.page).to.eql(1));\ntest('page_size = 60', () => expect(b.page_size).to.eql(60));\ntest('request_id is a UUID', () => expect(b.request_id).to.match(/^[0-9a-f-]{36}$/));\ntest('facets is a keyed object', () => {\n  expect(b.facets).to.be.an('object');\n  expect(b.facets.product_type).to.be.an('array');\n  expect(b.facets.material_type).to.be.an('array');\n});\ntest('no legacy fields', () => {\n  expect(b).to.not.have.property('total');\n  expect(b).to.not.have.property('results');\n  expect(b).to.not.have.property('search_type');\n});\ntest('products expose spec fields', () => {\n  if (b.products.length === 0) return;\n  const p = b.products[0];\n  ['sku_id','sku_name','primary_image_url','asmo_material_number','aramco_material_number','seller_details'].forEach(k => expect(p).to.have.property(k));\n  ['product_key','product_type','material_type','moq','price','currency','sold_by','supplier_count','contract_indicator','category_ids'].forEach(k => expect(p).to.not.have.property(k));\n  expect(p).to.not.have.property('material_id');\n  expect(p).to.not.have.property('lead_time');\n  expect(p.seller_details).to.be.an('array');\n});\ntest('seller_details expose spec fields', () => {\n  const p = b.products[0];\n  if (!p || !p.seller_details.length) return;\n  const s = p.seller_details[0];\n  ['seller_id','name','lead_time','unit_type','price','moq','currency'].forEach(k => expect(s).to.have.property(k));\n  if (s.lead_time != null) expect(s.lead_time).to.be.a('number');\n});\ntest('has results', () => expect(b.total_results).to.be.above(0));\ntest('material_type facet within the list', () => b.facets.material_type.forEach(f => expect(['9CAT', '9COM']).to.include(f.id)));",
+            "docs": "",
+            "auth": {
+              "mode": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Pagination",
+      "seq": 7,
       "root": {},
       "items": [
         {
@@ -1113,7 +2441,7 @@
     {
       "type": "folder",
       "name": "Image Search",
-      "seq": 7,
+      "seq": 8,
       "root": {
         "docs": "Binary image uploads. Files live in test_images/ next to this collection (paths are relative to the collection folder)."
       },
@@ -1561,7 +2889,7 @@
     {
       "type": "folder",
       "name": "Image Search - Known Answers",
-      "seq": 8,
+      "seq": 9,
       "root": {
         "docs": "One request per image in test_images_known/ (byte-identical copies of ingested product images, see expected.json). Each asserts the expected SKU is the top hit. Requires the API to search asmo-image-search-api-index with knn_ef_search=500."
       },
@@ -2543,7 +3871,7 @@
     {
       "type": "folder",
       "name": "Suggestions",
-      "seq": 9,
+      "seq": 10,
       "root": {},
       "items": [
         {
@@ -2749,7 +4077,7 @@
     {
       "type": "folder",
       "name": "Error Validation",
-      "seq": 10,
+      "seq": 11,
       "root": {},
       "items": [
         {
@@ -3846,7 +5174,7 @@
     {
       "type": "folder",
       "name": "Diagnostics",
-      "seq": 11,
+      "seq": 12,
       "root": {},
       "items": [
         {
@@ -3938,7 +5266,7 @@
     {
       "type": "folder",
       "name": "Redis (Embedding Cache)",
-      "seq": 12,
+      "seq": 13,
       "root": {
         "docs": "Set collection variable redis_enabled to match REDIS_ENABLED in the API's .env (true / false). Run the folder in order: TC-050 and TC-053 save the ids that later requests reuse."
       },

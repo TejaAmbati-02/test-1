@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import uuid
  
 from config import settings
+from utils.keycloak_auth import keycloak_auth
 from utils.logger import logger, setup_logging, set_log_context, clear_log_context
 from models.response import HealthResponse, LatencyResponse
 from routers.search import index_router, v1_router
@@ -138,6 +139,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
                 pass
     await os_client.close()
     await redis_client.close()
+    await keycloak_auth.close()
     logger.info("Shutdown complete")
  
  

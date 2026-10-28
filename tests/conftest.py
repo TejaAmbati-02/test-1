@@ -51,6 +51,12 @@ _TEST_ENV = {
     "API_TITLE": "ASMO AI Search API",
     "API_VERSION": "2.1.0",
     "OCI_EMBED_HEARTBEAT_INTERVAL": "60",
+    # Endpoint tests run without Keycloak; tests/test_keycloak_auth.py covers auth.
+    "KEYCLOAK_AUTH_ENABLED": "false",
+    "KEYCLOAK_SERVER_URL": "https://keycloak.test",
+    "KEYCLOAK_REALM": "asmo",
+    "KEYCLOAK_CLIENT_ID": "ai-app",
+    "KEYCLOAK_CLIENT_SECRET": "test-secret",
 }
 os.environ.update(_TEST_ENV)
 
