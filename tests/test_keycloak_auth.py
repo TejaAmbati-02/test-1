@@ -124,3 +124,26 @@ def test_sync_endpoint_is_rejected() -> None:
     auth, _ = _make_auth(_active)
     with pytest.raises(TypeError):
         auth.require_auth(lambda: None)  # type: ignore[arg-type]
+
+
+def test_from_env_reads_keycloak_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KEYCLOAK_AUTH_ENABLED", "true")
+    monkeypatch.setenv("KEYCLOAK_SERVER_URL", "https://kc.example/")
+    monkeypatch.setenv("KEYCLOAK_CACHE_TTL", "0")
+    auth = KeycloakAuth.from_env()
+    assert auth.introspect_url == "https://kc.example/realms/asmo/protocol/openid-connect/token/introspect"
+    assert (auth.client_id, auth.client_secret, auth.cache_ttl, auth.enabled) == ("ai-app", "test-secret", 0, True)
+
+
+@pytest.mark.parametrize("missing", ["KEYCLOAK_SERVER_URL", "KEYCLOAK_REALM", "KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT_SECRET"])
+def test_from_env_requires_settings_when_enabled(monkeypatch: pytest.MonkeyPatch, missing: str) -> None:
+    monkeypatch.setenv("KEYCLOAK_AUTH_ENABLED", "true")
+    monkeypatch.setenv(missing, "")
+    with pytest.raises(RuntimeError, match=missing):
+        KeycloakAuth.from_env()
+
+
+def test_from_env_allows_missing_settings_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KEYCLOAK_AUTH_ENABLED", "false")
+    monkeypatch.setenv("KEYCLOAK_CLIENT_SECRET", "")
+    assert KeycloakAuth.from_env().enabled is False
