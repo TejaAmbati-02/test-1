@@ -9,3 +9,4 @@ langchain-core>=0.3.0
 python-dotenv>=1.0.0
 redis>=5.1.0
 httpx>=0.27
+truststore

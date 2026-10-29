@@ -35,11 +35,13 @@ import hashlib
 import inspect
 import os
 import time
+import ssl
 import typing
 from pathlib import Path
 from typing import Any, Awaitable, Callable, TypeVar
 
 import httpx
+import truststore
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request
 
@@ -111,7 +113,11 @@ class KeycloakAuth:
         if self._client is None:
             async with self._client_lock:
                 if self._client is None:
-                    self._client = httpx.AsyncClient(timeout=self.timeout)
+                    # Verify TLS against the OS trust store, not certifi's bundle, so
+                    # Keycloak's certificate validates behind the corporate proxy CA.
+                    self._client = httpx.AsyncClient(
+                        timeout=self.timeout, verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT),
+                    )
         return self._client
 
     async def close(self) -> None:
