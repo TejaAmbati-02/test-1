@@ -1,0 +1,990 @@
+[
+  {
+    "product_key": "05c6094d-0898-4e4f-b781-f71e22b4bfd3",
+    "product_name": "Motor Control Center 3.3kV",
+    "sku_name": "Motor Control Center 3.3kV",
+    "product_description": "Motor Control Center 3.3kV. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Electrical",
+    "category_ids": [
+      "ab9d1fd1-2acb-4a4a-b135-990630415d3d"
+    ],
+    "category_slug": "buyer-default-electrical",
+    "category_description": "Electrical",
+    "category_key": "buyer-default-electrical",
+    "sub_category_name": "Electrical",
+    "sub_category_id": "81f293a6-d13f-4b1f-81c1-2a8a9976fee6",
+    "sub_category_slug": "buyer-default-electrical-electrical",
+    "sub_category_description": "Electrical",
+    "sub_category_key": "buyer-default-electrical-electrical",
+    "product_type": "Fuses, HV Eqpt",
+    "product_type_id": "83849327-2fac-42ce-bc33-3907e02c6939",
+    "product_type_slug": "buyer-default-electrical-electrical-038500",
+    "product_type_description": "Fuses, HV Eqpt",
+    "product_type_key": "buyer-default-electrical-electrical-038500",
+    "purchase_agreements": [
+      {
+        "contract_id": "demo-cont-001",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "valid_from": "2026-10-01T01:30:00.000Z",
+        "valid_until": "2029-10-31T16:30:00.000Z"
+      }
+    ],
+    "sku_key": "038500-001-electrical",
+    "sku_id": "038500-001-electrical",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1620283085439-39620a1e21c4?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1620283085439-39620a1e21c4?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "038500-001-electrical",
+    "aramco_material_number": "GE462",
+    "seller_details": [
+      {
+        "seller_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "seller_name": "GCC Control",
+        "supplier_id": "DEMO-SUPPLR-001",
+        "contract_id": "CONTRACT-101",
+        "price": 75.0,
+        "currency": "SAR",
+        "lead_time": 3,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      },
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "CONTRACT-703",
+        "price": 80.0,
+        "currency": "SAR",
+        "lead_time": 2,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": true,
+        "under_agreement": false
+      }
+    ],
+    "supplier_count": 2,
+    "moq": null,
+    "price": 75.0,
+    "currency": "SAR",
+    "sold_by": "GCC Control",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:05c6094d-0898-4e4f-b781-f71e22b4bfd3 | product_name:Motor Control Center 3.3kV | product_description:Motor Control Center 3.3kV. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Electrical | category_ids:ab9d1fd1-2acb-4a4a-b135-990630415d3d | category_slug:buyer-default-electrical | category_description:Electrical | category_key:buyer-default-electrical | sub_category_name:Electrical | sub_category_id:81f293a6-d13f-4b1f-81c1-2a8a9976fee6 | sub_category_slug:buyer-default-electrical-electrical | sub_category_description:Electrical | sub_category_key:buyer-default-electrical-electrical | product_type:Fuses, HV Eqpt | product_type_id:83849327-2fac-42ce-bc33-3907e02c6939 | product_type_slug:buyer-default-electrical-electrical-038500 | product_type_description:Fuses, HV Eqpt | product_type_key:buyer-default-electrical-electrical-038500 | purchase_agreements:demo-cont-001, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 2026-10-01T01:30:00.000Z, 2029-10-31T16:30:00.000Z | sku_key:038500-001-electrical | sku_id:038500-001-electrical | image_urls:https://images.unsplash.com/photo-1620283085439-39620a1e21c4?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1620283085439-39620a1e21c4?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:038500-001-electrical | aramco_material_number:GE462 | seller_details:7f67afea-9853-43b5-bc5b-69904e4e2a6f, GCC Control, DEMO-SUPPLR-001, CONTRACT-101, 75.0, SAR, 3, False, True, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, CONTRACT-703, 80.0, SAR, 2, True, False | supplier_count:2 | price:75.0 | currency:SAR | sold_by:GCC Control"
+  },
+  {
+    "product_key": "51d18134-f928-4a0d-bd33-966f41b244b3",
+    "product_name": "Corrosion Inhibitor Grade B",
+    "sku_name": "Corrosion Inhibitor Grade B",
+    "product_description": "Corrosion Inhibitor Grade B. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Drilling & Chemicals",
+    "category_ids": [
+      "1ba050d2-f900-4a9b-82c0-9dade7948d72"
+    ],
+    "category_slug": "buyer-default-drilling-and-chemicals",
+    "category_description": "Drilling & Chemicals",
+    "category_key": "buyer-default-drilling-and-chemicals",
+    "sub_category_name": "Drilling",
+    "sub_category_id": "13b62da1-d0f8-4208-8ff4-2f18df36fac4",
+    "sub_category_slug": "buyer-default-drilling-and-chemicals-drilling",
+    "sub_category_description": "Drilling",
+    "sub_category_key": "buyer-default-drilling-and-chemicals-drilling",
+    "product_type": "Producing Equipment",
+    "product_type_id": "0aca63c8-d90d-4dc0-b3a8-17b318cb2865",
+    "product_type_slug": "buyer-default-drilling-and-chemicals-drilling-001000",
+    "product_type_description": "Producing Equipment",
+    "product_type_key": "buyer-default-drilling-and-chemicals-drilling-001000",
+    "purchase_agreements": [
+      {
+        "contract_id": "demo-cont-001",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "valid_from": "2026-10-01T01:30:00.000Z",
+        "valid_until": "2029-10-31T16:30:00.000Z"
+      }
+    ],
+    "sku_key": "001000-004-chemicals-1",
+    "sku_id": "001000-004-chemicals-1",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1574169208507-84376144848b?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1574169208507-84376144848b?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "001000-004-chemicals",
+    "aramco_material_number": "PC408",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "CONTRACT-596",
+        "price": 80.0,
+        "currency": "SAR",
+        "lead_time": 0,
+        "moq": 10,
+        "unit_type": null,
+        "temporary_unavailable": true,
+        "under_agreement": false
+      }
+    ],
+    "supplier_count": 1,
+    "moq": 10,
+    "price": 80.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": true,
+    "under_agreement": false,
+    "content": "product_key:51d18134-f928-4a0d-bd33-966f41b244b3 | product_name:Corrosion Inhibitor Grade B | product_description:Corrosion Inhibitor Grade B. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Drilling & Chemicals | category_ids:1ba050d2-f900-4a9b-82c0-9dade7948d72 | category_slug:buyer-default-drilling-and-chemicals | category_description:Drilling & Chemicals | category_key:buyer-default-drilling-and-chemicals | sub_category_name:Drilling | sub_category_id:13b62da1-d0f8-4208-8ff4-2f18df36fac4 | sub_category_slug:buyer-default-drilling-and-chemicals-drilling | sub_category_description:Drilling | sub_category_key:buyer-default-drilling-and-chemicals-drilling | product_type:Producing Equipment | product_type_id:0aca63c8-d90d-4dc0-b3a8-17b318cb2865 | product_type_slug:buyer-default-drilling-and-chemicals-drilling-001000 | product_type_description:Producing Equipment | product_type_key:buyer-default-drilling-and-chemicals-drilling-001000 | purchase_agreements:demo-cont-001, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 2026-10-01T01:30:00.000Z, 2029-10-31T16:30:00.000Z | sku_key:001000-004-chemicals-1 | sku_id:001000-004-chemicals-1 | image_urls:https://images.unsplash.com/photo-1574169208507-84376144848b?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1574169208507-84376144848b?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:001000-004-chemicals | aramco_material_number:PC408 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, CONTRACT-596, 80.0, SAR, 0, 10, True, False | supplier_count:1 | moq:10 | price:80.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "68e3ba9e-8398-44c1-9eba-492f20ca259f",
+    "product_name": "Notebook, 100 Sheets, Ruled, A5",
+    "sku_name": "Notebook, 100 Sheets, Ruled, A5",
+    "product_description": "Notebook, 100 Sheets, Ruled, A5, For General Office Use, Standard Quality, Community Office Supplies Stock",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9COM",
+    "category_name": "Communities, Offices & Others",
+    "category_ids": [
+      "2b4437cb-4e08-4e70-8ed2-feaf7193ad70"
+    ],
+    "category_slug": "buyer-default-communities-offices-and-others",
+    "category_description": "Communities, Offices & Others",
+    "category_key": "buyer-default-communities-offices-and-others",
+    "sub_category_name": "Office Supplies",
+    "sub_category_id": "26e9db10-a7e5-465a-b616-1db6a6ad1614",
+    "sub_category_slug": "buyer-default-communities-offices-and-others-office-supplies",
+    "sub_category_description": "Office Supplies",
+    "sub_category_key": "buyer-default-communities-offices-and-others-office-supplies",
+    "product_type": "Stationary Items",
+    "product_type_id": "f88c9554-2d67-41ee-86d2-17430c5abc90",
+    "product_type_slug": "buyer-default-communities-offices-and-others-office-supplies-106000",
+    "product_type_description": "Stationary Items",
+    "product_type_key": "buyer-default-communities-offices-and-others-office-supplies-106000",
+    "purchase_agreements": [
+      {
+        "contract_id": "demo-cont-001",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "valid_from": "2026-10-01T01:30:00.000Z",
+        "valid_until": "2029-10-31T16:30:00.000Z"
+      }
+    ],
+    "sku_key": "a-880000200002_1",
+    "sku_id": "a-880000200002_1",
+    "image_urls": null,
+    "primary_image_url": null,
+    "asmo_material_number": "a-880000200002",
+    "aramco_material_number": null,
+    "seller_details": null,
+    "supplier_count": 0,
+    "moq": null,
+    "price": null,
+    "currency": null,
+    "sold_by": null,
+    "temporary_unavailable": null,
+    "under_agreement": null,
+    "content": "product_key:68e3ba9e-8398-44c1-9eba-492f20ca259f | product_name:Notebook, 100 Sheets, Ruled, A5 | product_description:Notebook, 100 Sheets, Ruled, A5, For General Office Use, Standard Quality, Community Office Supplies Stock | availability:IN_STOCK | material_type:9COM | category_name:Communities, Offices & Others | category_ids:2b4437cb-4e08-4e70-8ed2-feaf7193ad70 | category_slug:buyer-default-communities-offices-and-others | category_description:Communities, Offices & Others | category_key:buyer-default-communities-offices-and-others | sub_category_name:Office Supplies | sub_category_id:26e9db10-a7e5-465a-b616-1db6a6ad1614 | sub_category_slug:buyer-default-communities-offices-and-others-office-supplies | sub_category_description:Office Supplies | sub_category_key:buyer-default-communities-offices-and-others-office-supplies | product_type:Stationary Items | product_type_id:f88c9554-2d67-41ee-86d2-17430c5abc90 | product_type_slug:buyer-default-communities-offices-and-others-office-supplies-106000 | product_type_description:Stationary Items | product_type_key:buyer-default-communities-offices-and-others-office-supplies-106000 | purchase_agreements:demo-cont-001, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 2026-10-01T01:30:00.000Z, 2029-10-31T16:30:00.000Z | sku_key:a-880000200002_1 | sku_id:a-880000200002_1 | asmo_material_number:a-880000200002 | supplier_count:0"
+  },
+  {
+    "product_key": "5c3ed611-a8d4-48bf-a621-600c4cdc1236",
+    "product_name": "Pressure Transmitter 0-250°C",
+    "sku_name": "Pressure Transmitter 0-250°C",
+    "product_description": "Pressure Transmitter 0-250°C. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Instrumentation & IT",
+    "category_ids": [
+      "938869fc-bc69-4c1f-bc2d-ef37b479629f"
+    ],
+    "category_slug": "buyer-default-instrumentation-and-it",
+    "category_description": "Instrumentation & IT",
+    "category_key": "buyer-default-instrumentation-and-it",
+    "sub_category_name": "Communications",
+    "sub_category_id": "cd43821c-9213-4a52-ad96-7af05f52a02d",
+    "sub_category_slug": "buyer-default-instrumentation-and-it-communications",
+    "sub_category_description": "Communications",
+    "sub_category_key": "buyer-default-instrumentation-and-it-communications",
+    "product_type": "Comm, Radio Eqpt",
+    "product_type_id": "df28d1a3-767f-438a-afc7-791232a9c983",
+    "product_type_slug": "buyer-default-instrumentation-and-it-communications-080000",
+    "product_type_description": "Comm, Radio Eqpt",
+    "product_type_key": "buyer-default-instrumentation-and-it-communications-080000",
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "080000-001-instrumentation",
+    "sku_id": "080000-001-instrumentation",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "080000-001-instrumentation",
+    "aramco_material_number": "SA600",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": null,
+        "contract_id": null,
+        "price": 100.0,
+        "currency": "SAR",
+        "lead_time": null,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": null,
+    "price": 100.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:5c3ed611-a8d4-48bf-a621-600c4cdc1236 | product_name:Pressure Transmitter 0-250°C | product_description:Pressure Transmitter 0-250°C. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Instrumentation & IT | category_ids:938869fc-bc69-4c1f-bc2d-ef37b479629f | category_slug:buyer-default-instrumentation-and-it | category_description:Instrumentation & IT | category_key:buyer-default-instrumentation-and-it | sub_category_name:Communications | sub_category_id:cd43821c-9213-4a52-ad96-7af05f52a02d | sub_category_slug:buyer-default-instrumentation-and-it-communications | sub_category_description:Communications | sub_category_key:buyer-default-instrumentation-and-it-communications | product_type:Comm, Radio Eqpt | product_type_id:df28d1a3-767f-438a-afc7-791232a9c983 | product_type_slug:buyer-default-instrumentation-and-it-communications-080000 | product_type_description:Comm, Radio Eqpt | product_type_key:buyer-default-instrumentation-and-it-communications-080000 | purchase_agreements:CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:080000-001-instrumentation | sku_id:080000-001-instrumentation | image_urls:https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:080000-001-instrumentation | aramco_material_number:SA600 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, 100.0, SAR, False, True | supplier_count:1 | price:100.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "a1ae8159-88a2-4ba5-87b3-279163e6312a",
+    "product_name": "Defoamer Grade B",
+    "sku_name": "Defoamer Grade B",
+    "product_description": "Defoamer Grade A. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Drilling & Chemicals",
+    "category_ids": [
+      "1ba050d2-f900-4a9b-82c0-9dade7948d72"
+    ],
+    "category_slug": "buyer-default-drilling-and-chemicals",
+    "category_description": "Drilling & Chemicals",
+    "category_key": "buyer-default-drilling-and-chemicals",
+    "sub_category_name": "Drilling",
+    "sub_category_id": "13b62da1-d0f8-4208-8ff4-2f18df36fac4",
+    "sub_category_slug": "buyer-default-drilling-and-chemicals-drilling",
+    "sub_category_description": "Drilling",
+    "sub_category_key": "buyer-default-drilling-and-chemicals-drilling",
+    "product_type": "Producing Equipment",
+    "product_type_id": "0aca63c8-d90d-4dc0-b3a8-17b318cb2865",
+    "product_type_slug": "buyer-default-drilling-and-chemicals-drilling-001000",
+    "product_type_description": "Producing Equipment",
+    "product_type_key": "buyer-default-drilling-and-chemicals-drilling-001000",
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-589",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2000-01-01T00:00:00.000Z",
+        "valid_until": "2028-10-13T18:30:00.000Z"
+      },
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "001000-001-chemicals",
+    "sku_id": "001000-001-chemicals",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "001000-001-chemicals",
+    "aramco_material_number": "HW405",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "376456",
+        "contract_id": "CONTRACT-589",
+        "price": 120.0,
+        "currency": "SAR",
+        "lead_time": 4,
+        "moq": 2,
+        "unit_type": "AMPERE",
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": 2,
+    "price": 120.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:a1ae8159-88a2-4ba5-87b3-279163e6312a | product_name:Defoamer Grade B | product_description:Defoamer Grade A. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Drilling & Chemicals | category_ids:1ba050d2-f900-4a9b-82c0-9dade7948d72 | category_slug:buyer-default-drilling-and-chemicals | category_description:Drilling & Chemicals | category_key:buyer-default-drilling-and-chemicals | sub_category_name:Drilling | sub_category_id:13b62da1-d0f8-4208-8ff4-2f18df36fac4 | sub_category_slug:buyer-default-drilling-and-chemicals-drilling | sub_category_description:Drilling | sub_category_key:buyer-default-drilling-and-chemicals-drilling | product_type:Producing Equipment | product_type_id:0aca63c8-d90d-4dc0-b3a8-17b318cb2865 | product_type_slug:buyer-default-drilling-and-chemicals-drilling-001000 | product_type_description:Producing Equipment | product_type_key:buyer-default-drilling-and-chemicals-drilling-001000 | purchase_agreements:CONTRACT-589, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2000-01-01T00:00:00.000Z, 2028-10-13T18:30:00.000Z, CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:001000-001-chemicals | sku_id:001000-001-chemicals | image_urls:https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:001000-001-chemicals | aramco_material_number:HW405 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, 376456, CONTRACT-589, 120.0, SAR, 4, 2, AMPERE, False, True | supplier_count:1 | moq:2 | price:120.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "bf6ee49b-6f12-4802-b85b-8f1aa5e71dd1",
+    "product_name": "Welded Pipe DN250 SCH 80 Bronze",
+    "sku_name": "Welded Pipe DN250 SCH 80 Bronze",
+    "product_description": "Welded Pipe DN250 SCH 80 Bronze. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Static Equipment",
+    "category_ids": [
+      "5f7195cf-b988-4f19-97ba-d85242fb0fb6"
+    ],
+    "category_slug": "buyer-default-static-equipment",
+    "category_description": "Static Equipment",
+    "category_key": "buyer-default-static-equipment",
+    "sub_category_name": "Pipe",
+    "sub_category_id": "66315881-3e71-4439-a3b3-ee05670b4901",
+    "sub_category_slug": "buyer-default-static-equipment-pipe",
+    "sub_category_description": "Pipe",
+    "sub_category_key": "buyer-default-static-equipment-pipe",
+    "product_type": "Pipe, CS Spec Appl",
+    "product_type_id": "26c09ec5-6bb7-475e-ab15-b4911a5d1c52",
+    "product_type_slug": "buyer-default-static-equipment-pipe-010000",
+    "product_type_description": "Pipe, CS Spec Appl",
+    "product_type_key": "buyer-default-static-equipment-pipe-010000",
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "010000-001-pipes",
+    "sku_id": "010000-001-pipes",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "010000-001-pipes",
+    "aramco_material_number": "WH911",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "CONTRACT-1601",
+        "price": 80.0,
+        "currency": "SAR",
+        "lead_time": 2,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": null,
+    "price": 80.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:bf6ee49b-6f12-4802-b85b-8f1aa5e71dd1 | product_name:Welded Pipe DN250 SCH 80 Bronze | product_description:Welded Pipe DN250 SCH 80 Bronze. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Static Equipment | category_ids:5f7195cf-b988-4f19-97ba-d85242fb0fb6 | category_slug:buyer-default-static-equipment | category_description:Static Equipment | category_key:buyer-default-static-equipment | sub_category_name:Pipe | sub_category_id:66315881-3e71-4439-a3b3-ee05670b4901 | sub_category_slug:buyer-default-static-equipment-pipe | sub_category_description:Pipe | sub_category_key:buyer-default-static-equipment-pipe | product_type:Pipe, CS Spec Appl | product_type_id:26c09ec5-6bb7-475e-ab15-b4911a5d1c52 | product_type_slug:buyer-default-static-equipment-pipe-010000 | product_type_description:Pipe, CS Spec Appl | product_type_key:buyer-default-static-equipment-pipe-010000 | purchase_agreements:CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:010000-001-pipes | sku_id:010000-001-pipes | image_urls:https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:010000-001-pipes | aramco_material_number:WH911 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, CONTRACT-1601, 80.0, SAR, 2, False, True | supplier_count:1 | price:80.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "bc3e12df-acbc-4b0c-8e06-503012d8eb8d",
+    "product_name": "Flow Meter 4-20mA",
+    "sku_name": "Flow Meter 4-20mA",
+    "product_description": "Flow Meter 4-20mA. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": null,
+    "category_ids": null,
+    "category_slug": null,
+    "category_description": null,
+    "category_key": null,
+    "sub_category_name": null,
+    "sub_category_id": null,
+    "sub_category_slug": null,
+    "sub_category_description": null,
+    "sub_category_key": null,
+    "product_type": null,
+    "product_type_id": null,
+    "product_type_slug": null,
+    "product_type_description": null,
+    "product_type_key": null,
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "070100-001-instrumentation",
+    "sku_id": "070100-001-instrumentation",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "070100-001-instrumentation",
+    "aramco_material_number": "WH631",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "CONTRACT-1041",
+        "price": 80.0,
+        "currency": "SAR",
+        "lead_time": 2,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": null,
+    "price": 80.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:bc3e12df-acbc-4b0c-8e06-503012d8eb8d | product_name:Flow Meter 4-20mA | product_description:Flow Meter 4-20mA. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | purchase_agreements:CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:070100-001-instrumentation | sku_id:070100-001-instrumentation | image_urls:https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:070100-001-instrumentation | aramco_material_number:WH631 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, CONTRACT-1041, 80.0, SAR, 2, False, True | supplier_count:1 | price:80.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "db3f5e6d-d987-4f31-b2c3-9e2fd1cb442b",
+    "product_name": "Warning Beacon Industrial",
+    "sku_name": "Warning Beacon Industrial",
+    "product_description": "Warning Beacon Industrial. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Safety, Security, Health & Environment",
+    "category_ids": [
+      "a1bc0229-aff4-47a9-a7b1-608511d15ee8"
+    ],
+    "category_slug": "buyer-default-safety-security-health-and-environment",
+    "category_description": "Safety, Security, Health & Environment",
+    "category_key": "buyer-default-safety-security-health-and-environment",
+    "sub_category_name": "Safety & Security Equip",
+    "sub_category_id": "cb7d9379-c7ea-4e0f-87fb-8b311571178e",
+    "sub_category_slug": "buyer-default-safety-security-health-and-environment-safety-and-security-equip",
+    "sub_category_description": "Safety & Security Equip",
+    "sub_category_key": "buyer-default-safety-security-health-and-environment-safety-and-security-equip",
+    "product_type": "Fire Fighting Eqpt",
+    "product_type_id": "e1deabd7-8541-4e3b-a1da-271f76ad0e8c",
+    "product_type_slug": "buyer-default-safety-security-health-and-environment-safety-and-security-equip-110000",
+    "product_type_description": "Fire Fighting Eqpt",
+    "product_type_key": "buyer-default-safety-security-health-and-environment-safety-and-security-equip-110000",
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "110000-001-safety",
+    "sku_id": "110000-001-safety",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1590959651373-a3db0f38a961?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1590959651373-a3db0f38a961?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "110000-001-safety",
+    "aramco_material_number": "PC868",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "CONTRACT-1515",
+        "price": 80.0,
+        "currency": "SAR",
+        "lead_time": 2,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": null,
+    "price": 80.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:db3f5e6d-d987-4f31-b2c3-9e2fd1cb442b | product_name:Warning Beacon Industrial | product_description:Warning Beacon Industrial. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Safety, Security, Health & Environment | category_ids:a1bc0229-aff4-47a9-a7b1-608511d15ee8 | category_slug:buyer-default-safety-security-health-and-environment | category_description:Safety, Security, Health & Environment | category_key:buyer-default-safety-security-health-and-environment | sub_category_name:Safety & Security Equip | sub_category_id:cb7d9379-c7ea-4e0f-87fb-8b311571178e | sub_category_slug:buyer-default-safety-security-health-and-environment-safety-and-security-equip | sub_category_description:Safety & Security Equip | sub_category_key:buyer-default-safety-security-health-and-environment-safety-and-security-equip | product_type:Fire Fighting Eqpt | product_type_id:e1deabd7-8541-4e3b-a1da-271f76ad0e8c | product_type_slug:buyer-default-safety-security-health-and-environment-safety-and-security-equip-110000 | product_type_description:Fire Fighting Eqpt | product_type_key:buyer-default-safety-security-health-and-environment-safety-and-security-equip-110000 | purchase_agreements:CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:110000-001-safety | sku_id:110000-001-safety | image_urls:https://images.unsplash.com/photo-1590959651373-a3db0f38a961?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1590959651373-a3db0f38a961?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:110000-001-safety | aramco_material_number:PC868 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, CONTRACT-1515, 80.0, SAR, 2, False, True | supplier_count:1 | price:80.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "64783493-89db-4336-940a-c1ae8cba160b",
+    "product_name": "Air Handling Unit 5 TR",
+    "sku_name": "Air Handling Unit 5 TR",
+    "product_description": "Air Handling Unit 5 TR. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Communities, Offices & Others",
+    "category_ids": [
+      "2b4437cb-4e08-4e70-8ed2-feaf7193ad70"
+    ],
+    "category_slug": "buyer-default-communities-offices-and-others",
+    "category_description": "Communities, Offices & Others",
+    "category_key": "buyer-default-communities-offices-and-others",
+    "sub_category_name": "Air Conditioning",
+    "sub_category_id": "98358ca1-acb9-4219-a670-ceb0bae3d214",
+    "sub_category_slug": "buyer-default-communities-offices-and-others-air-conditioning",
+    "sub_category_description": "Air Conditioning",
+    "sub_category_key": "buyer-default-communities-offices-and-others-air-conditioning",
+    "product_type": "Dehumidfr & Humidfr",
+    "product_type_id": "4b9e2256-5abd-476e-905b-ed106b8ae90e",
+    "product_type_slug": "buyer-default-communities-offices-and-others-air-conditioning-172000",
+    "product_type_description": "Dehumidfr & Humidfr",
+    "product_type_key": "buyer-default-communities-offices-and-others-air-conditioning-172000",
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-589",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2000-01-01T00:00:00.000Z",
+        "valid_until": "2028-10-13T18:30:00.000Z"
+      },
+      {
+        "contract_id": "demo-cont-001",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "valid_from": "2026-10-01T01:30:00.000Z",
+        "valid_until": "2029-10-31T16:30:00.000Z"
+      },
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "172000-001-hvac",
+    "sku_id": "172000-001-hvac",
+    "image_urls": [
+      "https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%282%29-zBdCPKlK.png"
+    ],
+    "primary_image_url": "https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%282%29-zBdCPKlK.png",
+    "asmo_material_number": "172000-001-hvac",
+    "aramco_material_number": "GE112",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "CONTRACT-005",
+        "price": 90.0,
+        "currency": "SAR",
+        "lead_time": 5,
+        "moq": 1,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": 1,
+    "price": 90.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:64783493-89db-4336-940a-c1ae8cba160b | product_name:Air Handling Unit 5 TR | product_description:Air Handling Unit 5 TR. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Communities, Offices & Others | category_ids:2b4437cb-4e08-4e70-8ed2-feaf7193ad70 | category_slug:buyer-default-communities-offices-and-others | category_description:Communities, Offices & Others | category_key:buyer-default-communities-offices-and-others | sub_category_name:Air Conditioning | sub_category_id:98358ca1-acb9-4219-a670-ceb0bae3d214 | sub_category_slug:buyer-default-communities-offices-and-others-air-conditioning | sub_category_description:Air Conditioning | sub_category_key:buyer-default-communities-offices-and-others-air-conditioning | product_type:Dehumidfr & Humidfr | product_type_id:4b9e2256-5abd-476e-905b-ed106b8ae90e | product_type_slug:buyer-default-communities-offices-and-others-air-conditioning-172000 | product_type_description:Dehumidfr & Humidfr | product_type_key:buyer-default-communities-offices-and-others-air-conditioning-172000 | purchase_agreements:CONTRACT-589, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2000-01-01T00:00:00.000Z, 2028-10-13T18:30:00.000Z, demo-cont-001, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 2026-10-01T01:30:00.000Z, 2029-10-31T16:30:00.000Z, CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:172000-001-hvac | sku_id:172000-001-hvac | image_urls:https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%282%29-zBdCPKlK.png | primary_image_url:https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%282%29-zBdCPKlK.png | asmo_material_number:172000-001-hvac | aramco_material_number:GE112 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, CONTRACT-005, 90.0, SAR, 5, 1, False, True | supplier_count:1 | moq:1 | price:90.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "6f98be64-9cf5-4b5d-828b-049c629b48e9",
+    "product_name": "Cooling Tower 3 TR",
+    "sku_name": "Cooling Tower 3 TR",
+    "product_description": "Cooling Tower 3 TR. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Communities, Offices & Others",
+    "category_ids": [
+      "2b4437cb-4e08-4e70-8ed2-feaf7193ad70"
+    ],
+    "category_slug": "buyer-default-communities-offices-and-others",
+    "category_description": "Communities, Offices & Others",
+    "category_key": "buyer-default-communities-offices-and-others",
+    "sub_category_name": "Air Conditioning",
+    "sub_category_id": "98358ca1-acb9-4219-a670-ceb0bae3d214",
+    "sub_category_slug": "buyer-default-communities-offices-and-others-air-conditioning",
+    "sub_category_description": "Air Conditioning",
+    "sub_category_key": "buyer-default-communities-offices-and-others-air-conditioning",
+    "product_type": "Dehumidfr & Humidfr",
+    "product_type_id": "4b9e2256-5abd-476e-905b-ed106b8ae90e",
+    "product_type_slug": "buyer-default-communities-offices-and-others-air-conditioning-172000",
+    "product_type_description": "Dehumidfr & Humidfr",
+    "product_type_key": "buyer-default-communities-offices-and-others-air-conditioning-172000",
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-589",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2000-01-01T00:00:00.000Z",
+        "valid_until": "2028-10-13T18:30:00.000Z"
+      },
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "172000-003-hvac",
+    "sku_id": "172000-003-hvac",
+    "image_urls": [
+      "https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Cooling-Tower-3-TR-XrO93zMH.png"
+    ],
+    "primary_image_url": "https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Cooling-Tower-3-TR-XrO93zMH.png",
+    "asmo_material_number": "172000-003-hvac",
+    "aramco_material_number": "SI114",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": null,
+        "contract_id": null,
+        "price": 100.0,
+        "currency": "SAR",
+        "lead_time": 8,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": null,
+    "price": 100.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:6f98be64-9cf5-4b5d-828b-049c629b48e9 | product_name:Cooling Tower 3 TR | product_description:Cooling Tower 3 TR. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Communities, Offices & Others | category_ids:2b4437cb-4e08-4e70-8ed2-feaf7193ad70 | category_slug:buyer-default-communities-offices-and-others | category_description:Communities, Offices & Others | category_key:buyer-default-communities-offices-and-others | sub_category_name:Air Conditioning | sub_category_id:98358ca1-acb9-4219-a670-ceb0bae3d214 | sub_category_slug:buyer-default-communities-offices-and-others-air-conditioning | sub_category_description:Air Conditioning | sub_category_key:buyer-default-communities-offices-and-others-air-conditioning | product_type:Dehumidfr & Humidfr | product_type_id:4b9e2256-5abd-476e-905b-ed106b8ae90e | product_type_slug:buyer-default-communities-offices-and-others-air-conditioning-172000 | product_type_description:Dehumidfr & Humidfr | product_type_key:buyer-default-communities-offices-and-others-air-conditioning-172000 | purchase_agreements:CONTRACT-589, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2000-01-01T00:00:00.000Z, 2028-10-13T18:30:00.000Z, CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:172000-003-hvac | sku_id:172000-003-hvac | image_urls:https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Cooling-Tower-3-TR-XrO93zMH.png | primary_image_url:https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Cooling-Tower-3-TR-XrO93zMH.png | asmo_material_number:172000-003-hvac | aramco_material_number:SI114 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, 100.0, SAR, 8, False, True | supplier_count:1 | price:100.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "a31073cd-9088-4738-a969-149163a76738",
+    "product_name": "Screw Compressor 16 bar Oil-Free",
+    "sku_name": "Screw Compressor 16 bar Oil-Free",
+    "product_description": "Screw Compressor 16 bar Oil-Free. Industrial-grade component for oil & gas applications. Compliant with international standards.",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Machinery Equipment",
+    "category_ids": [
+      "b4d0d57c-9b48-4e5b-8973-ef600a165e8e"
+    ],
+    "category_slug": "buyer-default-machinery-equipment",
+    "category_description": "Machinery Equipment",
+    "category_key": "buyer-default-machinery-equipment",
+    "sub_category_name": "Compressors",
+    "sub_category_id": "0f025547-3509-4b18-88ff-2c382c3c8575",
+    "sub_category_slug": "buyer-default-machinery-equipment-compressors",
+    "sub_category_description": "Compressors",
+    "sub_category_key": "buyer-default-machinery-equipment-compressors",
+    "product_type": "Comprsr, Centrifug",
+    "product_type_id": "0284c624-e5a0-40fa-be37-e78c2af4529c",
+    "product_type_slug": "buyer-default-machinery-equipment-compressors-180000",
+    "product_type_description": "Comprsr, Centrifug",
+    "product_type_key": "buyer-default-machinery-equipment-compressors-180000",
+    "purchase_agreements": [
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "180000-001-compressors",
+    "sku_id": "180000-001-compressors",
+    "image_urls": [
+      "https://images.unsplash.com/photo-1592833159155-c62df1b65634?w=1080&h=1920&fit=crop&auto=format&q=80"
+    ],
+    "primary_image_url": "https://images.unsplash.com/photo-1592833159155-c62df1b65634?w=1080&h=1920&fit=crop&auto=format&q=80",
+    "asmo_material_number": "180000-001-compressors",
+    "aramco_material_number": "BV749",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "CONTRACT-1277",
+        "price": 80.0,
+        "currency": "SAR",
+        "lead_time": 2,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": null,
+    "price": 80.0,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:a31073cd-9088-4738-a969-149163a76738 | product_name:Screw Compressor 16 bar Oil-Free | product_description:Screw Compressor 16 bar Oil-Free. Industrial-grade component for oil & gas applications. Compliant with international standards. | availability:IN_STOCK | material_type:9CAT | category_name:Machinery Equipment | category_ids:b4d0d57c-9b48-4e5b-8973-ef600a165e8e | category_slug:buyer-default-machinery-equipment | category_description:Machinery Equipment | category_key:buyer-default-machinery-equipment | sub_category_name:Compressors | sub_category_id:0f025547-3509-4b18-88ff-2c382c3c8575 | sub_category_slug:buyer-default-machinery-equipment-compressors | sub_category_description:Compressors | sub_category_key:buyer-default-machinery-equipment-compressors | product_type:Comprsr, Centrifug | product_type_id:0284c624-e5a0-40fa-be37-e78c2af4529c | product_type_slug:buyer-default-machinery-equipment-compressors-180000 | product_type_description:Comprsr, Centrifug | product_type_key:buyer-default-machinery-equipment-compressors-180000 | purchase_agreements:CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:180000-001-compressors | sku_id:180000-001-compressors | image_urls:https://images.unsplash.com/photo-1592833159155-c62df1b65634?w=1080&h=1920&fit=crop&auto=format&q=80 | primary_image_url:https://images.unsplash.com/photo-1592833159155-c62df1b65634?w=1080&h=1920&fit=crop&auto=format&q=80 | asmo_material_number:180000-001-compressors | aramco_material_number:BV749 | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, CONTRACT-1277, 80.0, SAR, 2, False, True | supplier_count:1 | price:80.0 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "beb9a3e0-a35a-4753-95ee-8f6182c5641b",
+    "product_name": "HPE X142 40G QSFP",
+    "sku_name": "HPE X142 40G QSFP",
+    "product_description": "HPE X142 40G QSFP+ MPO SR4 Transceiver",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9COM",
+    "category_name": "Instrumentation & IT",
+    "category_ids": [
+      "938869fc-bc69-4c1f-bc2d-ef37b479629f"
+    ],
+    "category_slug": "buyer-default-instrumentation-and-it",
+    "category_description": "Instrumentation & IT",
+    "category_key": "buyer-default-instrumentation-and-it",
+    "sub_category_name": "Communications",
+    "sub_category_id": "cd43821c-9213-4a52-ad96-7af05f52a02d",
+    "sub_category_slug": "buyer-default-instrumentation-and-it-communications",
+    "sub_category_description": "Communications",
+    "sub_category_key": "buyer-default-instrumentation-and-it-communications",
+    "product_type": "LAN and Cable Dist.",
+    "product_type_id": "754032b4-6866-49ae-9a6b-1d5a43de6d26",
+    "product_type_slug": "buyer-default-instrumentation-and-it-communications-078000",
+    "product_type_description": "LAN and Cable Dist.",
+    "product_type_key": "buyer-default-instrumentation-and-it-communications-078000",
+    "purchase_agreements": [
+      {
+        "contract_id": "demo-cont-001",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "valid_from": "2026-10-01T01:30:00.000Z",
+        "valid_until": "2029-10-31T16:30:00.000Z"
+      },
+      {
+        "contract_id": "CONTRACT-005",
+        "supplier_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "valid_from": "2026-09-30T18:30:00.000Z",
+        "valid_until": "2029-10-31T14:30:00.000Z"
+      }
+    ],
+    "sku_key": "a-880000629768",
+    "sku_id": "a-880000629768",
+    "image_urls": [
+      "https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JH231A_1_JH231A.png"
+    ],
+    "primary_image_url": "https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JH231A_1_JH231A.png",
+    "asmo_material_number": "a-880000629768",
+    "aramco_material_number": "JH231A",
+    "seller_details": [
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLR-001",
+        "contract_id": "9901007100",
+        "price": 53.5,
+        "currency": "SAR",
+        "lead_time": 2,
+        "moq": 3,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      },
+      {
+        "seller_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "seller_name": "GCC Control",
+        "supplier_id": "Aruba",
+        "contract_id": "4990027170",
+        "price": 55.0,
+        "currency": "SAR",
+        "lead_time": 3,
+        "moq": null,
+        "unit_type": "EA",
+        "temporary_unavailable": false,
+        "under_agreement": true
+      },
+      {
+        "seller_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "seller_name": "GCC Control",
+        "supplier_id": "Aruba",
+        "contract_id": "4990027170",
+        "price": 120.0,
+        "currency": "SAR",
+        "lead_time": 3,
+        "moq": null,
+        "unit_type": "EA",
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 3,
+    "moq": 3,
+    "price": 53.5,
+    "currency": "SAR",
+    "sold_by": "Wholesale Warehouse",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:beb9a3e0-a35a-4753-95ee-8f6182c5641b | product_name:HPE X142 40G QSFP | product_description:HPE X142 40G QSFP+ MPO SR4 Transceiver | availability:IN_STOCK | material_type:9COM | category_name:Instrumentation & IT | category_ids:938869fc-bc69-4c1f-bc2d-ef37b479629f | category_slug:buyer-default-instrumentation-and-it | category_description:Instrumentation & IT | category_key:buyer-default-instrumentation-and-it | sub_category_name:Communications | sub_category_id:cd43821c-9213-4a52-ad96-7af05f52a02d | sub_category_slug:buyer-default-instrumentation-and-it-communications | sub_category_description:Communications | sub_category_key:buyer-default-instrumentation-and-it-communications | product_type:LAN and Cable Dist. | product_type_id:754032b4-6866-49ae-9a6b-1d5a43de6d26 | product_type_slug:buyer-default-instrumentation-and-it-communications-078000 | product_type_description:LAN and Cable Dist. | product_type_key:buyer-default-instrumentation-and-it-communications-078000 | purchase_agreements:demo-cont-001, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 2026-10-01T01:30:00.000Z, 2029-10-31T16:30:00.000Z, CONTRACT-005, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, 2026-09-30T18:30:00.000Z, 2029-10-31T14:30:00.000Z | sku_key:a-880000629768 | sku_id:a-880000629768 | image_urls:https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JH231A_1_JH231A.png | primary_image_url:https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JH231A_1_JH231A.png | asmo_material_number:a-880000629768 | aramco_material_number:JH231A | seller_details:3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLR-001, 9901007100, 53.5, SAR, 2, 3, False, True, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, GCC Control, Aruba, 4990027170, 55.0, SAR, 3, EA, False, True, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, GCC Control, Aruba, 4990027170, 120.0, SAR, 3, EA, False, True | supplier_count:3 | moq:3 | price:53.5 | currency:SAR | sold_by:Wholesale Warehouse"
+  },
+  {
+    "product_key": "27955c36-ef7d-4c03-8cc9-acb4c30e51e9",
+    "product_name": "HPE 2.5m C19",
+    "sku_name": "HPE 2.5m C19",
+    "product_description": "HPE 2.5m C19 to NEMA 5-20P Power Cord",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9COM",
+    "category_name": "Instrumentation & IT",
+    "category_ids": [
+      "938869fc-bc69-4c1f-bc2d-ef37b479629f"
+    ],
+    "category_slug": "buyer-default-instrumentation-and-it",
+    "category_description": "Instrumentation & IT",
+    "category_key": "buyer-default-instrumentation-and-it",
+    "sub_category_name": "Communications",
+    "sub_category_id": "cd43821c-9213-4a52-ad96-7af05f52a02d",
+    "sub_category_slug": "buyer-default-instrumentation-and-it-communications",
+    "sub_category_description": "Communications",
+    "sub_category_key": "buyer-default-instrumentation-and-it-communications",
+    "product_type": "LAN and Cable Dist.",
+    "product_type_id": "754032b4-6866-49ae-9a6b-1d5a43de6d26",
+    "product_type_slug": "buyer-default-instrumentation-and-it-communications-078000",
+    "product_type_description": "LAN and Cable Dist.",
+    "product_type_key": "buyer-default-instrumentation-and-it-communications-078000",
+    "purchase_agreements": [
+      {
+        "contract_id": "demo-cont-001",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "valid_from": "2026-10-01T01:30:00.000Z",
+        "valid_until": "2029-10-31T16:30:00.000Z"
+      }
+    ],
+    "sku_key": "a-880000629786",
+    "sku_id": "a-880000629786",
+    "image_urls": [
+      "https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JL349A_1_JL349A.png"
+    ],
+    "primary_image_url": "https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JL349A_1_JL349A.png",
+    "asmo_material_number": "a-880000629786",
+    "aramco_material_number": "JL349A",
+    "seller_details": [
+      {
+        "seller_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "seller_name": "GCC Control",
+        "supplier_id": "Aruba",
+        "contract_id": "4990027170",
+        "price": 55.0,
+        "currency": "SAR",
+        "lead_time": 3,
+        "moq": null,
+        "unit_type": "EA",
+        "temporary_unavailable": false,
+        "under_agreement": true
+      },
+      {
+        "seller_id": "3a7b23e0-0047-4d63-88a9-cd05d1006a39",
+        "seller_name": "Wholesale Warehouse",
+        "supplier_id": "SUPPLIER-01",
+        "contract_id": "48899888666",
+        "price": 112.0,
+        "currency": "SAR",
+        "lead_time": 1,
+        "moq": null,
+        "unit_type": null,
+        "temporary_unavailable": true,
+        "under_agreement": false
+      }
+    ],
+    "supplier_count": 2,
+    "moq": null,
+    "price": 55.0,
+    "currency": "SAR",
+    "sold_by": "GCC Control",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:27955c36-ef7d-4c03-8cc9-acb4c30e51e9 | product_name:HPE 2.5m C19 | product_description:HPE 2.5m C19 to NEMA 5-20P Power Cord | availability:IN_STOCK | material_type:9COM | category_name:Instrumentation & IT | category_ids:938869fc-bc69-4c1f-bc2d-ef37b479629f | category_slug:buyer-default-instrumentation-and-it | category_description:Instrumentation & IT | category_key:buyer-default-instrumentation-and-it | sub_category_name:Communications | sub_category_id:cd43821c-9213-4a52-ad96-7af05f52a02d | sub_category_slug:buyer-default-instrumentation-and-it-communications | sub_category_description:Communications | sub_category_key:buyer-default-instrumentation-and-it-communications | product_type:LAN and Cable Dist. | product_type_id:754032b4-6866-49ae-9a6b-1d5a43de6d26 | product_type_slug:buyer-default-instrumentation-and-it-communications-078000 | product_type_description:LAN and Cable Dist. | product_type_key:buyer-default-instrumentation-and-it-communications-078000 | purchase_agreements:demo-cont-001, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 2026-10-01T01:30:00.000Z, 2029-10-31T16:30:00.000Z | sku_key:a-880000629786 | sku_id:a-880000629786 | image_urls:https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JL349A_1_JL349A.png | primary_image_url:https://apimangementb2bapplip1vn1v35si.sa1.hana.ondemand.com/apimangement-b2b-application/getcmis/json/6665cadb23fff41ad6558656/root/EXT_4600027170_6000001100_00003/JL349A_1_JL349A.png | asmo_material_number:a-880000629786 | aramco_material_number:JL349A | seller_details:7f67afea-9853-43b5-bc5b-69904e4e2a6f, GCC Control, Aruba, 4990027170, 55.0, SAR, 3, EA, False, True, 3a7b23e0-0047-4d63-88a9-cd05d1006a39, Wholesale Warehouse, SUPPLIER-01, 48899888666, 112.0, SAR, 1, True, False | supplier_count:2 | price:55.0 | currency:SAR | sold_by:GCC Control"
+  },
+  {
+    "product_key": "6da3c80c-71e1-4152-b609-780d177207de",
+    "product_name": "Sticky Notes, 3x3 In, Yellow, Pack of 12",
+    "sku_name": "Sticky Notes, 3x3 In, Yellow, Pack of 12",
+    "product_description": "Sticky Notes, 3x3 In, Yellow, Pack of 12, For General Office Use, Standard Quality, Community Office Supplies Stock",
+    "product_url": "",
+    "contract_indicator": false,
+    "availability": "IN_STOCK",
+    "material_type": "9CAT",
+    "category_name": "Communities, Offices & Others",
+    "category_ids": [
+      "2b4437cb-4e08-4e70-8ed2-feaf7193ad70"
+    ],
+    "category_slug": "buyer-default-communities-offices-and-others",
+    "category_description": "Communities, Offices & Others",
+    "category_key": "buyer-default-communities-offices-and-others",
+    "sub_category_name": "Office Supplies",
+    "sub_category_id": "26e9db10-a7e5-465a-b616-1db6a6ad1614",
+    "sub_category_slug": "buyer-default-communities-offices-and-others-office-supplies",
+    "sub_category_description": "Office Supplies",
+    "sub_category_key": "buyer-default-communities-offices-and-others-office-supplies",
+    "product_type": "Stationary Items",
+    "product_type_id": "f88c9554-2d67-41ee-86d2-17430c5abc90",
+    "product_type_slug": "buyer-default-communities-offices-and-others-office-supplies-106000",
+    "product_type_description": "Stationary Items",
+    "product_type_key": "buyer-default-communities-offices-and-others-office-supplies-106000",
+    "purchase_agreements": [
+      {
+        "contract_id": "demo-cont-001",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "valid_from": "2026-10-01T01:30:00.000Z",
+        "valid_until": "2029-10-31T16:30:00.000Z"
+      }
+    ],
+    "sku_key": "ao-100005_1",
+    "sku_id": "ao-100005_1",
+    "image_urls": [
+      "https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%2821%29-LrkOxsYP.png"
+    ],
+    "primary_image_url": "https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%2821%29-LrkOxsYP.png",
+    "asmo_material_number": "ao-100005",
+    "aramco_material_number": null,
+    "seller_details": [
+      {
+        "seller_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "seller_name": "GCC Control",
+        "supplier_id": "7f67afea-9853-43b5-bc5b-69904e4e2a6f",
+        "contract_id": "9901007196",
+        "price": 20.5,
+        "currency": "USD",
+        "lead_time": 3,
+        "moq": 2,
+        "unit_type": null,
+        "temporary_unavailable": false,
+        "under_agreement": true
+      }
+    ],
+    "supplier_count": 1,
+    "moq": 2,
+    "price": 20.5,
+    "currency": "USD",
+    "sold_by": "GCC Control",
+    "temporary_unavailable": false,
+    "under_agreement": true,
+    "content": "product_key:6da3c80c-71e1-4152-b609-780d177207de | product_name:Sticky Notes, 3x3 In, Yellow, Pack of 12 | product_description:Sticky Notes, 3x3 In, Yellow, Pack of 12, For General Office Use, Standard Quality, Community Office Supplies Stock | availability:IN_STOCK | material_type:9CAT | category_name:Communities, Offices & Others | category_ids:2b4437cb-4e08-4e70-8ed2-feaf7193ad70 | category_slug:buyer-default-communities-offices-and-others | category_description:Communities, Offices & Others | category_key:buyer-default-communities-offices-and-others | sub_category_name:Office Supplies | sub_category_id:26e9db10-a7e5-465a-b616-1db6a6ad1614 | sub_category_slug:buyer-default-communities-offices-and-others-office-supplies | sub_category_description:Office Supplies | sub_category_key:buyer-default-communities-offices-and-others-office-supplies | product_type:Stationary Items | product_type_id:f88c9554-2d67-41ee-86d2-17430c5abc90 | product_type_slug:buyer-default-communities-offices-and-others-office-supplies-106000 | product_type_description:Stationary Items | product_type_key:buyer-default-communities-offices-and-others-office-supplies-106000 | purchase_agreements:demo-cont-001, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 2026-10-01T01:30:00.000Z, 2029-10-31T16:30:00.000Z | sku_key:ao-100005_1 | sku_id:ao-100005_1 | image_urls:https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%2821%29-LrkOxsYP.png | primary_image_url:https://images.cdn.europe-west1.gcp.commercetools.com/6d877ad5-a985-4d59-b7ae-bdff63ab1f40/Designer%20%2821%29-LrkOxsYP.png | asmo_material_number:ao-100005 | seller_details:7f67afea-9853-43b5-bc5b-69904e4e2a6f, GCC Control, 7f67afea-9853-43b5-bc5b-69904e4e2a6f, 9901007196, 20.5, USD, 3, 2, False, True | supplier_count:1 | moq:2 | price:20.5 | currency:USD | sold_by:GCC Control"
+  }
+]
