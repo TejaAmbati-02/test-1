@@ -394,35 +394,6 @@ def write_bruno(results, path):
     path.write_text(json.dumps(collection, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def _compact_json(body):
-    """JSON with one product / facet bucket per line, so long responses stay readable in the document."""
-    def dump(v):
-        return json.dumps(v, ensure_ascii=False)
-    if "products" not in body:
-        return json.dumps(body, indent=2, ensure_ascii=False)
-    lines = ["{"]
-    for k in ("request_id", "total_results", "page", "page_size"):
-        lines.append(f'  "{k}": {dump(body[k])},')
-    lines.append('  "products": [' + ("" if body["products"] else "],"))
-    for i, p in enumerate(body["products"]):
-        lines.append("    " + dump(p) + ("," if i < len(body["products"]) - 1 else ""))
-    if body["products"]:
-        lines.append("  ],")
-    lines.append('  "facets": {')
-    keys = list(body["facets"])
-    for j, k in enumerate(keys):
-        vals = body["facets"][k]
-        end = "," if j < len(keys) - 1 else ""
-        if not vals:
-            lines.append(f'    "{k}": []{end}')
-            continue
-        lines.append(f'    "{k}": [')
-        lines += ["      " + dump(v) + ("," if i < len(vals) - 1 else "") for i, v in enumerate(vals)]
-        lines.append(f"    ]{end}")
-    lines += ["  }", "}"]
-    return "\n".join(lines)
-
-
 FILTER_REFERENCE = [
     ("category / category_name / category_ids", "string or list of strings", "category id (facet id)", "category_ids"),
     ("sub_category / sub_category_name / sub_category_id", "string or list of strings", "sub-category id (facet id)", "sub_category_id"),
@@ -524,18 +495,31 @@ def write_docx(results, path):
         for r in results])
 
     doc.add_heading("5. Samples", 1)
+    doc.add_paragraph("Each request example lists the multipart/form-data fields as JSON. The filters value is shown "
+                      "as JSON for readability; it is sent as a JSON string in the filters form field.")
     folder = None
     for r in results:
         if r["folder"] != folder:
             folder = r["folder"]
             doc.add_heading(folder, 2)
         doc.add_heading(r["name"], 3)
-        doc.add_paragraph("Request — POST {{base_url}}/v1/search (multipart/form-data)")
-        table(["Form field", "Value"], list(r["form"].items()))
+        table(["Endpoint", "Method", "Content-Type", "Authorization", "Response status"], [
+            ("/v1/search", "POST", "multipart/form-data", "Bearer <Keycloak access token>", r["status"])])
         doc.add_paragraph()
-        doc.add_paragraph(f"Response — HTTP {r['status']}")
-        code(_compact_json(r["body"]))
+        request = {k: int(v) if k in ("page", "page_size") else v for k, v in r["form"].items()}
+        try:
+            request["filters"] = json.loads(request["filters"])
+        except json.JSONDecodeError:
+            pass  # malformed on purpose: show the raw string that is sent
+        _label(doc, "Request example")
+        code(json.dumps(request, indent=2, ensure_ascii=False))
+        _label(doc, "Response example")
+        code(json.dumps(r["body"], indent=2, ensure_ascii=False))
     doc.save(path)
+
+
+def _label(doc, text):
+    doc.add_paragraph().add_run(text).bold = True
 
 
 if __name__ == "__main__":
