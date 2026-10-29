@@ -118,7 +118,7 @@ def _parse_filters(raw: str | None) -> dict[str, Any]:
 # Value types per filter key (§5: invalid filter value -> 400). Keys not listed
 # here are keyword fields and take strings.
 NUMERIC_FILTER_KEYS = frozenset({"price", "moq", "supplier_count", "lead_time"})
-BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator", "temporary_unavailable"})
+BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator", "temporary_unavailable", "under_agreement"})
 RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
 
 
@@ -210,7 +210,7 @@ class SearchForm(BaseModel):
         "Every facet key is a filter key and takes the facet's id: category, sub_category, product_type, seller "
         "(category_name, sub_category_name and sellername are still accepted). Also: price, moq, lead_time (number or range), "
         "material_type, availability, category_ids, currency, contract_indicator, "
-        "temporary_unavailable, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, "
+        "temporary_unavailable, under_agreement, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, "
         "asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take "
         "{gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
     ))

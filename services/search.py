@@ -52,6 +52,7 @@ FILTER_KEY_MAP: dict[str, str] = {
     "supplier_count": "supplier_count",
     "contract_indicator": "contract_indicator",
     "temporary_unavailable": "temporary_unavailable",
+    "under_agreement": "under_agreement",
     "sku_id": "sku_id",
     "product_key": "product_key",
     "asmo_material_number": "asmo_material_number",
@@ -122,7 +123,8 @@ def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
     return SearchFacets(**{key: terms(key) for key in FACETS})
 
 
-def _seller_detail(seller: dict[str, Any], fallback_unavailable: bool | None = None) -> SellerDetail:
+def _seller_detail(seller: dict[str, Any], fallback: dict[str, Any] | None = None) -> SellerDetail:
+    fallback = fallback or {}
     return SellerDetail(
         seller_id=seller.get("seller_id"),
         name=seller.get("seller_name"),
@@ -133,7 +135,11 @@ def _seller_detail(seller: dict[str, Any], fallback_unavailable: bool | None = N
         moq=seller["moq"] if seller.get("moq") is not None else "",
         currency=seller.get("currency"),
         temporary_unavailable=(
-            seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None else fallback_unavailable
+            seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None
+            else fallback.get("temporary_unavailable")
+        ),
+        under_agreement=(
+            seller["under_agreement"] if seller.get("under_agreement") is not None else fallback.get("under_agreement")
         ),
     )
 
@@ -148,12 +154,10 @@ def _to_product(src: dict[str, Any]) -> ProductItem:
         primary_image_url=src.get("primary_image_url"),
         asmo_material_number=src.get("asmo_material_number"),
         aramco_material_number=src.get("aramco_material_number"),
-        # temporary_unavailable is returned per seller only. Older indexes keep it on
-        # the root document (the primary, cheapest seller's offer), so use that for
-        # seller_details[0] when the nested offer has none.
-        seller_details=[
-            _seller_detail(s, src.get("temporary_unavailable") if i == 0 else None) for i, s in enumerate(sellers)
-        ],
+        # temporary_unavailable / under_agreement are returned per seller only. Older
+        # indexes keep them on the root document (the primary, cheapest seller's
+        # offer), so use those for seller_details[0] when the nested offer has none.
+        seller_details=[_seller_detail(s, src if i == 0 else None) for i, s in enumerate(sellers)],
     )
 
 

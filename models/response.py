@@ -16,7 +16,8 @@ class SellerDetail(BaseModel):
     price: float | None = Field(default=None, description="Unit price (source: seller_details[].price)")
     moq: int | str = Field(default="", description="Minimum order quantity (source: seller_details[].moq); \"\" when the seller has none")
     currency: str | None = Field(default=None, description="ISO 4217 currency code (source: seller_details[].currency)")
-    temporary_unavailable: bool | None = Field(default=None, description="Seller offer temporarily unavailable (source: seller_details[].temporary_unavailable)")
+    temporary_unavailable: bool | None = Field(default=None, description="Seller has no active, started purchase agreement for the product (source: seller_details[].temporary_unavailable)")
+    under_agreement: bool | None = Field(default=None, description="temporary_unavailable and the seller's purchase agreement is unexpired (validUntil >= today) (source: seller_details[].under_agreement)")
 
 
 class ProductItem(BaseModel):

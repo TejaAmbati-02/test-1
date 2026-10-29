@@ -54,6 +54,7 @@ Every facet key in the response is also a filter key: send back the facet's `id`
 | `currency` | ISO 4217 code | primary seller's `currency` |
 | `contract_indicator` | `true` / `false` | `contract_indicator` |
 | `temporary_unavailable` | `true` / `false` | primary seller's `temporary_unavailable` |
+| `under_agreement` | `true` / `false` | primary seller's `under_agreement` |
 | `supplier_count` | number or range | `supplier_count` |
 
 Also accepted, by exact value: `sub_category_id`, `product_type_id`, `sold_by`, `sku_id`, `product_key`, `asmo_material_number`, `aramco_material_number`.
@@ -98,7 +99,8 @@ Query parameters: `q` (required), `channel` (required), `language` (required), `
           "price": 123.0,
           "moq": 5,
           "currency": "SAR",
-          "temporary_unavailable": null
+          "temporary_unavailable": null,
+          "under_agreement": null
         }
       ]
     }
