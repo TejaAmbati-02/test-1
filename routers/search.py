@@ -30,6 +30,7 @@ from services.embedding_store import (
     RequestIdNotFound,
     embedding_store,
 )
+from services.image_processor import InvalidImageError, image_processor
 from services.search import ALLOWED_FILTER_KEYS, FILTER_ALT_FIELDS, FILTER_KEY_MAP, NESTED_FILTER_PATHS, search_service
 
 index_router = APIRouter(prefix="/indices", tags=["Indices"])
@@ -345,7 +346,12 @@ async def v1_search(request: Request) -> SearchApiResponse:
         if detected is None:
             logger.warning("POST /v1/search — uploaded file is not a JPEG/PNG/WebP image")
             raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
-        image_input = (image_bytes, detected)
+        # Preprocess (EXIF orientation, downscale, re-encode) off the event loop.
+        try:
+            image_input = await asyncio.to_thread(image_processor.process, image_bytes)
+        except InvalidImageError as exc:
+            logger.warning(f"POST /v1/search — uploaded image could not be decoded: {exc}")
+            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
 
     # 'relevance' means default (no explicit sort field).
     effective_sort_by = None if sort_by in (None, "relevance") else sort_by

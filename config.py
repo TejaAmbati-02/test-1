@@ -40,7 +40,12 @@ class Settings(BaseSettings):
     # Weight of the image kNN in text + image RRF fusion; the rest is split
     # equally between BM25 and the text kNN.
     text_image_image_weight: float = 0.6
- 
+    # Uploaded images larger than this many pixels are scaled down (aspect ratio
+    # kept) before embedding; see services/image_processor.py.
+    image_max_pixels: int = 2_400_000
+    # JPEG quality used when re-encoding a preprocessed (non-PNG) upload.
+    image_jpeg_quality: int = 90
+
  
     # Redis — search-context store for /v1/search. Each search is one key, its
     # request_id, holding {"text_emb", "image_emb", "query"}; it expires
