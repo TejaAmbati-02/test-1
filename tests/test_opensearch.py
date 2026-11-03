@@ -6,7 +6,12 @@ import pytest
 from opensearchpy import NotFoundError, RequestError
 
 from services import opensearch as os_module
-from services.opensearch import IndexNotFoundError, OpenSearchClientService, OpenSearchQueryError
+from services.opensearch import (
+    IndexNotFoundError,
+    OpenSearchClientService,
+    OpenSearchQueryError,
+    _redact_vectors,
+)
 from tests.conftest import os_search_result
 
 
@@ -35,6 +40,8 @@ class TestGetClient:
         assert kwargs["http_auth"] == ("admin", "secret")
         assert kwargs["use_ssl"] is True
         assert kwargs["timeout"] == 30
+        assert kwargs["verify_certs"] is False
+        assert kwargs["http_compress"] is True
 
     async def test_creation_failure_propagates(self, monkeypatch, test_settings):
         monkeypatch.setattr(os_module, "AsyncOpenSearch", MagicMock(side_effect=ValueError("bad host")))
@@ -113,6 +120,10 @@ class TestPipelines:
         raw_client.transport.perform_request.side_effect = NotFoundError(404, "not found", {})
         assert await service.pipeline_exists("p1") is False
 
+    async def test_pipeline_exists_any_error_returns_false(self, service, raw_client):
+        raw_client.transport.perform_request.side_effect = ConnectionError("down")
+        assert await service.pipeline_exists("p1") is False
+
     async def test_create_rrf_pipeline(self, service, raw_client):
         raw_client.transport.perform_request.return_value = {"acknowledged": True}
         assert await service.create_search_pipeline("p1", rank_constant=42) == {"acknowledged": True}
@@ -131,6 +142,13 @@ class TestPipelines:
             "technique": "rrf", "rank_constant": 60, "parameters": {"weights": [0.2, 0.2, 0.6]},
         }
         assert body["description"] == "RRF hybrid search pipeline (weighted)"
+
+    async def test_empty_weights_create_unweighted_pipeline(self, service, raw_client):
+        await service.create_search_pipeline("p3", weights=[])
+        body = raw_client.transport.perform_request.call_args.kwargs["body"]
+        combination = body["phase_results_processors"][0]["score-ranker-processor"]["combination"]
+        assert "parameters" not in combination
+        assert body["description"] == "RRF hybrid search pipeline"
 
     async def test_create_pipeline_error_propagates(self, service, raw_client):
         raw_client.transport.perform_request.side_effect = RuntimeError("boom")
@@ -164,3 +182,54 @@ class TestSearch:
         raw_client.search.side_effect = ConnectionError("down")
         with pytest.raises(ConnectionError):
             await service.search("products", {})
+
+    async def test_search_body_is_passed_unredacted(self, service, raw_client):
+        raw_client.search.return_value = os_search_result()
+        vector = [0.5] * 32
+        body = {"query": {"knn": {"content_vector": {"vector": vector, "k": 10}}}}
+        await service.search("products", body)
+        assert raw_client.search.call_args.kwargs["body"]["query"]["knn"]["content_vector"]["vector"] == vector
+
+    async def test_get_client_failure_propagates_from_search(self, monkeypatch, test_settings):
+        monkeypatch.setattr(os_module, "AsyncOpenSearch", MagicMock(side_effect=ValueError("bad host")))
+        with pytest.raises(ValueError):
+            await OpenSearchClientService(test_settings).search("products", {})
+
+
+class TestRedactVectors:
+    def test_long_numeric_list_is_summarised(self):
+        assert _redact_vectors([0.1] * 17) == "<vector dim=17>"
+        assert _redact_vectors(list(range(20))) == "<vector dim=20>"
+
+    def test_short_or_mixed_lists_are_kept(self):
+        assert _redact_vectors([0.1] * 16) == [0.1] * 16
+        mixed = [0.1] * 20 + ["x"]
+        assert _redact_vectors(mixed) == mixed
+
+    def test_nested_structures(self):
+        body = {
+            "size": 10,
+            "query": {"hybrid": {"queries": [
+                {"multi_match": {"query": "valve", "fields": ["a", "b"]}},
+                {"knn": {"content_vector": {"vector": [1.0] * 1024, "k": 100}}},
+            ]}},
+        }
+        redacted = _redact_vectors(body)
+        assert redacted["size"] == 10
+        assert redacted["query"]["hybrid"]["queries"][0] == {"multi_match": {"query": "valve", "fields": ["a", "b"]}}
+        assert redacted["query"]["hybrid"]["queries"][1]["knn"]["content_vector"] == {
+            "vector": "<vector dim=1024>", "k": 100,
+        }
+        # The original body is not modified.
+        assert body["query"]["hybrid"]["queries"][1]["knn"]["content_vector"]["vector"] == [1.0] * 1024
+
+    @pytest.mark.parametrize("value", [None, 5, "text", 1.5])
+    def test_scalars_pass_through(self, value):
+        assert _redact_vectors(value) == value
+
+    def test_error_returns_placeholder(self):
+        class Exploding(dict):
+            def items(self):
+                raise RuntimeError("boom")
+
+        assert _redact_vectors(Exploding(a=1)) == "<unloggable body>"

@@ -1,0 +1,5 @@
+[run]
+omit =
+    tests/*
+    test_api_image_search.py
+    .venv/*

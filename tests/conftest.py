@@ -91,12 +91,25 @@ def client() -> TestClient:
 
 @pytest.fixture
 def enable_redis(monkeypatch):
-    """Turn the Redis embedding cache on for the shared ``embedding_store``."""
+    """Turn Redis on for the shared ``redis_client`` (and so for ``embedding_store``).
+
+    ``redis_client.enabled`` needs a host, which the tests leave empty, so one is
+    set on the client's config; ``settings.redis_host`` is patched to match (the
+    latency endpoint reports it). A fake connected client (``AsyncMock``) is
+    attached as ``redis_client._client`` — tests can configure or replace it.
+    Returns the ``embedding_store``.
+    """
+    import dataclasses
+    from unittest.mock import AsyncMock
+
     from services.embedding_store import embedding_store
+    from services.redis_client import redis_client
 
     monkeypatch.setattr(
-        embedding_store, "_settings", settings.model_copy(update={"redis_host": "redis.test"})
+        redis_client, "_config", dataclasses.replace(redis_client._config, host="redis.test", enabled=True)
     )
+    monkeypatch.setattr(redis_client, "_client", AsyncMock())
+    monkeypatch.setattr(settings, "redis_host", "redis.test")
     return embedding_store
 
 
@@ -106,7 +119,7 @@ def make_search_response(**overrides: Any) -> SearchApiResponse:
         "total_results": 1,
         "page": 1,
         "page_size": 60,
-        "products": [{"sku_id": "SKU-1", "product_name": "Valve"}],
+        "products": [{"sku_id": "SKU-1", "sku_name": "Valve"}],
     }
     data.update(overrides)
     return SearchApiResponse(**data)
@@ -122,3 +135,8 @@ def os_search_result(hits: list[dict] | None = None, total: int | None = None, a
     if aggs is not None:
         result["aggregations"] = aggs
     return result
+
+
+# utils.logger exports to Azure Monitor when APP_INSIGHTS_CONNECTION_STRING is set.
+# Blank it before any test module imports utils.logger so nothing is ever sent.
+os.environ["APP_INSIGHTS_CONNECTION_STRING"] = ""
