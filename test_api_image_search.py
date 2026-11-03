@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import logging
 import mimetypes
 import sys
 import urllib.error
@@ -25,6 +26,9 @@ import uuid
 from pathlib import Path
 
 HERE = Path(__file__).parent
+
+# Standalone script against a running API: plain stdlib logging, no app imports.
+logger = logging.getLogger("test_api_image_search")
 
 
 def post_search(
@@ -35,6 +39,7 @@ def post_search(
     The image goes out as a normal image part with the Content-Type guessed from
     its file name, unless ``content_type`` overrides it.
     """
+    logger.debug(f"[post_search] start — fields={sorted(fields)} image={image.name if image else None} content_type={content_type}")
     boundary = uuid.uuid4().hex
     parts: list[bytes] = []
     for name, value in fields.items():
@@ -53,20 +58,38 @@ def post_search(
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
-            return resp.status, json.loads(resp.read())
+            status, payload = resp.status, json.loads(resp.read())
+            logger.debug(f"[post_search] HTTP {status} — total_results={payload.get('total_results')}")
+            return status, payload
     except urllib.error.HTTPError as exc:
         body = exc.read()
+        logger.debug(f"[post_search] HTTP {exc.code} from {base_url}/v1/search: {body[:200]!r}")
         try:
             return exc.code, json.loads(body)
         except ValueError:
+            logger.warning(f"[post_search] HTTP {exc.code} with non-JSON body ({len(body)} bytes)")
             return exc.code, {"raw": body[:200].decode(errors="replace")}
+    except Exception as exc:
+        logger.exception(
+            f"[post_search] request to {base_url}/v1/search failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "post_search", "status": "error", "error_details": str(exc)},
+        )
+        raise
 
 
 BASE_FIELDS = {"channel": "web", "language": "en", "page": "1", "page_size": "10"}
 
 
 def run(base_url: str, cases_dir: Path, bad_dir: Path, only: str | None) -> int:
-    cases = json.loads((cases_dir / "expected.json").read_text())["cases"]
+    try:
+        cases = json.loads((cases_dir / "expected.json").read_text())["cases"]
+    except Exception as exc:
+        logger.exception(
+            f"[run] could not load {cases_dir / 'expected.json'} ({type(exc).__name__}): {exc}",
+            extra={"function_name": "run", "status": "error", "error_details": str(exc)},
+        )
+        raise
+    logger.debug(f"[run] loaded {len(cases)} cases (only={only})")
     if only:
         cases = [c for c in cases if only in c["image"]]
     passed = failed = 0
@@ -126,4 +149,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.WARNING, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
     main()

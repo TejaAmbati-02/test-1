@@ -49,71 +49,99 @@ class EmbeddingService:
                 extra={"status": "success", "input_data": {"model": cfg.embedding_model_name}},
             )
         except Exception as exc:
-            logger.error(
-                "EmbeddingService.load — failed to initialize OCI GenAI client",
-                extra={"status": "error", "error_details": str(exc), "input_data": {"model": cfg.embedding_model_name}, **oci_error_fields(exc)},
+            logger.exception(
+                f"EmbeddingService.load — failed to initialize OCI GenAI client: {exc}",
+                extra={"function_name": "EmbeddingService.load", "status": "error", "error_details": str(exc), "input_data": {"model": cfg.embedding_model_name}, **oci_error_fields(exc)},
             )
             raise
  
     @staticmethod
     def _l2_normalize(vector: list[float]) -> list[float]:
-        norm = math.sqrt(sum(v * v for v in vector))
-        if norm == 0.0:
-            return vector
-        return [v / norm for v in vector]
+        fn = "EmbeddingService._l2_normalize"
+        try:
+            norm = math.sqrt(sum(v * v for v in vector))
+            if norm == 0.0:
+                logger.warning(f"[{fn}] zero-norm vector (dim={len(vector)}); returning unchanged",
+                               extra={"function_name": fn, "status": "warning"})
+                return vector
+            logger.debug(f"[{fn}] dim={len(vector)}, norm={norm:.6f}", extra={"function_name": fn})
+            return [v / norm for v in vector]
+        except Exception as exc:
+            logger.exception(
+                f"[{fn}] failed: {exc}",
+                extra={"function_name": fn, "status": "error", "error_details": str(exc),
+                       "input_data": {"dim": len(vector) if hasattr(vector, "__len__") else None}},
+            )
+            raise
  
     def _embed_query_sync(self, query: str) -> list[float]:
+        fn = "EmbeddingService._embed_query_sync"
         cfg = self._settings
-        logger.debug(
-            "EmbeddingService._embed_query_sync — building EmbedTextDetails",
-            extra={"input_data": {
-                "model": cfg.embedding_model_name,
-                "dimension": cfg.embedding_dimension,
-                "input_type": "SEARCH_QUERY",
-                "compartment_id": cfg.oci_compartment_id,
-                "query_preview": query[:120],
-                "query_len": len(query),
-            }},
-        )
-        details = oci.generative_ai_inference.models.EmbedTextDetails(
-            compartment_id=cfg.oci_compartment_id,
-            serving_mode=oci.generative_ai_inference.models.OnDemandServingMode(
-                serving_type="ON_DEMAND",
-                model_id=cfg.embedding_model_name,
-            ),
-            inputs=[query],
-            input_type="SEARCH_QUERY",
-            truncate="END",
-            output_dimensions=cfg.embedding_dimension,
-            is_echo=False,
-        )
-        logger.debug("EmbeddingService._embed_query_sync — EmbedTextDetails built, calling OCI embed_text")
         oci_start = time.perf_counter()
-        response = self._client.embed_text(embed_text_details=details)
-        oci_elapsed_ms = round((time.perf_counter() - oci_start) * 1000, 2)
-        logger.info(
-            "EmbeddingService._embed_query_sync — OCI embed_text time taken",
-            extra={"status": "success", "response_payload": {"oci_elapsed_ms": oci_elapsed_ms}},
-        )
-        logger.debug(
-            "EmbeddingService._embed_query_sync — OCI embed_text returned",
-            extra={"input_data": {
-                "has_embeddings": getattr(response.data, "embeddings", None) is not None,
-                "has_embeddings_by_type": getattr(response.data, "embeddings_by_type", None) is not None,
-                "model_id": getattr(response.data, "model_id", None),
-            }},
-        )
-        vectors = extract_embeddings(response.data)
-        logger.debug(f"EmbeddingService._embed_query_sync — extracted {len(vectors)} vector(s)")
-        vector = vectors[0]
-        logger.debug(
-            "EmbeddingService._embed_query_sync — vector ready",
-            extra={"input_data": {"dim": len(vector), "preview": [round(v, 5) for v in vector[:5]]}},
-        )
-        if cfg.embedding_normalize:
-            vector = self._l2_normalize(vector)
-            logger.debug("EmbeddingService._embed_query_sync — vector L2-normalized")
-        return vector
+        try:
+            logger.debug(
+                "EmbeddingService._embed_query_sync — building EmbedTextDetails",
+                extra={"function_name": fn, "input_data": {
+                    "model": cfg.embedding_model_name,
+                    "dimension": cfg.embedding_dimension,
+                    "input_type": "SEARCH_QUERY",
+                    "compartment_id": cfg.oci_compartment_id,
+                    "query_preview": query[:120],
+                    "query_len": len(query),
+                }},
+            )
+            details = oci.generative_ai_inference.models.EmbedTextDetails(
+                compartment_id=cfg.oci_compartment_id,
+                serving_mode=oci.generative_ai_inference.models.OnDemandServingMode(
+                    serving_type="ON_DEMAND",
+                    model_id=cfg.embedding_model_name,
+                ),
+                inputs=[query],
+                input_type="SEARCH_QUERY",
+                truncate="END",
+                output_dimensions=cfg.embedding_dimension,
+                is_echo=False,
+            )
+            logger.debug("EmbeddingService._embed_query_sync — EmbedTextDetails built, calling OCI embed_text")
+            oci_start = time.perf_counter()
+            response = self._client.embed_text(embed_text_details=details)
+            oci_elapsed_ms = round((time.perf_counter() - oci_start) * 1000, 2)
+            logger.info(
+                "EmbeddingService._embed_query_sync — OCI embed_text time taken",
+                extra={"function_name": fn, "status": "success", "response_payload": {"oci_elapsed_ms": oci_elapsed_ms}},
+            )
+            logger.debug(
+                "EmbeddingService._embed_query_sync — OCI embed_text returned",
+                extra={"input_data": {
+                    "has_embeddings": getattr(response.data, "embeddings", None) is not None,
+                    "has_embeddings_by_type": getattr(response.data, "embeddings_by_type", None) is not None,
+                    "model_id": getattr(response.data, "model_id", None),
+                }},
+            )
+            vectors = extract_embeddings(response.data)
+            logger.debug(f"EmbeddingService._embed_query_sync — extracted {len(vectors)} vector(s)")
+            vector = vectors[0]
+            logger.debug(
+                "EmbeddingService._embed_query_sync — vector ready",
+                extra={"input_data": {"dim": len(vector), "preview": [round(v, 5) for v in vector[:5]]}},
+            )
+            if cfg.embedding_normalize:
+                vector = self._l2_normalize(vector)
+                logger.debug("EmbeddingService._embed_query_sync — vector L2-normalized")
+            return vector
+        except oci.exceptions.ServiceError as exc:
+            logger.error(
+                f"[{fn}] OCI service error after {(time.perf_counter() - oci_start) * 1000:.1f}ms: {exc.code} {exc.message}",
+                extra={"function_name": fn, "status": "error", "error_details": str(exc), **oci_error_fields(exc)},
+            )
+            raise
+        except Exception as exc:
+            logger.exception(
+                f"[{fn}] failed: {exc}",
+                extra={"function_name": fn, "status": "error", "error_details": str(exc),
+                       "input_data": {"query_len": len(query) if isinstance(query, str) else None}, **oci_error_fields(exc)},
+            )
+            raise
  
     async def encode_query(self, query: str) -> list[float]:
         """Embed a single search query (SEARCH_QUERY input type)."""
@@ -163,43 +191,66 @@ class EmbeddingService:
             )
             raise
         except Exception as exc:
-            logger.error(
-                "EmbeddingService.encode_query — encoding failed",
-                extra={"status": "error", "error_details": str(exc), **oci_error_fields(exc)},
+            logger.exception(
+                f"EmbeddingService.encode_query — encoding failed: {exc}",
+                extra={"function_name": "EmbeddingService.encode_query", "status": "error", "error_details": str(exc), **oci_error_fields(exc)},
             )
             raise
 
     def _embed_image_sync(self, data_uri: str) -> list[float]:
+        fn = "EmbeddingService._embed_image_sync"
         cfg = self._settings
-        details = oci.generative_ai_inference.models.EmbedTextDetails(
-            compartment_id=cfg.oci_compartment_id,
-            serving_mode=oci.generative_ai_inference.models.OnDemandServingMode(
-                serving_type="ON_DEMAND",
-                model_id=cfg.embedding_model_name,
-            ),
-            # Same multimodal path, model and input type the ingest pipeline uses
-            # for product images, so the vectors are directly comparable.
-            embed_contents=[
-                oci.generative_ai_inference.models.EmbedImageContent(
-                    image_url=oci.generative_ai_inference.models.ImageUrl(url=data_uri)
-                )
-            ],
-            input_type="IMAGE",
-            embedding_types=["float"],
-            output_dimensions=cfg.embedding_dimension,
-            is_echo=False,
-        )
         oci_start = time.perf_counter()
-        response = self._client.embed_text(embed_text_details=details)
-        oci_elapsed_ms = round((time.perf_counter() - oci_start) * 1000, 2)
-        logger.info(
-            "EmbeddingService._embed_image_sync — OCI embed_text (IMAGE) time taken",
-            extra={"status": "success", "response_payload": {"oci_elapsed_ms": oci_elapsed_ms}},
+        # Only the length of the data URI is logged — never the base64 image itself.
+        logger.debug(
+            f"[{fn}] start — model={cfg.embedding_model_name}, dimension={cfg.embedding_dimension}, "
+            f"data_uri_len={len(data_uri)}",
+            extra={"function_name": fn, "input_data": {"model": cfg.embedding_model_name, "data_uri_len": len(data_uri)}},
         )
-        vector = extract_embeddings(response.data)[0]
-        if cfg.embedding_normalize:
-            vector = self._l2_normalize(vector)
-        return vector
+        try:
+            details = oci.generative_ai_inference.models.EmbedTextDetails(
+                compartment_id=cfg.oci_compartment_id,
+                serving_mode=oci.generative_ai_inference.models.OnDemandServingMode(
+                    serving_type="ON_DEMAND",
+                    model_id=cfg.embedding_model_name,
+                ),
+                # Same multimodal path, model and input type the ingest pipeline uses
+                # for product images, so the vectors are directly comparable.
+                embed_contents=[
+                    oci.generative_ai_inference.models.EmbedImageContent(
+                        image_url=oci.generative_ai_inference.models.ImageUrl(url=data_uri)
+                    )
+                ],
+                input_type="IMAGE",
+                embedding_types=["float"],
+                output_dimensions=cfg.embedding_dimension,
+                is_echo=False,
+            )
+            oci_start = time.perf_counter()
+            response = self._client.embed_text(embed_text_details=details)
+            oci_elapsed_ms = round((time.perf_counter() - oci_start) * 1000, 2)
+            logger.info(
+                "EmbeddingService._embed_image_sync — OCI embed_text (IMAGE) time taken",
+                extra={"function_name": fn, "status": "success", "response_payload": {"oci_elapsed_ms": oci_elapsed_ms}},
+            )
+            vector = extract_embeddings(response.data)[0]
+            if cfg.embedding_normalize:
+                vector = self._l2_normalize(vector)
+            logger.debug(f"[{fn}] vector ready — dim={len(vector)}, normalized={cfg.embedding_normalize}",
+                         extra={"function_name": fn, "status": "success"})
+            return vector
+        except oci.exceptions.ServiceError as exc:
+            logger.error(
+                f"[{fn}] OCI service error after {(time.perf_counter() - oci_start) * 1000:.1f}ms: {exc.code} {exc.message}",
+                extra={"function_name": fn, "status": "error", "error_details": str(exc), **oci_error_fields(exc)},
+            )
+            raise
+        except Exception as exc:
+            logger.exception(
+                f"[{fn}] failed: {exc}",
+                extra={"function_name": fn, "status": "error", "error_details": str(exc), **oci_error_fields(exc)},
+            )
+            raise
 
     async def encode_image(self, data: bytes, mime: str) -> list[float]:
         """Embed an uploaded image (raw bytes) with input_type IMAGE.
@@ -224,9 +275,9 @@ class EmbeddingService:
             )
             return vector
         except Exception as exc:
-            logger.error(
-                "EmbeddingService.encode_image — encoding failed",
-                extra={"status": "error", "error_details": str(exc), **oci_error_fields(exc)},
+            logger.exception(
+                f"EmbeddingService.encode_image — encoding failed: {exc}",
+                extra={"function_name": "EmbeddingService.encode_image", "status": "error", "error_details": str(exc), **oci_error_fields(exc)},
             )
             raise
 

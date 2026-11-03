@@ -17,6 +17,22 @@ class OpenSearchQueryError(Exception):
     """Raised when OpenSearch rejects a malformed query (maps to HTTP 400)."""
 
 
+def _redact_vectors(obj: Any) -> Any:
+    """Copy of a query body with long float lists (embedding vectors) replaced by a short summary."""
+    try:
+        if isinstance(obj, dict):
+            return {k: _redact_vectors(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            if len(obj) > 16 and all(isinstance(v, (int, float)) for v in obj):
+                return f"<vector dim={len(obj)}>"
+            return [_redact_vectors(v) for v in obj]
+        return obj
+    except Exception as exc:
+        logger.warning(f"[_redact_vectors] could not redact query body: {exc}",
+                       extra={"function_name": "_redact_vectors", "status": "error", "error_details": str(exc)})
+        return "<unloggable body>"
+
+
 class OpenSearchClientService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -41,9 +57,9 @@ class OpenSearchClientService:
                 )
                 logger.debug("OpenSearchClientService.get_client — client created")
             except Exception as exc:
-                logger.error(
-                    "OpenSearchClientService.get_client — failed to create client",
-                    extra={"status": "error", "error_details": str(exc)},
+                logger.exception(
+                    f"OpenSearchClientService.get_client — failed to create client: {exc}",
+                    extra={"function_name": "OpenSearchClientService.get_client", "status": "error", "error_details": str(exc)},
                 )
                 raise
         return self._client
@@ -116,9 +132,9 @@ class OpenSearchClientService:
             )
             return indices
         except Exception as exc:
-            logger.error(
-                "OpenSearchClientService.list_indices — failed",
-                extra={"status": "error", "error_details": str(exc)},
+            logger.exception(
+                f"OpenSearchClientService.list_indices — failed: {exc}",
+                extra={"function_name": "OpenSearchClientService.list_indices", "status": "error", "error_details": str(exc)},
             )
             raise
 
@@ -143,8 +159,13 @@ class OpenSearchClientService:
             await client.transport.perform_request("GET", f"/_search/pipeline/{pipeline_id}")
             logger.info(f"OpenSearchClientService.pipeline_exists — pipeline '{pipeline_id}' found")
             return True
-        except Exception:
-            logger.info(f"OpenSearchClientService.pipeline_exists — pipeline '{pipeline_id}' not found")
+        except Exception as exc:
+            logger.info(
+                f"OpenSearchClientService.pipeline_exists — pipeline '{pipeline_id}' not found "
+                f"({type(exc).__name__}: {exc})",
+                extra={"function_name": "OpenSearchClientService.pipeline_exists", "status": "not_found",
+                       "error_details": str(exc)},
+            )
             return False
 
     async def create_search_pipeline(
@@ -171,9 +192,9 @@ class OpenSearchClientService:
             )
             return response
         except Exception as exc:
-            logger.error(
-                f"OpenSearchClientService.create_search_pipeline — failed for '{pipeline_id}'",
-                extra={"status": "error", "error_details": str(exc)},
+            logger.exception(
+                f"OpenSearchClientService.create_search_pipeline — failed for '{pipeline_id}': {exc}",
+                extra={"function_name": "OpenSearchClientService.create_search_pipeline", "status": "error", "error_details": str(exc)},
             )
             raise
 
@@ -182,7 +203,7 @@ class OpenSearchClientService:
             f"OpenSearchClientService.search — executing on '{index}' pipeline={pipeline_id}",
             extra={"input_data": {"index": index, "pipeline": pipeline_id, "size": body.get("size"), "from": body.get("from"), "has_aggs": "aggs" in body}},
         )
-        logger.debug("OpenSearchClientService.search — query body", extra={"input_data": {"body": body}})
+        logger.debug("OpenSearchClientService.search — query body", extra={"input_data": {"body": _redact_vectors(body)}})
         try:
             client = await self.get_client()
             params = {"search_pipeline": pipeline_id} if pipeline_id else {}
@@ -221,9 +242,9 @@ class OpenSearchClientService:
             )
             raise OpenSearchQueryError(f"OpenSearch query error: {exc.info}") from exc
         except Exception as exc:
-            logger.error(
-                f"OpenSearchClientService.search — unexpected error on '{index}'",
-                extra={"status": "error", "error_details": str(exc)},
+            logger.exception(
+                f"OpenSearchClientService.search — unexpected error on '{index}': {exc}",
+                extra={"function_name": "OpenSearchClientService.search", "status": "error", "error_details": str(exc)},
             )
             raise
 

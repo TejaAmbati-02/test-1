@@ -92,22 +92,33 @@ KEYWORD_FIELDS = [
 
 
 def _build_aggs() -> dict[str, Any]:
-    aggs: dict[str, Any] = {}
-    for key, (id_field, label_field, nested_path) in FACETS.items():
-        terms: dict[str, Any] = {"terms": {"field": id_field, "size": FACET_SIZE}}
-        sub: dict[str, Any] = {}
-        if label_field:
-            sub["label"] = {"terms": {"field": label_field, "size": 1}}
-        if nested_path:
-            # Count products, not seller offers.
-            sub["products"] = {"reverse_nested": {}}
-        if sub:
-            terms["aggs"] = sub
-        aggs[key] = {"nested": {"path": nested_path}, "aggs": {"values": terms}} if nested_path else terms
-    return aggs
+    logger.debug(f"[_build_aggs] start — facets={list(FACETS)} size={FACET_SIZE}")
+    try:
+        aggs: dict[str, Any] = {}
+        for key, (id_field, label_field, nested_path) in FACETS.items():
+            terms: dict[str, Any] = {"terms": {"field": id_field, "size": FACET_SIZE}}
+            sub: dict[str, Any] = {}
+            if label_field:
+                sub["label"] = {"terms": {"field": label_field, "size": 1}}
+            if nested_path:
+                # Count products, not seller offers.
+                sub["products"] = {"reverse_nested": {}}
+            if sub:
+                terms["aggs"] = sub
+            aggs[key] = {"nested": {"path": nested_path}, "aggs": {"values": terms}} if nested_path else terms
+        logger.debug(f"[_build_aggs] done — built {len(aggs)} aggregations")
+        return aggs
+    except Exception as exc:
+        logger.exception(
+            f"[_build_aggs] failed: {exc}",
+            extra={"function_name": "_build_aggs", "status": "error", "error_details": str(exc)},
+        )
+        raise
 
 
 def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
+    logger.debug(f"[_parse_facets] start — aggregation keys={list(aggs_raw or {})}")
+
     def terms(api_key: str) -> list[FacetTermValue]:
         _id_field, label_field, nested_path = FACETS[api_key]
         raw = aggs_raw.get(api_key, {})
@@ -120,45 +131,87 @@ def _parse_facets(aggs_raw: dict[str, Any]) -> SearchFacets:
             out.append(FacetTermValue(id=b["key"], value=str(label), count=count))
         return out
 
-    return SearchFacets(**{key: terms(key) for key in FACETS})
+    try:
+        parsed = {key: terms(key) for key in FACETS}
+        logger.debug(f"[_parse_facets] done — values per facet={ {k: len(v) for k, v in parsed.items()} }")
+        return SearchFacets(**parsed)
+    except Exception as exc:
+        logger.exception(
+            f"[_parse_facets] failed: {exc}",
+            extra={
+                "function_name": "_parse_facets",
+                "status": "error",
+                "error_details": str(exc),
+                "input_data": {"aggregation_keys": list(aggs_raw or {})},
+            },
+        )
+        raise
 
 
 def _seller_detail(seller: dict[str, Any], fallback: dict[str, Any] | None = None) -> SellerDetail:
-    fallback = fallback or {}
-    return SellerDetail(
-        seller_id=seller.get("seller_id"),
-        name=seller.get("seller_name"),
-        lead_time=seller.get("lead_time"),
-        unit_type=seller.get("unit_type"),
-        price=seller.get("price"),
-        # The FE expects "" (not null) when the seller has no MOQ; the index keeps it numeric.
-        moq=seller["moq"] if seller.get("moq") is not None else "",
-        currency=seller.get("currency"),
-        temporary_unavailable=(
-            seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None
-            else fallback.get("temporary_unavailable")
-        ),
-        under_agreement=(
-            seller["under_agreement"] if seller.get("under_agreement") is not None else fallback.get("under_agreement")
-        ),
-    )
+    # Called once per seller per hit — log only on failure to keep the logs readable.
+    try:
+        fallback = fallback or {}
+        return SellerDetail(
+            seller_id=seller.get("seller_id"),
+            name=seller.get("seller_name"),
+            lead_time=seller.get("lead_time"),
+            unit_type=seller.get("unit_type"),
+            price=seller.get("price"),
+            # The FE expects "" (not null) when the seller has no MOQ; the index keeps it numeric.
+            moq=seller["moq"] if seller.get("moq") is not None else "",
+            currency=seller.get("currency"),
+            temporary_unavailable=(
+                seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None
+                else fallback.get("temporary_unavailable")
+            ),
+            under_agreement=(
+                seller["under_agreement"] if seller.get("under_agreement") is not None else fallback.get("under_agreement")
+            ),
+        )
+    except Exception as exc:
+        seller_id = seller.get("seller_id") if isinstance(seller, dict) else None
+        logger.exception(
+            f"[_seller_detail] failed for seller_id={seller_id!r}: {exc}",
+            extra={
+                "function_name": "_seller_detail",
+                "status": "error",
+                "error_details": str(exc),
+                "input_data": {"seller_id": seller_id},
+            },
+        )
+        raise
 
 
 def _to_product(src: dict[str, Any]) -> ProductItem:
     """Map a raw OpenSearch _source document to the frontend product contract (§2.4)."""
-    sellers = src.get("seller_details") or []
-    return ProductItem(
-        sku_id=src.get("sku_id"),
-        # sku_name is written by the data pipeline; older indexes only carry product_name.
-        sku_name=src.get("sku_name") or src.get("product_name"),
-        primary_image_url=src.get("primary_image_url"),
-        asmo_material_number=src.get("asmo_material_number"),
-        aramco_material_number=src.get("aramco_material_number"),
-        # temporary_unavailable / under_agreement are returned per seller only. Older
-        # indexes keep them on the root document (the primary, cheapest seller's
-        # offer), so use those for seller_details[0] when the nested offer has none.
-        seller_details=[_seller_detail(s, src if i == 0 else None) for i, s in enumerate(sellers)],
-    )
+    # Called once per hit — log only on failure to keep the logs readable.
+    try:
+        sellers = src.get("seller_details") or []
+        return ProductItem(
+            sku_id=src.get("sku_id"),
+            # sku_name is written by the data pipeline; older indexes only carry product_name.
+            sku_name=src.get("sku_name") or src.get("product_name"),
+            primary_image_url=src.get("primary_image_url"),
+            asmo_material_number=src.get("asmo_material_number"),
+            aramco_material_number=src.get("aramco_material_number"),
+            # temporary_unavailable / under_agreement are returned per seller only. Older
+            # indexes keep them on the root document (the primary, cheapest seller's
+            # offer), so use those for seller_details[0] when the nested offer has none.
+            seller_details=[_seller_detail(s, src if i == 0 else None) for i, s in enumerate(sellers)],
+        )
+    except Exception as exc:
+        sku_id = src.get("sku_id") if isinstance(src, dict) else None
+        logger.exception(
+            f"[_to_product] failed to map document sku_id={sku_id!r}: {exc}",
+            extra={
+                "function_name": "_to_product",
+                "status": "error",
+                "error_details": str(exc),
+                "input_data": {"sku_id": sku_id},
+            },
+        )
+        raise
 
 
 class SearchService:
@@ -174,6 +227,7 @@ class SearchService:
         self._text_image_fusion = False
 
     async def setup_pipeline(self) -> None:
+        logger.debug(f"[SearchService.setup_pipeline] start — pipelines={PIPELINE_ID!r}, {TEXT_IMAGE_PIPELINE_ID!r}")
         await self._setup_text_image_pipeline()
         logger.info(f"SearchService.setup_pipeline — checking for existing pipeline '{PIPELINE_ID}'")
         try:
@@ -191,9 +245,14 @@ class SearchService:
                 extra={"status": "success", "input_data": {"pipeline_id": PIPELINE_ID}},
             )
         except Exception as exc:
-            logger.error(
-                "SearchService.setup_pipeline — failed",
-                extra={"status": "error", "error_details": str(exc), "input_data": {"pipeline_id": PIPELINE_ID}},
+            logger.exception(
+                f"SearchService.setup_pipeline — failed for pipeline '{PIPELINE_ID}': {exc}",
+                extra={
+                    "function_name": "SearchService.setup_pipeline",
+                    "status": "error",
+                    "error_details": str(exc),
+                    "input_data": {"pipeline_id": PIPELINE_ID},
+                },
             )
             raise
 
@@ -201,22 +260,41 @@ class SearchService:
         """Create/refresh the weighted RRF pipeline used for text + image search."""
         w = _cfg.text_image_image_weight
         weights = [(1 - w) / 2, (1 - w) / 2, w]  # BM25, text kNN, image kNN
+        logger.debug(
+            f"[SearchService._setup_text_image_pipeline] start — pipeline='{TEXT_IMAGE_PIPELINE_ID}' "
+            f"image_weight={w} weights={weights}"
+        )
         try:
             await self._os.create_search_pipeline(TEXT_IMAGE_PIPELINE_ID, rank_constant=60, weights=weights)
             self._text_image_fusion = True
             logger.info(f"SearchService.setup_pipeline — '{TEXT_IMAGE_PIPELINE_ID}' ready (weights={weights})")
         except Exception as exc:
+            # Intentionally non-fatal: text + image search degrades to text-as-filter.
             self._text_image_fusion = False
             logger.warning(
-                f"SearchService.setup_pipeline — weighted RRF not available ({exc}); "
+                f"SearchService.setup_pipeline — weighted RRF not available ({type(exc).__name__}: {exc}); "
                 "text + image search falls back to filtering by the text",
+                extra={
+                    "function_name": "SearchService._setup_text_image_pipeline",
+                    "status": "error",
+                    "error_details": str(exc),
+                    "input_data": {"pipeline_id": TEXT_IMAGE_PIPELINE_ID, "weights": weights},
+                },
             )
 
     @staticmethod
     def _sort_clause(sort_by: str | None, sort_order: str) -> list[dict] | None:
-        if sort_by == "price":
-            return [{"price": {"order": sort_order}}]
-        return None
+        logger.debug(f"[SearchService._sort_clause] sort_by={sort_by!r} sort_order={sort_order!r}")
+        try:
+            if sort_by == "price":
+                return [{"price": {"order": sort_order}}]
+            return None
+        except Exception as exc:
+            logger.exception(
+                f"[SearchService._sort_clause] failed: {exc}",
+                extra={"function_name": "SearchService._sort_clause", "status": "error", "error_details": str(exc)},
+            )
+            raise
 
     async def filter_browse(
         self,
@@ -275,9 +353,18 @@ class SearchService:
                 facets=facets,
             )
         except Exception as exc:
-            logger.error(
-                "SearchService.filter_browse — failed",
-                extra={"status": "error", "error_details": str(exc), "input_data": {"index": index, "page": page}},
+            logger.exception(
+                f"SearchService.filter_browse — failed ({type(exc).__name__}): {exc}",
+                extra={
+                    "function_name": "SearchService.filter_browse",
+                    "status": "error",
+                    "error_details": str(exc),
+                    "input_data": {
+                        "index": index, "page": page, "page_size": page_size,
+                        "filter_count": len(filters), "sort_by": sort_by, "sort_order": sort_order,
+                        "request_id": request_id,
+                    },
+                },
             )
             raise
 
@@ -451,13 +538,20 @@ class SearchService:
                 facets=facets,
             )
         except Exception as exc:
-            logger.error(
-                "SearchService.search_v1 — failed",
+            logger.exception(
+                f"SearchService.search_v1 — failed (mode={mode}, {type(exc).__name__}): {exc}",
                 extra={
+                    "function_name": "SearchService.search_v1",
                     "status": "error",
                     "search_query": query,
+                    "language": language,
                     "error_details": str(exc),
-                    "input_data": {"index": index, "page": page, "language": language},
+                    "input_data": {
+                        "index": index, "mode": mode, "page": page, "page_size": page_size,
+                        "language": language, "filter_count": len(filters), "sort_by": sort_by,
+                        "text_dim": len(query_vector or []), "image_dim": len(image_vector or []),
+                        "request_id": request_id,
+                    },
                 },
             )
             raise
@@ -520,9 +614,16 @@ class SearchService:
                 product_suggestions=product_suggestions,
             )
         except Exception as exc:
-            logger.error(
-                "SearchService.get_suggestions — failed",
-                extra={"status": "error", "search_query": query, "error_details": str(exc)},
+            logger.exception(
+                f"SearchService.get_suggestions — failed ({type(exc).__name__}): {exc}",
+                extra={
+                    "function_name": "SearchService.get_suggestions",
+                    "status": "error",
+                    "search_query": query,
+                    "language": language,
+                    "error_details": str(exc),
+                    "input_data": {"index": index, "query_limit": query_limit, "product_limit": product_limit},
+                },
             )
             raise
 

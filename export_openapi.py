@@ -18,16 +18,27 @@ from pathlib import Path
 
 from app import app
 from swagger_html import write_swagger_html
+from utils.logger import logger
 
 
 def main() -> None:
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "openapi.json"
-    spec = app.openapi()
-    out.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"Wrote OpenAPI {spec['openapi']} spec ({len(spec['paths'])} paths) to {out}")
-    html = out.with_name("swagger.html")
-    write_swagger_html(spec, html)
-    print(f"Wrote Swagger UI to {html}")
+    logger.debug(f"[export_openapi.main] start — out={out}")
+    try:
+        spec = app.openapi()
+        logger.debug(f"[export_openapi.main] generated OpenAPI {spec.get('openapi')} spec with {len(spec.get('paths', {}))} paths")
+        out.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"Wrote OpenAPI {spec['openapi']} spec ({len(spec['paths'])} paths) to {out}")
+        html = out.with_name("swagger.html")
+        write_swagger_html(spec, html)
+        print(f"Wrote Swagger UI to {html}")
+        logger.info(f"[export_openapi.main] wrote {out} and {html}")
+    except Exception as exc:
+        logger.exception(
+            f"[export_openapi.main] failed to export OpenAPI spec to {out} ({type(exc).__name__}): {exc}",
+            extra={"function_name": "export_openapi.main", "status": "error", "error_details": str(exc)},
+        )
+        raise
 
 
 if __name__ == "__main__":

@@ -82,38 +82,81 @@ _SEARCH_ERROR_RESPONSES = {
 }
 
 
+def _log_unexpected(func_name: str, exc: Exception, **input_data: Any) -> None:
+    """Log an unexpected exception (with traceback) in the shared structured format."""
+    logger.exception(
+        f"[{func_name}] failed ({type(exc).__name__}): {exc}",
+        extra={
+            "function_name": func_name,
+            "status": "error",
+            "error_details": str(exc),
+            "input_data": input_data,
+        },
+    )
+
+
 def _image_mime(data: bytes) -> str | None:
     """Return the MIME type for JPEG/PNG/WebP bytes, else None (GIF is not supported)."""
-    if data[:8].startswith(b"\x89PNG"):
-        return "image/png"
-    if data[:3] == b"\xff\xd8\xff":
-        return "image/jpeg"
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp"
-    return None
+    try:
+        if data[:8].startswith(b"\x89PNG"):
+            mime = "image/png"
+        elif data[:3] == b"\xff\xd8\xff":
+            mime = "image/jpeg"
+        elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            mime = "image/webp"
+        else:
+            mime = None
+        # Never log the bytes themselves — only their size and the detected type.
+        logger.debug(f"[_image_mime] {len(data)} bytes -> detected type={mime!r}")
+        return mime
+    except Exception as exc:
+        _log_unexpected("_image_mime", exc, size=len(data) if isinstance(data, (bytes, bytearray)) else None)
+        raise
 
 
 def _api_error(http_status: int, code: str, message: str) -> HTTPException:
+    logger.debug(f"[_api_error] building HTTP {http_status} {code}: {message}")
     return HTTPException(status_code=http_status, detail={"code": code, "message": message})
 
 
 def _validate_enum(value: str, allowed: frozenset[str], field: str, code: str) -> None:
-    if value not in allowed:
-        logger.warning(f"POST /v1/search — unsupported {field}: '{value}'")
-        raise _api_error(400, code, f"Unsupported {field} '{value}'. Allowed: {', '.join(sorted(allowed))}")
+    logger.debug(f"[_validate_enum] {field}={value!r} allowed={sorted(allowed)}")
+    try:
+        if value not in allowed:
+            logger.warning(f"POST /v1/search — unsupported {field}: '{value}'")
+            raise _api_error(400, code, f"Unsupported {field} '{value}'. Allowed: {', '.join(sorted(allowed))}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log_unexpected("_validate_enum", exc, field=field, value=value)
+        raise
 
 
 def _parse_filters(raw: str | None) -> dict[str, Any]:
     """Parse the `filters` form field (a JSON string per §2.1) into a dict."""
-    if not raw or not raw.strip():
-        return {}
+    logger.debug(f"[_parse_filters] start — raw length={len(raw) if raw else 0}")
     try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise _api_error(400, "INVALID_FILTER", f"filters must be a valid JSON object: {exc.msg}")
-    if not isinstance(parsed, dict):
-        raise _api_error(400, "INVALID_FILTER", "filters must be a JSON object")
-    return parsed
+        if not raw or not raw.strip():
+            logger.debug("[_parse_filters] no filters supplied")
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                f"[_parse_filters] filters is not valid JSON: {exc.msg} (line {exc.lineno}, col {exc.colno})",
+                extra={"function_name": "_parse_filters", "status": "error", "error_details": str(exc)},
+            )
+            raise _api_error(400, "INVALID_FILTER", f"filters must be a valid JSON object: {exc.msg}")
+        if not isinstance(parsed, dict):
+            logger.warning(f"[_parse_filters] filters must be a JSON object, got {type(parsed).__name__}")
+            raise _api_error(400, "INVALID_FILTER", "filters must be a JSON object")
+        logger.debug(f"[_parse_filters] parsed filter keys={list(parsed)}")
+        return parsed
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log_unexpected("_parse_filters", exc, raw_length=len(raw) if raw else 0)
+        raise
 
 
 # Value types per filter key (§5: invalid filter value -> 400). Keys not listed
@@ -124,11 +167,19 @@ RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
 
 
 def _valid_scalar(key: str, value: Any) -> bool:
-    if key in NUMERIC_FILTER_KEYS:
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
-    if key in BOOLEAN_FILTER_KEYS:
-        return isinstance(value, bool)
-    return isinstance(value, str) and value != ""
+    try:
+        if key in NUMERIC_FILTER_KEYS:
+            ok = isinstance(value, (int, float)) and not isinstance(value, bool)
+        elif key in BOOLEAN_FILTER_KEYS:
+            ok = isinstance(value, bool)
+        else:
+            ok = isinstance(value, str) and value != ""
+        if not ok:
+            logger.debug(f"[_valid_scalar] filter '{key}' rejected value {value!r} ({type(value).__name__})")
+        return ok
+    except Exception as exc:
+        _log_unexpected("_valid_scalar", exc, key=key, value_type=type(value).__name__)
+        raise
 
 
 def _validate_filter_value(key: str, value: Any) -> None:
@@ -138,63 +189,93 @@ def _validate_filter_value(key: str, value: Any) -> None:
     object such as {"gte": 50, "lte": 150}; boolean fields accept true/false;
     every other field accepts a string or a non-empty list of strings.
     """
-    if isinstance(value, dict):
-        ok = (
-            key in NUMERIC_FILTER_KEYS
-            and value
-            and set(value) <= RANGE_OPERATORS
-            and all(_valid_scalar(key, v) for v in value.values())
-        )
-    elif isinstance(value, list):
-        ok = bool(value) and all(_valid_scalar(key, v) for v in value)
-    else:
-        ok = _valid_scalar(key, value)
-    if not ok:
-        logger.warning(f"POST /v1/search — rejected invalid value for filter '{key}': {value!r}")
-        raise _api_error(400, "INVALID_FILTER_VALUE", f"Invalid value for filter '{key}': {json.dumps(value)}")
+    logger.debug(f"[_validate_filter_value] key='{key}' value_type={type(value).__name__}")
+    try:
+        if isinstance(value, dict):
+            ok = (
+                key in NUMERIC_FILTER_KEYS
+                and value
+                and set(value) <= RANGE_OPERATORS
+                and all(_valid_scalar(key, v) for v in value.values())
+            )
+        elif isinstance(value, list):
+            ok = bool(value) and all(_valid_scalar(key, v) for v in value)
+        else:
+            ok = _valid_scalar(key, value)
+        if not ok:
+            logger.warning(f"POST /v1/search — rejected invalid value for filter '{key}': {value!r}")
+            raise _api_error(400, "INVALID_FILTER_VALUE", f"Invalid value for filter '{key}': {json.dumps(value)}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log_unexpected("_validate_filter_value", exc, key=key, value_type=type(value).__name__)
+        raise
 
 
 def _build_os_filters(filters: dict[str, Any]) -> list[dict]:
-    os_filters: list[dict] = []
-    for k, v in filters.items():
-        if k not in ALLOWED_FILTER_KEYS:
-            logger.warning(
-                f"POST /v1/search — rejected invalid filter key '{k}'",
-                extra={"status": "error", "error_details": f"Filter key '{k}' not in allowed list"},
-            )
-            raise _api_error(400, "INVALID_FILTER_KEY", f"The filter key '{k}' is not supported.")
-        _validate_filter_value(k, v)
+    logger.debug(f"[_build_os_filters] start — {len(filters)} filter(s): {list(filters)}")
+    try:
+        os_filters: list[dict] = []
+        for k, v in filters.items():
+            if k not in ALLOWED_FILTER_KEYS:
+                logger.warning(
+                    f"POST /v1/search — rejected invalid filter key '{k}'",
+                    extra={"status": "error", "error_details": f"Filter key '{k}' not in allowed list"},
+                )
+                raise _api_error(400, "INVALID_FILTER_KEY", f"The filter key '{k}' is not supported.")
+            _validate_filter_value(k, v)
 
-        def clause_for(os_field: str) -> dict:
-            # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
-            if isinstance(v, dict):
-                return {"range": {os_field: v}}
-            if isinstance(v, list):
-                return {"terms": {os_field: v}}
-            return {"term": {os_field: v}}
+            def clause_for(os_field: str) -> dict:
+                # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
+                if isinstance(v, dict):
+                    return {"range": {os_field: v}}
+                if isinstance(v, list):
+                    return {"terms": {os_field: v}}
+                return {"term": {os_field: v}}
 
-        fields = FILTER_ALT_FIELDS.get(k, (FILTER_KEY_MAP[k],))
-        clause = clause_for(fields[0]) if len(fields) == 1 else {
-            "bool": {"should": [clause_for(f) for f in fields], "minimum_should_match": 1}
-        }
-        if k in NESTED_FILTER_PATHS:
-            clause = {"nested": {"path": NESTED_FILTER_PATHS[k], "query": clause}}
-        os_filters.append(clause)
-        logger.debug(f"POST /v1/search — filter: {k} -> {fields}")
-    return os_filters
+            fields = FILTER_ALT_FIELDS.get(k, (FILTER_KEY_MAP[k],))
+            clause = clause_for(fields[0]) if len(fields) == 1 else {
+                "bool": {"should": [clause_for(f) for f in fields], "minimum_should_match": 1}
+            }
+            if k in NESTED_FILTER_PATHS:
+                clause = {"nested": {"path": NESTED_FILTER_PATHS[k], "query": clause}}
+            os_filters.append(clause)
+            logger.debug(f"POST /v1/search — filter: {k} -> {fields}")
+        logger.debug(f"[_build_os_filters] done — built {len(os_filters)} OpenSearch clause(s)")
+        return os_filters
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log_unexpected("_build_os_filters", exc, filter_keys=list(filters) if isinstance(filters, dict) else None)
+        raise
 
 
 @index_router.get("", response_model=IndicesResponse, responses=_ERROR_RESPONSES, summary="List all indices")
 @require_auth
 async def list_indices(_request: Request) -> IndicesResponse:
     logger.info("GET /indices")
+    _t0 = time.perf_counter()
     try:
         raw = await search_service._os.list_indices()
+        logger.debug(f"GET /indices — OpenSearch returned {len(raw)} raw entries")
         indices = [IndexInfo(**i) for i in raw]
-        logger.info(f"GET /indices — found {len(indices)} indices")
+        elapsed_ms = (time.perf_counter() - _t0) * 1000
+        logger.info(
+            f"GET /indices — found {len(indices)} indices in {elapsed_ms:.1f}ms",
+            extra={"function_name": "list_indices", "status": "success", "latency": f"{elapsed_ms:.1f}ms"},
+        )
         return IndicesResponse(indices=indices, total=len(indices))
     except Exception as exc:
-        logger.exception(f"GET /indices failed: {exc}")
+        elapsed_ms = (time.perf_counter() - _t0) * 1000
+        logger.exception(
+            f"GET /indices failed after {elapsed_ms:.1f}ms ({type(exc).__name__}): {exc}",
+            extra={
+                "function_name": "list_indices",
+                "status": "error",
+                "latency": f"{elapsed_ms:.1f}ms",
+                "error_details": str(exc),
+            },
+        )
         raise _api_error(500, "INTERNAL_ERROR", str(exc))
 
 
@@ -251,30 +332,51 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, tuple[bytes, 
     """
     # The request must be multipart/form-data: text fields and the image are separate parts.
     content_type = request.headers.get("content-type", "")
-    if content_type.split(";")[0].strip().lower() != "multipart/form-data":
-        logger.warning(f"POST /v1/search — rejected Content-Type '{content_type or 'none'}'")
-        raise _api_error(400, "INVALID_CONTENT_TYPE", "The request must be sent as multipart/form-data.")
+    logger.debug(f"[_read_search_form] start — Content-Type='{content_type or 'none'}'")
     try:
-        form = await request.form(max_part_size=MAX_PART_BYTES)
-    except StarletteHTTPException as exc:
-        if "maximum size" in str(exc.detail):
-            raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
-        raise _api_error(400, "VALIDATION_ERROR", f"Malformed multipart body: {exc.detail}")
+        if content_type.split(";")[0].strip().lower() != "multipart/form-data":
+            logger.warning(f"POST /v1/search — rejected Content-Type '{content_type or 'none'}'")
+            raise _api_error(400, "INVALID_CONTENT_TYPE", "The request must be sent as multipart/form-data.")
+        try:
+            form = await request.form(max_part_size=MAX_PART_BYTES)
+        except StarletteHTTPException as exc:
+            if "maximum size" in str(exc.detail):
+                logger.warning(f"[_read_search_form] multipart part exceeds {MAX_PART_BYTES} bytes: {exc.detail}")
+                raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
+            logger.warning(f"[_read_search_form] malformed multipart body: {exc.detail}")
+            raise _api_error(400, "VALIDATION_ERROR", f"Malformed multipart body: {exc.detail}")
 
-    # Empty text fields count as absent, as with FastAPI's own form handling.
-    fields = {k: v for k, v in form.multi_items() if k != "image" and isinstance(v, str) and v != ""}
-    try:
-        parsed = SearchForm(**fields)
-    except ValidationError as exc:
-        raise RequestValidationError([{**e, "loc": ("body", *e["loc"])} for e in exc.errors()])
+        # Empty text fields count as absent, as with FastAPI's own form handling.
+        fields = {k: v for k, v in form.multi_items() if k != "image" and isinstance(v, str) and v != ""}
+        logger.debug(f"[_read_search_form] text fields received: {sorted(fields)}")
+        try:
+            parsed = SearchForm(**fields)
+        except ValidationError as exc:
+            logger.warning(
+                f"[_read_search_form] form validation failed: {exc.error_count()} error(s)",
+                extra={"function_name": "_read_search_form", "status": "error", "error_details": str(exc)},
+            )
+            raise RequestValidationError([{**e, "loc": ("body", *e["loc"])} for e in exc.errors()])
 
-    part = form.get("image")
-    if isinstance(part, UploadFile):
-        data = await part.read()
-        return parsed, ((data, (part.content_type or "").split(";")[0].strip().lower()) if data else None)
-    if isinstance(part, str) and part:
-        return parsed, (part.encode("utf-8"), None)
-    return parsed, None
+        part = form.get("image")
+        if isinstance(part, UploadFile):
+            data = await part.read()
+            declared = (part.content_type or "").split(";")[0].strip().lower()
+            logger.debug(
+                f"[_read_search_form] image file part: filename={part.filename!r} "
+                f"content_type={declared!r} size={len(data)} bytes"
+            )
+            return parsed, ((data, declared) if data else None)
+        if isinstance(part, str) and part:
+            logger.debug(f"[_read_search_form] image sent as a text field ({len(part)} chars)")
+            return parsed, (part.encode("utf-8"), None)
+        logger.debug("[_read_search_form] no image part")
+        return parsed, None
+    except (HTTPException, RequestValidationError):
+        raise
+    except Exception as exc:
+        _log_unexpected("_read_search_form", exc, content_type=content_type)
+        raise
 
 
 @v1_router.post(
@@ -290,81 +392,88 @@ async def v1_search(request: Request) -> SearchApiResponse:
     request_id: str = getattr(request.state, "request_id", "") or str(uuid.uuid4())
     _t0 = time.perf_counter()
 
-    form, image_part = await _read_search_form(request)
-    channel, language = form.channel, form.language
-    search_query, sort_by, sort_order = form.search_query, form.sort_by, form.sort_order
-    filters, page, page_size = form.filters, form.page, form.page_size
+    logger.debug(f"[v1_search] start — request_id={request_id}")
+    try:
+        form, image_part = await _read_search_form(request)
+        channel, language = form.channel, form.language
+        search_query, sort_by, sort_order = form.search_query, form.sort_by, form.sort_order
+        filters, page, page_size = form.filters, form.page, form.page_size
 
-    # Contract validation 
-    _validate_enum(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
-    _validate_enum(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
-    if sort_by is not None:
-        _validate_enum(sort_by, SUPPORTED_SORT_BY, "sort_by", "INVALID_SORT_BY")
-    _validate_enum(sort_order, SUPPORTED_SORT_ORDER, "sort_order", "INVALID_SORT_ORDER")
+        # Contract validation 
+        _validate_enum(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
+        _validate_enum(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
+        if sort_by is not None:
+            _validate_enum(sort_by, SUPPORTED_SORT_BY, "sort_by", "INVALID_SORT_BY")
+        _validate_enum(sort_order, SUPPORTED_SORT_ORDER, "sort_order", "INVALID_SORT_ORDER")
 
-    query_text = search_query.strip() if search_query and search_query.strip() else None
-    previous_request_id = form.request_id
+        query_text = search_query.strip() if search_query and search_query.strip() else None
+        previous_request_id = form.request_id
 
-    logger.info(
-        "POST /v1/search — received",
-        extra={
-            "search_query": search_query,
-            "language": language,
-            "channel": channel,
-            "input_data": {
-                "request_id": request_id,
-                "page": page,
-                "page_size": page_size,
-                "sort_by": sort_by,
-                "sort_order": sort_order,
-                "has_filters": bool(filters),
-                "has_image": image_part is not None,
-                "previous_request_id": previous_request_id,
+        logger.info(
+            "POST /v1/search — received",
+            extra={
+                "search_query": search_query,
+                "language": language,
+                "channel": channel,
+                "input_data": {
+                    "request_id": request_id,
+                    "page": page,
+                    "page_size": page_size,
+                    "sort_by": sort_by,
+                    "sort_order": sort_order,
+                    "has_filters": bool(filters),
+                    "has_image": image_part is not None,
+                    "previous_request_id": previous_request_id,
+                },
             },
-        },
-    )
+        )
 
-    # Image validation : not an image file part -> 400, oversized -> 413,
-    # bytes not JPEG/PNG/WebP -> 400
-    image_input: tuple[bytes, str] | None = None
-    if image_part is not None:
-        image_bytes, declared_type = image_part
-        if declared_type not in IMAGE_CONTENT_TYPES:
-            logger.warning(
-                "POST /v1/search — rejected image: "
-                + ("sent as a text field, not a file part" if declared_type is None else f"Content-Type '{declared_type}'")
-            )
-            # Another image type (e.g. image/gif) is an unsupported format; anything
-            # else (text field, application/octet-stream, ...) is not an image part.
-            is_other_image = declared_type is not None and declared_type.startswith("image/")
-            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE if is_other_image else NOT_AN_IMAGE_PART)
-        if len(image_bytes) > MAX_IMAGE_BYTES:
-            logger.warning(f"POST /v1/search — image too large: {len(image_bytes)} bytes")
-            raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
-        # The bytes decide the format sent to the embedder.
-        detected = _image_mime(image_bytes)
-        if detected is None:
-            logger.warning("POST /v1/search — uploaded file is not a JPEG/PNG/WebP image")
-            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
-        # Preprocess (EXIF orientation, downscale, re-encode) off the event loop.
-        try:
-            image_input = await asyncio.to_thread(image_processor.process, image_bytes)
-        except InvalidImageError as exc:
-            logger.warning(f"POST /v1/search — uploaded image could not be decoded: {exc}")
-            raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
+        # Image validation : not an image file part -> 400, oversized -> 413,
+        # bytes not JPEG/PNG/WebP -> 400
+        image_input: tuple[bytes, str] | None = None
+        if image_part is not None:
+            image_bytes, declared_type = image_part
+            if declared_type not in IMAGE_CONTENT_TYPES:
+                logger.warning(
+                    "POST /v1/search — rejected image: "
+                    + ("sent as a text field, not a file part" if declared_type is None else f"Content-Type '{declared_type}'")
+                )
+                # Another image type (e.g. image/gif) is an unsupported format; anything
+                # else (text field, application/octet-stream, ...) is not an image part.
+                is_other_image = declared_type is not None and declared_type.startswith("image/")
+                raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE if is_other_image else NOT_AN_IMAGE_PART)
+            if len(image_bytes) > MAX_IMAGE_BYTES:
+                logger.warning(f"POST /v1/search — image too large: {len(image_bytes)} bytes")
+                raise _api_error(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
+            # The bytes decide the format sent to the embedder.
+            detected = _image_mime(image_bytes)
+            if detected is None:
+                logger.warning("POST /v1/search — uploaded file is not a JPEG/PNG/WebP image")
+                raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
+            # Preprocess (EXIF orientation, downscale, re-encode) off the event loop.
+            try:
+                image_input = await asyncio.to_thread(image_processor.process, image_bytes)
+            except InvalidImageError as exc:
+                logger.warning(f"POST /v1/search — uploaded image could not be decoded: {exc}")
+                raise _api_error(400, "UNSUPPORTED_IMAGE_TYPE", UNSUPPORTED_IMAGE)
 
-    # 'relevance' means default (no explicit sort field).
-    effective_sort_by = None if sort_by in (None, "relevance") else sort_by
+        # 'relevance' means default (no explicit sort field).
+        effective_sort_by = None if sort_by in (None, "relevance") else sort_by
 
-    logger.debug("POST /v1/search — parsing filters and building OpenSearch clauses")
-    os_filters = _build_os_filters(_parse_filters(filters))
+        logger.debug("POST /v1/search — parsing filters and building OpenSearch clauses")
+        os_filters = _build_os_filters(_parse_filters(filters))
 
-    has_filters = bool(os_filters)
+        has_filters = bool(os_filters)
 
-    # Operation decision (§2.2) --
-    if not query_text and image_input is None and not previous_request_id and not has_filters:
-        logger.warning("POST /v1/search — rejected: no query, no image and no filters provided")
-        raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or request_id must be provided")
+        # Operation decision (§2.2) --
+        if not query_text and image_input is None and not previous_request_id and not has_filters:
+            logger.warning("POST /v1/search — rejected: no query, no image and no filters provided")
+            raise _api_error(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or request_id must be provided")
+    except (HTTPException, RequestValidationError):
+        raise
+    except Exception as exc:
+        _log_unexpected("v1_search.validate", exc, request_id=request_id)
+        raise
 
     embed_ms: float | None = None
     try:
@@ -438,27 +547,42 @@ async def v1_search(request: Request) -> SearchApiResponse:
             },
         )
         return result
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning(
+            f"POST /v1/search — HTTP {exc.status_code}: {exc.detail}",
+            extra={"function_name": "v1_search", "status": "error", "error_details": str(exc.detail)},
+        )
         raise
     except RequestIdNotFound as exc:
-        logger.warning(f"POST /v1/search — request_id not found: {exc}")
+        logger.warning(
+            f"POST /v1/search — request_id not found: {exc}",
+            extra={"function_name": "v1_search", "status": "error", "error_details": str(exc),
+                   "input_data": {"previous_request_id": previous_request_id}},
+        )
         raise _api_error(400, "REQUEST_ID_NOT_FOUND", str(exc))
     except EmbeddingStoreUnavailable as exc:
-        logger.warning(f"POST /v1/search — Redis unavailable while resolving a request_id: {exc}")
+        logger.warning(
+            f"POST /v1/search — Redis unavailable while resolving a request_id: {exc}",
+            extra={"function_name": "v1_search", "status": "error", "error_details": str(exc),
+                   "input_data": {"previous_request_id": previous_request_id}},
+        )
         raise _api_error(503, "EMBEDDING_STORE_UNAVAILABLE", f"request_id cannot be resolved ({exc}); send search_query / image instead.")
     except IndexNotFoundError as exc:
-        logger.warning(f"POST /v1/search — index not found: {exc}", extra={"status": "error", "error_details": str(exc)})
+        logger.warning(f"POST /v1/search — index not found: {exc}", extra={"function_name": "v1_search", "status": "error", "error_details": str(exc)})
         raise _api_error(404, "INDEX_NOT_FOUND", str(exc))
     except OpenSearchQueryError as exc:
-        logger.warning(f"POST /v1/search — query error: {exc}", extra={"status": "error", "error_details": str(exc)})
+        logger.warning(f"POST /v1/search — query error: {exc}", extra={"function_name": "v1_search", "status": "error", "error_details": str(exc)})
         raise _api_error(400, "QUERY_ERROR", str(exc))
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - _t0) * 1000
         # exception(): include the traceback so the failing call is visible in the logs.
         logger.exception(
-            f"POST /v1/search — failed after {elapsed_ms:.1f}ms: {exc}",
+            f"POST /v1/search — failed after {elapsed_ms:.1f}ms ({type(exc).__name__}): {exc}",
             extra={
+                "function_name": "v1_search",
                 "status": "error",
+                "input_data": {"request_id": request_id, "page": page, "page_size": page_size,
+                               "filter_count": len(os_filters), "has_image": image_input is not None},
                 "latency": f"{elapsed_ms:.1f}ms",
                 "search_query": search_query,
                 "error_details": str(exc),
@@ -483,9 +607,17 @@ async def v1_suggestions(
     product_limit: Annotated[int, Query(ge=1, le=50, description="Max product suggestions to return")] = 5,
 ) -> SuggestionsResponse:
     _t0 = time.perf_counter()
+    logger.debug(f"[v1_suggestions] start — q={q!r} channel={channel!r} language={language!r}")
 
-    _validate_enum(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
-    _validate_enum(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
+    try:
+        _validate_enum(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
+        _validate_enum(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
+    except HTTPException as exc:
+        logger.warning(
+            f"GET /v1/search/suggestions — HTTP {exc.status_code}: {exc.detail}",
+            extra={"function_name": "v1_suggestions", "status": "error", "error_details": str(exc.detail)},
+        )
+        raise
 
     logger.info(
         "GET /v1/search/suggestions — received",
@@ -525,20 +657,26 @@ async def v1_suggestions(
             },
         )
         return result
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning(
+            f"GET /v1/search/suggestions — HTTP {exc.status_code}: {exc.detail}",
+            extra={"function_name": "v1_suggestions", "status": "error", "error_details": str(exc.detail)},
+        )
         raise
     except IndexNotFoundError as exc:
-        logger.warning(f"GET /v1/search/suggestions — index not found: {exc}", extra={"status": "error", "error_details": str(exc)})
+        logger.warning(f"GET /v1/search/suggestions — index not found: {exc}", extra={"function_name": "v1_suggestions", "status": "error", "error_details": str(exc)})
         raise _api_error(404, "INDEX_NOT_FOUND", str(exc))
     except OpenSearchQueryError as exc:
-        logger.warning(f"GET /v1/search/suggestions — query error: {exc}", extra={"status": "error", "error_details": str(exc)})
+        logger.warning(f"GET /v1/search/suggestions — query error: {exc}", extra={"function_name": "v1_suggestions", "status": "error", "error_details": str(exc)})
         raise _api_error(400, "QUERY_ERROR", str(exc))
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - _t0) * 1000
-        logger.error(
-            f"GET /v1/search/suggestions — failed after {elapsed_ms:.1f}ms: {exc}",
+        logger.exception(
+            f"GET /v1/search/suggestions — failed after {elapsed_ms:.1f}ms ({type(exc).__name__}): {exc}",
             extra={
+                "function_name": "v1_suggestions",
                 "status": "error",
+                "input_data": {"query_limit": query_limit, "product_limit": product_limit},
                 "search_query": q,
                 "latency": f"{elapsed_ms:.1f}ms",
                 "error_details": str(exc),

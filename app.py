@@ -51,13 +51,18 @@ async def _opensearch_heartbeat(interval: int) -> None:
     while True:
         try:
             await asyncio.sleep(interval)
-            await os_client.ping()
+            t0 = time.perf_counter()
+            ok = await os_client.ping()
+            logger.debug(f"[_opensearch_heartbeat] ping ok={ok} in {(time.perf_counter() - t0) * 1000:.1f}ms")
         except asyncio.CancelledError:
             logger.info("OpenSearch heartbeat cancelled")
             raise
         except Exception as exc:
             # Never let a transient ping failure kill the heartbeat loop.
-            logger.warning(f"OpenSearch heartbeat ping failed: {exc}")
+            logger.warning(
+                f"[_opensearch_heartbeat] OpenSearch heartbeat ping failed ({type(exc).__name__}): {exc}",
+                extra={"function_name": "_opensearch_heartbeat", "status": "error", "error_details": str(exc)},
+            )
  
  
 async def _oci_embed_heartbeat(interval: int) -> None:
@@ -66,13 +71,18 @@ async def _oci_embed_heartbeat(interval: int) -> None:
     while True:
         try:
             await asyncio.sleep(interval)
+            t0 = time.perf_counter()
             await embedding_service.encode_query(_EMBED_WARMUP_TEXT)
+            logger.debug(f"[_oci_embed_heartbeat] warmup embed ok in {(time.perf_counter() - t0) * 1000:.1f}ms")
         except asyncio.CancelledError:
             logger.info("OCI embed heartbeat cancelled")
             raise
         except Exception as exc:
             # Never let a transient embed failure kill the heartbeat loop.
-            logger.warning(f"OCI embed heartbeat failed: {exc}")
+            logger.warning(
+                f"[_oci_embed_heartbeat] OCI embed heartbeat failed ({type(exc).__name__}): {exc}",
+                extra={"function_name": "_oci_embed_heartbeat", "status": "error", "error_details": str(exc)},
+            )
  
  
 @asynccontextmanager
@@ -93,7 +103,10 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
             await embedding_service.encode_query(_EMBED_WARMUP_TEXT)
             logger.info("Embedding model warmed up")
         except Exception as exc:
-            logger.warning(f"Embedding warmup failed (continuing): {exc}")
+            logger.warning(
+                f"[lifespan] Embedding warmup failed (continuing) ({type(exc).__name__}): {exc}",
+                extra={"function_name": "lifespan", "status": "error", "error_details": str(exc)},
+            )
  
         logger.info(f"Connecting to OpenSearch at {settings.opensearch_host}:{settings.opensearch_port}")
         connected = await os_client.ping()
@@ -123,23 +136,37 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         embed_heartbeat_task = asyncio.create_task(_oci_embed_heartbeat(OCI_EMBED_HEARTBEAT_INTERVAL))
  
     except Exception as exc:
-        logger.exception(f"Startup failed: {exc}")
+        logger.exception(
+            f"[lifespan] Startup failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "lifespan", "status": "error", "error_details": str(exc)},
+        )
         raise
  
     logger.info("Startup complete — API is ready")
     yield
  
     logger.info("Shutting down")
-    for task in (heartbeat_task, embed_heartbeat_task):
-        if task is not None:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-    await os_client.close()
-    await redis_client.close()
-    await keycloak_auth.close()
+    try:
+        for task in (heartbeat_task, embed_heartbeat_task):
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        logger.debug("[lifespan] heartbeat tasks stopped")
+        await os_client.close()
+        logger.debug("[lifespan] OpenSearch client closed")
+        await redis_client.close()
+        logger.debug("[lifespan] Redis client closed")
+        await keycloak_auth.close()
+        logger.debug("[lifespan] Keycloak client closed")
+    except Exception as exc:
+        logger.exception(
+            f"[lifespan] Shutdown failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "lifespan", "status": "error", "error_details": str(exc)},
+        )
+        raise
     logger.info("Shutdown complete")
  
  
@@ -199,8 +226,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as exc:
             elapsed_ms = (time.perf_counter() - start) * 1000
-            logger.error(
-                f"REQUEST {request.method} {request.url.path} — unhandled exception after {elapsed_ms:.1f}ms: {exc}",
+            logger.exception(
+                f"REQUEST {request.method} {request.url.path} — unhandled exception "
+                f"({type(exc).__name__}) after {elapsed_ms:.1f}ms: {exc}",
                 extra={
                     "function_name": f"{request.method} {request.url.path}",
                     "status": "error",
@@ -245,12 +273,16 @@ async def health() -> HealthResponse:
             redis_connected=redis_connected,
         )
     except Exception as exc:
-        logger.exception(f"Health check failed: {exc}")
+        logger.exception(
+            f"[health] Health check failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "health", "status": "error", "error_details": str(exc)},
+        )
         raise
  
  
 async def _measure_latency(call, samples: int) -> tuple[list[float], str | None]:
     """Run an async no-arg call `samples` times, returning per-call ms and any error."""
+    logger.debug(f"[_measure_latency] start — {samples} samples")
     times: list[float] = []
     error: str | None = None
     for i in range(samples):
@@ -258,102 +290,164 @@ async def _measure_latency(call, samples: int) -> tuple[list[float], str | None]
         try:
             await call()
             times.append(round((time.perf_counter() - t0) * 1000, 1))
+            logger.debug(f"[_measure_latency] sample {i + 1}/{samples} took {times[-1]}ms")
         except Exception as exc:
             error = f"sample {i + 1} failed: {exc}"
+            logger.warning(
+                f"[_measure_latency] sample {i + 1}/{samples} failed after "
+                f"{(time.perf_counter() - t0) * 1000:.1f}ms ({type(exc).__name__}): {exc}",
+                extra={"function_name": "_measure_latency", "status": "error", "error_details": str(exc)},
+            )
             break
+    logger.debug(f"[_measure_latency] done — {len(times)}/{samples} succeeded, error={error}")
     return times, error
  
  
 def _latency_response(target: str, endpoint: str, samples: int, times: list[float], error: str | None) -> LatencyResponse:
-    return LatencyResponse(
-        target=target,
-        endpoint=endpoint,
-        samples=samples,
-        samples_ms=times,
-        min_ms=min(times) if times else 0.0,
-        avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
-        max_ms=max(times) if times else 0.0,
-        ok=error is None and len(times) == samples,
-        error=error,
-    )
+    try:
+        return LatencyResponse(
+            target=target,
+            endpoint=endpoint,
+            samples=samples,
+            samples_ms=times,
+            min_ms=min(times) if times else 0.0,
+            avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
+            max_ms=max(times) if times else 0.0,
+            ok=error is None and len(times) == samples,
+            error=error,
+        )
+    except Exception as exc:
+        logger.exception(
+            f"[_latency_response] failed to build latency response for {target}: {exc}",
+            extra={"function_name": "_latency_response", "status": "error", "error_details": str(exc)},
+        )
+        raise
  
  
 @app.get("/health/latency/opensearch", response_model=LatencyResponse, tags=["Health"])
 async def latency_opensearch(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to OpenSearch (one GET / per sample)."""
-    samples = max(1, min(samples, 20))
-    logger.info(f"GET /health/latency/opensearch — {samples} samples")
+    try:
+        samples = max(1, min(samples, 20))
+        logger.info(f"GET /health/latency/opensearch — {samples} samples")
  
-    async def _call() -> None:
-        client = await os_client.get_client()
-        await client.info()
+        async def _call() -> None:
+            client = await os_client.get_client()
+            await client.info()
  
-    times, error = await _measure_latency(_call, samples)
-    endpoint = f"{settings.opensearch_host}:{settings.opensearch_port}"
-    result = _latency_response("opensearch", endpoint, samples, times, error)
-    logger.info(f"OpenSearch latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-    return result
+        times, error = await _measure_latency(_call, samples)
+        endpoint = f"{settings.opensearch_host}:{settings.opensearch_port}"
+        result = _latency_response("opensearch", endpoint, samples, times, error)
+        logger.info(f"OpenSearch latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+        return result
+    except Exception as exc:
+        logger.exception(
+            f"[latency_opensearch] latency check failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "latency_opensearch", "status": "error", "error_details": str(exc)},
+        )
+        raise
  
  
 @app.get("/health/latency/redis", response_model=LatencyResponse, tags=["Health"])
 async def latency_redis(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to Redis (one PING per sample)."""
-    samples = max(1, min(samples, 20))
-    logger.info(f"GET /health/latency/redis — {samples} samples")
-    endpoint = f"{settings.redis_host}:{settings.redis_port}"
-    if not redis_client.enabled:
-        return _latency_response("redis", endpoint, samples, [], "Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)")
+    try:
+        samples = max(1, min(samples, 20))
+        logger.info(f"GET /health/latency/redis — {samples} samples")
+        endpoint = f"{settings.redis_host}:{settings.redis_port}"
+        if not redis_client.enabled:
+            return _latency_response("redis", endpoint, samples, [], "Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)")
 
-    async def _call() -> None:
-        await redis_client.client.ping()
+        async def _call() -> None:
+            await redis_client.client.ping()
 
-    times, error = await _measure_latency(_call, samples)
-    result = _latency_response("redis", endpoint, samples, times, error)
-    logger.info(f"Redis latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-    return result
+        times, error = await _measure_latency(_call, samples)
+        result = _latency_response("redis", endpoint, samples, times, error)
+        logger.info(f"Redis latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+        return result
+    except Exception as exc:
+        logger.exception(
+            f"[latency_redis] latency check failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "latency_redis", "status": "error", "error_details": str(exc)},
+        )
+        raise
 
 
 @app.get("/health/latency/oci", response_model=LatencyResponse, tags=["Health"])
 async def latency_oci(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to OCI GenAI (one embed call per sample)."""
-    samples = max(1, min(samples, 20))
-    logger.info(f"GET /health/latency/oci — {samples} samples")
+    try:
+        samples = max(1, min(samples, 20))
+        logger.info(f"GET /health/latency/oci — {samples} samples")
  
-    async def _call() -> None:
-        await embedding_service.encode_query("latency check")
+        async def _call() -> None:
+            await embedding_service.encode_query("latency check")
  
-    times, error = await _measure_latency(_call, samples)
-    result = _latency_response("oci", settings.oci_genai_endpoint, samples, times, error)
-    logger.info(f"OCI latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-    return result
+        times, error = await _measure_latency(_call, samples)
+        result = _latency_response("oci", settings.oci_genai_endpoint, samples, times, error)
+        logger.info(f"OCI latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+        return result
+    except Exception as exc:
+        logger.exception(
+            f"[latency_oci] latency check failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "latency_oci", "status": "error", "error_details": str(exc)},
+        )
+        raise
  
  
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    detail = exc.detail
-    if isinstance(detail, dict) and "code" in detail and "message" in detail:
-        return JSONResponse(status_code=exc.status_code, content=detail)
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"code": "HTTP_ERROR", "message": str(detail)},
-    )
+    try:
+        detail = exc.detail
+        log = logger.error if exc.status_code >= 500 else logger.warning
+        log(
+            f"[http_exception_handler] HTTP {exc.status_code} on {_request.method} {_request.url.path}: {detail}",
+            extra={"function_name": "http_exception_handler", "status": "error", "error_details": str(detail)},
+        )
+        if isinstance(detail, dict) and "code" in detail and "message" in detail:
+            return JSONResponse(status_code=exc.status_code, content=detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"code": "HTTP_ERROR", "message": str(detail)},
+        )
+    except Exception as handler_exc:
+        logger.exception(
+            f"[http_exception_handler] failed while handling HTTP {exc.status_code}: {handler_exc}",
+            extra={"function_name": "http_exception_handler", "status": "error", "error_details": str(handler_exc)},
+        )
+        raise
  
  
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     # Missing/malformed form or query fields map to the contract's 400 Bad Request .
-    errors = exc.errors()
-    logger.warning(f"Request validation failed: {errors}")
-    first = errors[0] if errors else {}
-    loc = ".".join(str(p) for p in first.get("loc", []) if p != "body")
-    msg = first.get("msg", "Request validation failed")
-    message = f"{loc}: {msg}" if loc else msg
-    return JSONResponse(status_code=400, content={"code": "VALIDATION_ERROR", "message": message})
+    try:
+        errors = exc.errors()
+        logger.warning(
+            f"[validation_exception_handler] Request validation failed on "
+            f"{_request.method} {_request.url.path} ({len(errors)} error(s)): {errors}",
+            extra={"function_name": "validation_exception_handler", "status": "error", "error_details": str(errors)},
+        )
+        first = errors[0] if errors else {}
+        loc = ".".join(str(p) for p in first.get("loc", []) if p != "body")
+        msg = first.get("msg", "Request validation failed")
+        message = f"{loc}: {msg}" if loc else msg
+        return JSONResponse(status_code=400, content={"code": "VALIDATION_ERROR", "message": message})
+    except Exception as handler_exc:
+        logger.exception(
+            f"[validation_exception_handler] failed while handling validation error: {handler_exc}",
+            extra={"function_name": "validation_exception_handler", "status": "error", "error_details": str(handler_exc)},
+        )
+        raise
  
  
 @app.exception_handler(Exception)
 async def global_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
-    logger.exception(f"Unhandled exception: {exc}")
+    logger.exception(
+        f"[global_exception_handler] Unhandled exception on {_request.method} {_request.url.path} "
+        f"({type(exc).__name__}): {exc}",
+        extra={"function_name": "global_exception_handler", "status": "error", "error_details": str(exc)},
+    )
     return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR", "message": str(exc)})
  
  
@@ -361,11 +455,19 @@ if __name__ == "__main__":
     # Auto-reload is OFF by default. Enable only for local dev with RELOAD=true, and
     # never in a OneDrive/synced folder — background file syncing triggers endless reloads.
     reload_enabled = os.environ.get("RELOAD", "false").strip().lower() in ("1", "true", "yes", "on")
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=reload_enabled,
-        # If reload is on, ignore log writes under ./logs (they'd otherwise trigger restarts).
-        reload_excludes=["logs/*", "*.log", "*.log.*"] if reload_enabled else None,
-    )
+    logger.info(f"[__main__] starting uvicorn on 0.0.0.0:8000 (reload={reload_enabled})")
+    try:
+        uvicorn.run(
+            "app:app",
+            host="0.0.0.0",
+            port=8000,
+            reload=reload_enabled,
+            # If reload is on, ignore log writes under ./logs (they'd otherwise trigger restarts).
+            reload_excludes=["logs/*", "*.log", "*.log.*"] if reload_enabled else None,
+        )
+    except Exception as exc:
+        logger.exception(
+            f"[__main__] uvicorn server failed ({type(exc).__name__}): {exc}",
+            extra={"function_name": "__main__", "status": "error", "error_details": str(exc)},
+        )
+        raise

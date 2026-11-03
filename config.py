@@ -1,4 +1,11 @@
+import logging
+
+from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The shared "app" logger (same one utils.logger exposes). Imported via logging
+# directly so config stays free of app imports; handlers attach once setup_logging runs.
+logger = logging.getLogger("app")
  
  
 class Settings(BaseSettings):
@@ -71,4 +78,32 @@ class Settings(BaseSettings):
     api_description: str = "Frontend contract v2.1 — text/image/filter search with hybrid BM25 + kNN (RRF) and suggestions"
  
  
-settings = Settings()
+def _load_settings() -> Settings:
+    """Build Settings from the environment / .env, logging what failed if it can't."""
+    logger.debug("[config._load_settings] start — reading settings from environment / .env")
+    try:
+        loaded = Settings()
+        # Connection targets only — never passwords, usernames or OCI identifiers.
+        logger.debug(
+            f"[config._load_settings] loaded — opensearch={loaded.opensearch_host}:{loaded.opensearch_port} "
+            f"index={loaded.opensearch_index_name} redis_enabled={loaded.redis_enabled} "
+            f"embedding_model={loaded.embedding_model_name} log_level={loaded.log_level}"
+        )
+        return loaded
+    except ValidationError as exc:
+        # Field names + error types only; input values could be secrets.
+        problems = ", ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}" for e in exc.errors())
+        logger.error(
+            f"[config._load_settings] invalid/missing settings ({exc.error_count()}): {problems}",
+            extra={"function_name": "config._load_settings", "status": "error", "error_details": problems},
+        )
+        raise
+    except Exception as exc:
+        logger.exception(
+            f"[config._load_settings] failed to load settings ({type(exc).__name__}): {exc}",
+            extra={"function_name": "config._load_settings", "status": "error", "error_details": str(exc)},
+        )
+        raise
+
+
+settings = _load_settings()

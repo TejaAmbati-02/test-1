@@ -183,7 +183,7 @@ class RedisClientService:
                 **cfg.extra,
             )
         except Exception as exc:
-            logger.error(
+            logger.exception(
                 f"RedisClientService.connect — failed to create client for {self.endpoint}: {exc}",
                 extra={"function_name": fn, "status": "error", "error_details": str(exc), "latency": _ms(start)},
             )
@@ -234,7 +234,7 @@ class RedisClientService:
                 extra={"function_name": fn, "status": "success", "latency": _ms(start)},
             )
         except Exception as exc:
-            logger.error(
+            logger.exception(
                 f"RedisClientService.close — error while closing: {exc}",
                 extra={"function_name": fn, "status": "error", "error_details": str(exc), "latency": _ms(start)},
             )
