@@ -16,7 +16,6 @@ import platform
 import sys
 import time
 from datetime import datetime
-from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
@@ -85,13 +84,15 @@ class JsonFormatter(logging.Formatter):
             return json.dumps({k: v if isinstance(v, simple) else str(v) for k, v in log_entry.items()}, ensure_ascii=False)
 
 
+FILE_HANDLER_NAME = "asmo_log_file"
+
+
 def _file_handler() -> logging.Handler:
+    """A new file for every app start: logs/asmo-YYYY-MM-DD-HH-MM-SS.log (start time, to the second)."""
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    handler = TimedRotatingFileHandler(
-        LOGS_DIR / datetime.now().strftime("asmo-%Y-%m-%d-%H-%M-%S.log"),
-        when="midnight", interval=1, backupCount=7, encoding="utf-8",
-    )
+    handler = logging.FileHandler(LOGS_DIR / datetime.now().strftime("asmo-%Y-%m-%d-%H-%M-%S.log"), mode="a", encoding="utf-8")  # "a": never wipe a file started in the same second
     handler.setFormatter(JsonFormatter())
+    handler.set_name(FILE_HANDLER_NAME)  # how setup_logging recognises it (other FileHandlers may be attached, e.g. by pytest)
     return handler
 
 
@@ -135,7 +136,7 @@ if setup_warning:
 def setup_logging(level: str = "INFO", to_file: bool = False) -> None:
     """Apply the app settings to the logger. Called once from app.py at import time."""
     logger.setLevel(getattr(logging, str(level).upper(), logging.INFO))
-    already_has_file = any(isinstance(h, TimedRotatingFileHandler) for h in logger.handlers)
+    already_has_file = any(h.get_name() == FILE_HANDLER_NAME for h in logger.handlers)
     if to_file and not IS_WINDOWS and not already_has_file:
         try:
             logger.addHandler(_file_handler())
@@ -148,12 +149,8 @@ def setup_logging(level: str = "INFO", to_file: bool = False) -> None:
     app_logger.setLevel(logger.level)
     app_logger.propagate = False
 
-    # Uvicorn's own logs (startup, errors, one access line per request) go to the same console/file.
-    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
-        uvicorn_logger = logging.getLogger(name)
-        uvicorn_logger.handlers = list(logger.handlers)
-        uvicorn_logger.setLevel(logger.level)
-        uvicorn_logger.propagate = False
+    # Uvicorn's own logs (server startup, access lines) are left alone: they stay in the
+    # cmd window only and are not written to the .log file.
 
     # Everything else (OpenSearch client, OCI SDK, asyncio background-task errors, ...) reaches
     # the root logger; without handlers there it would print to stderr only, never to the file.

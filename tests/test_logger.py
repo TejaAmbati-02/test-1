@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from logging.handlers import TimedRotatingFileHandler
 
 import pytest
 
@@ -96,7 +95,7 @@ def test_setup_logging_adds_one_file_handler(restore_logger, monkeypatch, tmp_pa
     monkeypatch.setattr(logger_module, "LOGS_DIR", tmp_path / "logs")
     setup_logging(to_file=True)
     setup_logging(to_file=True)  # idempotent
-    file_handlers = [h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)]
+    file_handlers = [h for h in logger.handlers if h.get_name() == logger_module.FILE_HANDLER_NAME]
     assert len(file_handlers) == 1
 
     logger.warning("to file")
@@ -105,10 +104,12 @@ def test_setup_logging_adds_one_file_handler(restore_logger, monkeypatch, tmp_pa
     assert any(line["message"] == "to file" for line in lines)
 
 
-def test_setup_logging_routes_library_and_uvicorn_logs(restore_logger):
+def test_setup_logging_routes_library_logs_but_not_uvicorn(restore_logger):
+    uvicorn_before = {n: list(logging.getLogger(n).handlers) for n in ("uvicorn", "uvicorn.error", "uvicorn.access")}
     setup_logging()
-    for name in ("", "uvicorn", "uvicorn.error", "uvicorn.access"):
-        assert logging.getLogger(name).handlers == logger.handlers
+    assert logging.getLogger().handlers == logger.handlers  # library warnings -> the app's console/file
+    for name, handlers in uvicorn_before.items():
+        assert logging.getLogger(name).handlers == handlers  # server messages stay in cmd only
 
 
 def test_json_formatter_keeps_any_extra_and_traceback():
@@ -123,3 +124,16 @@ def test_json_formatter_keeps_any_extra_and_traceback():
     assert out["result"] == {"rank": 1, "score": 0.5}
     assert "ValueError: bad" in out["traceback"]
     assert out["source"].startswith("app:")
+
+
+def test_new_log_file_per_start_named_with_seconds(monkeypatch, tmp_path):
+    import re
+
+    monkeypatch.setattr(logger_module, "LOGS_DIR", tmp_path)
+    handler = logger_module._file_handler()
+    try:
+        name = handler.baseFilename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        assert re.fullmatch(r"asmo-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.log", name)
+        assert handler.get_name() == logger_module.FILE_HANDLER_NAME
+    finally:
+        handler.close()

@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     redis_ttl_seconds: int = 3600
 
     # Logging — every log line always prints to the console; LOG_TO_FILE=true
-    # also writes JSON lines to logs/asmo-<timestamp>.log.
+    # also writes JSON lines to logs/asmo-<YYYY-MM-DD-HH-MM-SS>.log (a new file for every app start).
     log_level: str = "INFO"
     log_to_file: bool = False
 
