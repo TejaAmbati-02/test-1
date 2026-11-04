@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     hybrid_semantic_weight: float = 0.5
     hybrid_keyword_weight: float = 0.5
     hybrid_retrieval_k: int = 100
+    # Text search: when at least one product contains the query words (BM25 match), return
+    # only those products — the vector search then just re-ranks them instead of padding the
+    # results with "similar" but unrelated products (e.g. fans for "pump"). When no product
+    # matches the words (typos, synonyms), the vector search still finds results on its own.
+    text_require_keyword_match: bool = True
     # HNSW candidate list size per kNN query. The Lucene engine ignores the index
     # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
     # exact image matches at k=100; 500 found every known-answer test image.

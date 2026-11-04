@@ -1,7 +1,6 @@
 """Thin async wrapper around the OpenSearch client (one shared connection pool)."""
 from __future__ import annotations
 
-import logging
 import time
 from typing import Any
 
@@ -123,9 +122,9 @@ class OpenSearchClientService:
 
     async def search(self, index: str, body: dict[str, Any], pipeline_id: str | None = None) -> dict[str, Any]:
         """Run a search. Raises IndexNotFoundError (unknown index) or OpenSearchQueryError (bad query)."""
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"OpenSearch search on '{index}' (pipeline={pipeline_id})",
-                         extra={"input_data": {"body": await _redact_vectors(body)}})
+        # The full query sent to OpenSearch (embedding vectors shortened to "<vector dim=N>").
+        logger.info(f"OpenSearch — search on '{index}' (pipeline={pipeline_id})",
+                    extra={"input_data": {"body": await _redact_vectors(body)}})
         client = await self.get_client()
         params = {"search_pipeline": pipeline_id} if pipeline_id else {}
         start = time.perf_counter()

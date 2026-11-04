@@ -56,7 +56,10 @@ def process_image(part: UploadFile | str | None) -> tuple[bytes, str] | None:
     else:
         data, declared = b"", None
     if not data:
+        logger.info("Image — no image sent")
         return None
+    logger.info(f"Image — received {len(data)} bytes, declared Content-Type={declared!r}, "
+                f"filename={getattr(part, 'filename', None)!r}")
 
     # 2. Content-Type. Another image type (e.g. image/gif) is "unsupported"; anything else is "not an image part".
     if declared not in IMAGE_CONTENT_TYPES:
@@ -88,9 +91,11 @@ def process_image(part: UploadFile | str | None) -> tuple[bytes, str] | None:
 
     # 7. Downscale large images.
     width, height = image.size
+    logger.info(f"Image — decoded {original_format} {width}x{height}")
     if width * height > settings.image_max_pixels:
         scale = math.sqrt(settings.image_max_pixels / (width * height))
         image = image.resize((max(1, int(width * scale)), max(1, int(height * scale))), Image.Resampling.LANCZOS)
+        logger.info(f"Image — downscaled {width}x{height} -> {image.size[0]}x{image.size[1]}")
 
     # 8. Re-encode.
     output = BytesIO()
@@ -102,6 +107,6 @@ def process_image(part: UploadFile | str | None) -> tuple[bytes, str] | None:
         mime = "image/jpeg"
     processed = output.getvalue()
 
-    logger.debug(f"Image — processed {len(data)} -> {len(processed)} bytes ({mime}) "
+    logger.info(f"Image — processed {len(data)} -> {len(processed)} bytes ({mime}) "
                  f"in {(time.perf_counter() - start) * 1000:.1f}ms")
     return processed, mime

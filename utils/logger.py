@@ -31,6 +31,9 @@ os.environ["OTEL_ATTRIBUTE_COUNT_LIMIT"] = "50"
 IS_WINDOWS = platform.system() == "Windows"
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"  # <repo>/logs, whatever the working directory
 
+# Attributes every LogRecord has. Anything else on a record came from ``extra={...}`` and is logged too.
+_STANDARD_RECORD_ATTRS = set(vars(logging.LogRecord("", 0, "", 0, "", None, None))) | {"message", "asctime"}
+
 # The current HTTP request's id. The request middleware sets it, so it appears on every log line of that request.
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 
@@ -65,7 +68,15 @@ class JsonFormatter(logging.Formatter):
             "metric_type": getattr(record, "metric_type", ""),
             "environment": getattr(record, "environment", os.environ.get("ENV_NAME")),
             "logger_name": "[ASMOS BUYER ASSISTANT CHATBOT]",
+            "source": f"{record.name}:{record.funcName}:{record.lineno}",
         }
+        # Every other extra={...} field (e.g. search_query, channel, results) — previously dropped.
+        for key, value in record.__dict__.items():
+            if key not in _STANDARD_RECORD_ATTRS and key not in log_entry:
+                log_entry[key] = value
+        # logger.exception(...) — keep the full stack trace.
+        if record.exc_info:
+            log_entry["traceback"] = self.formatException(record.exc_info)
         try:
             # Values that aren't JSON-serialisable are logged as their str().
             return json.dumps(log_entry, ensure_ascii=False, default=str)
@@ -77,7 +88,7 @@ class JsonFormatter(logging.Formatter):
 def _file_handler() -> logging.Handler:
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     handler = TimedRotatingFileHandler(
-        LOGS_DIR / datetime.now().strftime("buyer-assistant-logs-%Y_%m_%d %H_%M_%S.log"),
+        LOGS_DIR / datetime.now().strftime("asmo-%Y-%m-%d-%H-%M-%S.log"),
         when="midnight", interval=1, backupCount=7, encoding="utf-8",
     )
     handler.setFormatter(JsonFormatter())
@@ -136,6 +147,13 @@ def setup_logging(level: str = "INFO", to_file: bool = False) -> None:
     app_logger.handlers = list(logger.handlers)
     app_logger.setLevel(logger.level)
     app_logger.propagate = False
+
+    # Uvicorn's own logs (startup, errors, one access line per request) go to the same console/file.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers = list(logger.handlers)
+        uvicorn_logger.setLevel(logger.level)
+        uvicorn_logger.propagate = False
 
     for noisy in ("urllib3", "httpx", "httpcore", "elastic_transport", "oci", "circuitbreaker"):
         logging.getLogger(noisy).setLevel(logging.WARNING)

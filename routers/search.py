@@ -147,6 +147,8 @@ async def _read_search_form(request: Request) -> tuple[SearchForm, tuple[bytes, 
 
     # 1. Text fields. Empty fields count as absent, as with FastAPI's own form handling.
     fields = {k: v for k, v in multipart.multi_items() if k != "image" and isinstance(v, str) and v != ""}
+    logger.info(f"POST /v1/search — form fields: {fields}, image part present={multipart.get('image') is not None}",
+                extra={"input_data": fields})
     try:
         form = SearchForm(**fields)
     except ValidationError as exc:
@@ -210,6 +212,7 @@ async def _build_filters(raw: str | None) -> list[dict]:
         if key in NESTED_FILTER_PATHS:
             clause = {"nested": {"path": NESTED_FILTER_PATHS[key], "query": clause}}
         clauses.append(clause)
+        logger.info(f"POST /v1/search — filter '{key}'={value!r} -> {clause}")
     return clauses
 
 
@@ -262,6 +265,11 @@ async def v1_search(request: Request) -> SearchApiResponse:
         embed_start = time.perf_counter()
         ctx = await embedding_store.resolve(request_id, query, image, form.request_id)
         embed_ms = (time.perf_counter() - embed_start) * 1000
+        logger.info(
+            f"POST /v1/search — embeddings ready in {embed_ms:.1f}ms: context={ctx.request_id}, query={ctx.query!r}, "
+            f"text_vector={'yes' if ctx.query_vector else 'no'}, image_vector={'yes' if ctx.image_vector else 'no'}, "
+            f"reused_previous={ctx.reused}",
+        )
 
         result = await search_service.search(
             query=ctx.query,
@@ -297,7 +305,9 @@ async def v1_search(request: Request) -> SearchApiResponse:
         f"POST /v1/search — completed in {elapsed_ms:.1f}ms (embeddings {embed_ms:.1f}ms, search {elapsed_ms - embed_ms:.1f}ms)",
         extra={"status": "success", "latency": f"{elapsed_ms:.1f}ms", "search_query": form.search_query,
                "response_payload": {"request_id": request_id, "context_request_id": result.request_id,
-                                    "total_results": result.total_results, "returned": len(result.products)}},
+                                    "total_results": result.total_results, "returned": len(result.products),
+                                    "page": result.page, "page_size": result.page_size,
+                                    "sku_ids": [p.sku_id for p in result.products]}},
     )
     return result
 

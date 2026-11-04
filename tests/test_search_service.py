@@ -160,22 +160,45 @@ class TestSearch:
         main, seller = bm25["bool"]["should"]
         assert main["multi_match"]["query"] == "valve"
         assert main["multi_match"]["fields"] == KEYWORD_FIELDS == [
-            "aramco_material_number^8", "asmo_material_number^8", "product_name^7", "product_description^3",
-            "category_name^1", "sub_category_name^1", "product_type^1", "content^1",
+            "aramco_material_number^8", "asmo_material_number^8", "sku_name^7", "product_name^7",
+            "product_description^3", "category_name^1", "sub_category_name^1", "product_type^1", "content^1",
         ]
         assert seller["nested"]["path"] == "seller_details"
         assert seller["nested"]["query"]["multi_match"]["fields"] == [
             "seller_details.seller_name^5", "seller_details.seller_id^5",
         ]
         assert knn == {"knn": {"content_vector": {"vector": [0.1, 0.2], "k": 100, "method_parameters": {"ef_search": 500}}}}
-        assert "filter" not in hybrid
         assert _pipeline(os_client) == PIPELINE_ID
+
+    async def test_text_keeps_only_keyword_matches_when_some_exist(self, service, os_client):
+        user_filters = [{"term": {"currency": "SAR"}}]
+        await _search(service, query="pump", query_vector=[0.1], filters=user_filters)
+        check_body = os_client.search.await_args_list[0].args[1]  # 1st call: the keyword-match check
+        bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
+        assert check_body["size"] == 0
+        assert check_body["query"] == {"bool": {"filter": [bm25, *user_filters]}}
+        # The real search keeps only products matching the words (plus the user's filters).
+        assert _body(os_client)["query"]["hybrid"]["filter"] == {"bool": {"filter": [*user_filters, bm25]}}
+        assert user_filters == [{"term": {"currency": "SAR"}}]  # caller's list not modified
+
+    async def test_text_falls_back_to_vector_when_no_keyword_match(self, service, os_client):
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([HIT], total=42, aggs=AGGS)]
+        await _search(service, query="pmup", query_vector=[0.1])
+        assert "filter" not in _body(os_client)["query"]["hybrid"]  # vector results are not restricted
+        assert os_client.search.await_count == 2
+
+    async def test_text_keyword_check_can_be_disabled(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_require_keyword_match", False)
+        await _search(service, query="pump", query_vector=[0.1])
+        assert os_client.search.await_count == 1  # no check
+        assert "filter" not in _body(os_client)["query"]["hybrid"]
 
     async def test_german_searches_de_fields_and_content(self, service, os_client):
         await _search(service, query="Ventil", query_vector=[0.1], language="de")
         bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
         assert bm25["bool"]["should"][0]["multi_match"]["fields"] == KEYWORD_FIELDS_DE == [
-            "aramco_material_number^8", "asmo_material_number^8", "product_name_de^7",
+            "aramco_material_number^8", "asmo_material_number^8", "sku_name_de^7", "product_name_de^7",
             "product_description_de^3", "category_name_de^1", "sub_category_name_de^1",
             "product_type_de^1", "content^1",
         ]
@@ -235,7 +258,8 @@ class TestSearch:
         assert (body["from"], body["size"]) == (120, 30)
         assert body["sort"] == [{"price": {"order": "asc"}}]
         assert body["query"]["hybrid"]["pagination_depth"] == 150  # max(100, 5*30)
-        assert body["query"]["hybrid"]["filter"] == {"bool": {"filter": [{"term": {"moq": 1}}]}}
+        applied = body["query"]["hybrid"]["filter"]["bool"]["filter"]
+        assert applied[0] == {"term": {"moq": 1}}  # the user's filter (+ the keyword-match filter after it)
 
     async def test_no_ef_search_omits_method_parameters(self, service, os_client, monkeypatch):
         from services import search as search_module
