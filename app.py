@@ -16,16 +16,19 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import settings
-from models.response import HealthResponse, LatencyResponse
-from routers.search import index_router, v1_router
-from services.embedder import embedding_service
-from services.opensearch import os_client
-from services.redis_client import redis_client
-from services.search import search_service
-from utils.keycloak_auth import keycloak_auth
 from utils.logger import logger, request_id_var, setup_logging
 
+# Set up logging (incl. the log file) BEFORE importing the services below: they log while
+# being imported, and those lines would otherwise reach the console but not the file.
 setup_logging(level=settings.log_level, to_file=settings.log_to_file)
+
+from models.response import HealthResponse, LatencyResponse  # noqa: E402
+from routers.search import index_router, v1_router  # noqa: E402
+from services.embedder import embedding_service  # noqa: E402
+from services.opensearch import os_client  # noqa: E402
+from services.redis_client import redis_client  # noqa: E402
+from services.search import search_service  # noqa: E402
+from utils.keycloak_auth import keycloak_auth  # noqa: E402
 
 # How often to ping OpenSearch so the pooled TCP/TLS connection stays warm. Must stay below
 # the server/aiohttp idle-reap window (~15s), otherwise the next request pays a full handshake (~1s).

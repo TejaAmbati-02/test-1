@@ -155,5 +155,13 @@ def setup_logging(level: str = "INFO", to_file: bool = False) -> None:
         uvicorn_logger.setLevel(logger.level)
         uvicorn_logger.propagate = False
 
+    # Everything else (OpenSearch client, OCI SDK, asyncio background-task errors, ...) reaches
+    # the root logger; without handlers there it would print to stderr only, never to the file.
+    root_logger = logging.getLogger()
+    root_logger.handlers = list(logger.handlers)
+    root_logger.setLevel(logging.WARNING)  # only libraries' warnings/errors, not their chatter
+    # Python warnings (DeprecationWarning, InsecureRequestWarning, ...) go through logging too.
+    logging.captureWarnings(True)
+
     for noisy in ("urllib3", "httpx", "httpcore", "elastic_transport", "oci", "circuitbreaker"):
         logging.getLogger(noisy).setLevel(logging.WARNING)

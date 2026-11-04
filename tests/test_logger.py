@@ -65,8 +65,8 @@ def test_request_id_from_context():
 @pytest.fixture
 def restore_logger():
     """Undo setup_logging's changes to the shared loggers after the test."""
-    app_logger = logging.getLogger("app")
-    saved = [(lg, list(lg.handlers), lg.level) for lg in (logger, app_logger)]
+    others = [logging.getLogger(n) for n in ("app", "", "uvicorn", "uvicorn.error", "uvicorn.access")]
+    saved = [(lg, list(lg.handlers), lg.level) for lg in (logger, *others)]
     yield
     for h in logger.handlers:
         if h not in saved[0][1]:
@@ -74,6 +74,7 @@ def restore_logger():
     for lg, handlers, level in saved:
         lg.handlers = handlers
         lg.setLevel(level)
+    logging.captureWarnings(False)
 
 
 def test_setup_logging_sets_level_and_shares_handlers(restore_logger):
@@ -102,3 +103,23 @@ def test_setup_logging_adds_one_file_handler(restore_logger, monkeypatch, tmp_pa
     file_handlers[0].flush()
     lines = [json.loads(line) for line in next((tmp_path / "logs").glob("*.log")).read_text().splitlines()]
     assert any(line["message"] == "to file" for line in lines)
+
+
+def test_setup_logging_routes_library_and_uvicorn_logs(restore_logger):
+    setup_logging()
+    for name in ("", "uvicorn", "uvicorn.error", "uvicorn.access"):
+        assert logging.getLogger(name).handlers == logger.handlers
+
+
+def test_json_formatter_keeps_any_extra_and_traceback():
+    try:
+        raise ValueError("bad")
+    except ValueError:
+        import sys
+        record = _record(search_query="pump", result={"rank": 1, "score": 0.5})
+        record.exc_info = sys.exc_info()
+    out = json.loads(JsonFormatter().format(record))
+    assert out["search_query"] == "pump"
+    assert out["result"] == {"rank": 1, "score": 0.5}
+    assert "ValueError: bad" in out["traceback"]
+    assert out["source"].startswith("app:")
