@@ -2,332 +2,219 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from unittest.mock import AsyncMock
 
 import pytest
+from PIL import Image
 
-from routers import search as router
 from routers.search import MAX_IMAGE_BYTES
-from services.embedding_store import (
-    EmbeddingIdNotFound,
-    EmbeddingStoreUnavailable,
-    ImageEmbedding,
-    QueryEmbedding,
-)
-from services.opensearch import IndexNotFoundError, OpenSearchQueryError
+from services.embedding_store import EmbeddingStoreUnavailable, RequestIdNotFound, SearchContext, embedding_store
+from services.opensearch import IndexNotFoundError, OpenSearchQueryError, os_client
 from services.search import search_service
-from tests.conftest import GIF_BYTES, JPEG_BYTES, PNG_BYTES, WEBP_BYTES, make_search_response
+from tests.conftest import GIF_BYTES, PNG_BYTES, WEBP_BYTES, make_search_response, multipart
 
 BASE = {"channel": "web", "language": "en"}
-QUERY_ID = "asmo:emb:query:" + "a" * 64
-IMAGE_ID = "asmo:emb:image:" + "b" * 64
+PREVIOUS_ID = "22222222-2222-4222-8222-222222222222"
+
+
+def _real_image(fmt: str) -> bytes:
+    out = BytesIO()
+    Image.new("RGB", (8, 8), "blue").save(out, format=fmt)
+    return out.getvalue()
+
+
+REAL_PNG, REAL_JPEG = _real_image("PNG"), _real_image("JPEG")
 
 
 @pytest.fixture
-def search_mocks(monkeypatch):
-    """Mock the search service and embedding store used by the router."""
-    store = router.embedding_store
-    mocks = {
-        "search_v1": AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"])),
-        "filter_browse": AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"])),
-        "query_embedding": AsyncMock(side_effect=lambda q: QueryEmbedding("qkey", q, [0.1, 0.2], False)),
-        "load_query": AsyncMock(side_effect=lambda k: QueryEmbedding(k, "stored query", [0.5], True)),
-        "image_embedding": AsyncMock(side_effect=lambda d, m: ImageEmbedding("ikey", d, m, [0.3], False)),
-        "load_image": AsyncMock(side_effect=lambda k: ImageEmbedding(k, b"img", "image/png", [0.6], True)),
+def mocks(monkeypatch):
+    """Mock the embedding store and search service used by the router."""
+    async def resolve(request_id, query, image, previous_request_id):
+        if previous_request_id and not query and image is None:
+            return SearchContext(previous_request_id, "stored query", [0.5], None, reused=True)
+        return SearchContext(request_id, query, [0.1] if query else None, [0.3] if image else None, reused=False)
+
+    m = {
+        "resolve": AsyncMock(side_effect=resolve),
+        "search": AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"])),
     }
-    for name in ("search_v1", "filter_browse"):
-        monkeypatch.setattr(search_service, name, mocks[name])
-    for name in ("query_embedding", "load_query", "image_embedding", "load_image"):
-        monkeypatch.setattr(store, name, mocks[name])
-    return mocks
+    monkeypatch.setattr(embedding_store, "resolve", m["resolve"])
+    monkeypatch.setattr(search_service, "search", m["search"])
+    return m
+
+
+def _post(client, data=None, files=None):
+    return client.post("/v1/search", files=multipart(data, files))
 
 
 def _error(resp, status: int, code: str) -> dict:
     assert resp.status_code == status, resp.text
     body = resp.json()
-    assert body["code"] == code
-    assert set(body) == {"code", "message"}
+    assert body == {"code": code, "message": body["message"]}
     return body
 
 
-# --------------------------------------------------------------------------
-# POST /v1/search — success paths
-# --------------------------------------------------------------------------
-
-
 class TestSearchModes:
-    def test_text_search(self, client, search_mocks):
-        resp = client.post("/v1/search", data={**BASE, "search_query": "  ball valve  "})
+    def test_text_search(self, client, mocks):
+        resp = _post(client, {**BASE, "search_query": "  ball valve  "})
         assert resp.status_code == 200
         body = resp.json()
-        assert body["total_results"] == 1
         assert body["products"][0]["sku_id"] == "SKU-1"
-        assert body["query_embedding_id"] == "qkey"
-        assert body["image_embedding_id"] is None
         assert body["request_id"]  # set by the request-logging middleware
 
-        search_mocks["query_embedding"].assert_awaited_once_with("ball valve")
-        kw = search_mocks["search_v1"].call_args.kwargs
-        assert kw["query"] == "ball valve"
-        assert kw["query_vector"] == [0.1, 0.2]
-        assert kw["image_vector"] is None
-        assert kw["index"] == "asmo-search-api-index"
-        assert kw["vector_field"] == "content_vector"
-        assert kw["language"] == "en"
-        assert kw["filters"] == []
-        assert kw["sort_by"] is None
-        assert kw["sort_order"] == "desc"
-        assert (kw["page"], kw["page_size"]) == (1, 60)
-        assert kw["retrieval_k"] == 100
-        assert kw["ef_search"] == 500
-        assert kw["image_min_score"] == 0.6
-        assert kw["request_id"] == body["request_id"]
-        search_mocks["filter_browse"].assert_not_awaited()
+        request_id, query, image, previous = mocks["resolve"].call_args.args
+        assert (request_id, query, image, previous) == (body["request_id"], "ball valve", None, None)
+        assert mocks["search"].call_args.kwargs == {
+            "query": "ball valve", "query_vector": [0.1], "image_vector": None, "filters": [],
+            "sort_by": None, "sort_order": "desc", "page": 1, "page_size": 60, "request_id": body["request_id"],
+            "language": "en",
+        }
 
-    @pytest.mark.parametrize("data, mime", [
-        (PNG_BYTES, "image/png"),
-        (JPEG_BYTES, "image/jpeg"),
-        (GIF_BYTES, "image/gif"),
-        (WEBP_BYTES, "image/webp"),
+    @pytest.mark.parametrize("data, declared, mime", [
+        (REAL_PNG, "image/png", "image/png"),
+        (REAL_JPEG, "image/jpeg", "image/jpeg"),
+        (REAL_PNG, "image/jpeg", "image/png"),  # the bytes decide the format, not the header
     ])
-    def test_image_search(self, client, search_mocks, data, mime):
-        resp = client.post("/v1/search", data=BASE, files={"image": ("photo", data, mime)})
+    def test_image_search(self, client, mocks, data, declared, mime):
+        resp = _post(client, BASE, {"image": ("photo", data, declared)})
         assert resp.status_code == 200
-        assert resp.json()["image_embedding_id"] == "ikey"
-        assert resp.json()["query_embedding_id"] is None
-        search_mocks["image_embedding"].assert_awaited_once_with(data, mime)
-        kw = search_mocks["search_v1"].call_args.kwargs
-        assert kw["image_vector"] == [0.3]
-        assert kw["query"] is None and kw["query_vector"] is None
+        image = mocks["resolve"].call_args.args[2]
+        assert image[1] == mime
+        assert mocks["search"].call_args.kwargs["image_vector"] == [0.3]
 
-    def test_image_mime_is_detected_from_bytes_not_header(self, client, search_mocks):
-        resp = client.post("/v1/search", data=BASE, files={"image": ("x.bin", PNG_BYTES, "application/octet-stream")})
+    def test_text_plus_image(self, client, mocks):
+        resp = _post(client, {**BASE, "search_query": "valve"}, {"image": ("a.png", REAL_PNG, "image/png")})
         assert resp.status_code == 200
-        search_mocks["image_embedding"].assert_awaited_once_with(PNG_BYTES, "image/png")
-
-    def test_declared_type_may_differ_from_actual(self, client, search_mocks):
-        resp = client.post("/v1/search", data=BASE, files={"image": ("x.jpg", PNG_BYTES, "image/jpeg")})
-        assert resp.status_code == 200
-        search_mocks["image_embedding"].assert_awaited_once_with(PNG_BYTES, "image/png")
-
-    def test_image_part_without_filename(self, client, search_mocks):
-        resp = client.post("/v1/search", data=BASE, files={"image": (None, PNG_BYTES)})
-        assert resp.status_code == 200
-        search_mocks["image_embedding"].assert_awaited_once_with(PNG_BYTES, "image/png")
-
-    def test_text_plus_image(self, client, search_mocks):
-        resp = client.post("/v1/search", data={**BASE, "search_query": "valve"}, files={"image": ("a.png", PNG_BYTES, "image/png")})
-        assert resp.status_code == 200
-        assert resp.json()["query_embedding_id"] == "qkey"
-        assert resp.json()["image_embedding_id"] == "ikey"
-        kw = search_mocks["search_v1"].call_args.kwargs
+        kw = mocks["search"].call_args.kwargs
         assert kw["query"] == "valve" and kw["image_vector"] == [0.3]
 
-    def test_empty_image_part_is_ignored(self, client, search_mocks):
-        resp = client.post("/v1/search", data={**BASE, "search_query": "valve"}, files={"image": ("a.png", b"", "image/png")})
+    def test_empty_image_part_is_ignored(self, client, mocks):
+        resp = _post(client, {**BASE, "search_query": "valve"}, {"image": ("a.png", b"", "image/png")})
         assert resp.status_code == 200
-        search_mocks["image_embedding"].assert_not_awaited()
+        assert mocks["resolve"].call_args.args[2] is None
 
-    def test_filter_browse(self, client, search_mocks):
-        filters = {"product_type": "Valve", "price": {"lte": 500}}
-        resp = client.post("/v1/search", data={
-            **BASE, "filters": json.dumps(filters), "sort_by": "price", "sort_order": "asc",
-            "page": "2", "page_size": "25",
+    def test_filter_browse(self, client, mocks):
+        resp = _post(client, {
+            **BASE, "filters": json.dumps({"currency": "SAR", "price": {"lte": 500}}),
+            "sort_by": "price", "sort_order": "asc", "page": "2", "page_size": "25",
         })
         assert resp.status_code == 200
-        assert resp.json()["query_embedding_id"] is None
-        kw = search_mocks["filter_browse"].call_args.kwargs
-        assert kw["filters"] == [
-            {"term": {"product_type.keyword": "Valve"}},
-            {"range": {"price": {"lte": 500}}},
-        ]
-        assert kw["sort_by"] == "price" and kw["sort_order"] == "asc"
-        assert (kw["page"], kw["page_size"]) == (2, 25)
-        search_mocks["search_v1"].assert_not_awaited()
-        search_mocks["query_embedding"].assert_not_awaited()
+        kw = mocks["search"].call_args.kwargs
+        assert kw["filters"] == [{"term": {"currency": "SAR"}}, {"range": {"price": {"lte": 500}}}]
+        assert (kw["query"], kw["image_vector"]) == (None, None)
+        assert (kw["sort_by"], kw["sort_order"], kw["page"], kw["page_size"]) == ("price", "asc", 2, 25)
 
-    def test_text_search_with_filters(self, client, search_mocks):
-        resp = client.post("/v1/search", data={**BASE, "search_query": "valve", "filters": '{"currency": ["SAR", "USD"]}'})
+    def test_refine_with_request_id(self, client, mocks):
+        resp = _post(client, {**BASE, "request_id": PREVIOUS_ID, "filters": '{"currency": "SAR"}'})
         assert resp.status_code == 200
-        assert search_mocks["search_v1"].call_args.kwargs["filters"] == [{"terms": {"currency": ["SAR", "USD"]}}]
+        assert resp.json()["request_id"] == PREVIOUS_ID  # refining keeps the same id
+        assert mocks["resolve"].call_args.args[3] == PREVIOUS_ID
+        assert mocks["search"].call_args.kwargs["query"] == "stored query"
 
-    def test_relevance_sort_means_default_order(self, client, search_mocks):
-        client.post("/v1/search", data={**BASE, "search_query": "valve", "sort_by": "relevance"})
-        assert search_mocks["search_v1"].call_args.kwargs["sort_by"] is None
-
-    def test_mobile_arabic_accepted(self, client, search_mocks):
-        resp = client.post("/v1/search", data={"channel": "mobile", "language": "ar", "search_query": "صمام"})
+    def test_empty_text_fields_are_treated_as_absent(self, client, mocks):
+        resp = _post(client, {**BASE, "search_query": "valve", "sort_by": "", "filters": ""})
         assert resp.status_code == 200
-        assert search_mocks["search_v1"].call_args.kwargs["language"] == "ar"
+        assert mocks["search"].call_args.kwargs["sort_by"] is None
 
-    def test_empty_text_fields_are_treated_as_absent(self, client, search_mocks):
-        resp = client.post("/v1/search", data={**BASE, "search_query": "valve", "sort_by": "", "filters": ""})
-        assert resp.status_code == 200
-        assert search_mocks["search_v1"].call_args.kwargs["sort_by"] is None
+    def test_mobile_channel(self, client, mocks):
+        assert _post(client, {"channel": "mobile", "language": "en", "search_query": "v"}).status_code == 200
 
+    def test_german_is_passed_through(self, client, mocks):
+        assert _post(client, {"channel": "web", "language": "de", "search_query": "Ventil"}).status_code == 200
+        assert mocks["search"].call_args.kwargs["language"] == "de"
 
-class TestEmbeddingIds:
-    def test_query_embedding_id_reuses_stored_query(self, client, search_mocks):
-        resp = client.post("/v1/search", data={**BASE, "query_embedding_id": QUERY_ID})
-        assert resp.status_code == 200
-        assert resp.json()["query_embedding_id"] == QUERY_ID
-        search_mocks["load_query"].assert_awaited_once_with(QUERY_ID)
-        search_mocks["query_embedding"].assert_not_awaited()
-        kw = search_mocks["search_v1"].call_args.kwargs
-        assert kw["query"] == "stored query" and kw["query_vector"] == [0.5]
-
-    def test_image_embedding_id_reuses_stored_image(self, client, search_mocks):
-        resp = client.post("/v1/search", data={**BASE, "image_embedding_id": IMAGE_ID})
-        assert resp.status_code == 200
-        assert resp.json()["image_embedding_id"] == IMAGE_ID
-        search_mocks["load_image"].assert_awaited_once_with(IMAGE_ID)
-        assert search_mocks["search_v1"].call_args.kwargs["image_vector"] == [0.6]
-
-    def test_raw_query_wins_over_id(self, client, search_mocks):
-        client.post("/v1/search", data={**BASE, "search_query": "valve", "query_embedding_id": QUERY_ID})
-        search_mocks["load_query"].assert_not_awaited()
-        search_mocks["query_embedding"].assert_awaited_once_with("valve")
-
-    def test_raw_image_wins_over_id(self, client, search_mocks):
-        client.post("/v1/search", data={**BASE, "image_embedding_id": IMAGE_ID}, files={"image": ("a.png", PNG_BYTES, "image/png")})
-        search_mocks["load_image"].assert_not_awaited()
-        search_mocks["image_embedding"].assert_awaited_once()
-
-    def test_unknown_embedding_id(self, client, search_mocks):
-        search_mocks["load_query"].side_effect = EmbeddingIdNotFound("query embedding id 'x' was not found or has expired")
-        resp = client.post("/v1/search", data={**BASE, "query_embedding_id": QUERY_ID})
-        body = _error(resp, 400, "EMBEDDING_ID_NOT_FOUND")
-        assert "expired" in body["message"]
-
-    def test_embedding_store_unavailable(self, client, search_mocks):
-        search_mocks["load_image"].side_effect = EmbeddingStoreUnavailable("Redis is disabled")
-        resp = client.post("/v1/search", data={**BASE, "image_embedding_id": IMAGE_ID})
-        body = _error(resp, 503, "EMBEDDING_STORE_UNAVAILABLE")
-        assert "Redis is disabled" in body["message"]
-
-
-# --------------------------------------------------------------------------
-# POST /v1/search — validation errors
-# --------------------------------------------------------------------------
+    def test_max_page_size_allowed(self, client, mocks):
+        assert _post(client, {**BASE, "search_query": "v", "page_size": "200"}).status_code == 200
 
 
 class TestSearchValidation:
     @pytest.mark.parametrize("field", ["channel", "language"])
-    def test_missing_required_field(self, client, search_mocks, field):
+    def test_missing_required_field(self, client, mocks, field):
         data = {**BASE, "search_query": "valve"}
         del data[field]
-        body = _error(client.post("/v1/search", data=data), 400, "VALIDATION_ERROR")
-        assert body["message"].startswith(f"{field}:")
+        assert _error(_post(client, data), 400, "VALIDATION_ERROR")["message"].startswith(f"{field}:")
 
     @pytest.mark.parametrize("field, value, code", [
         ("channel", "tv", "UNSUPPORTED_CHANNEL"),
-        ("language", "fr", "UNSUPPORTED_LANGUAGE"),
+        ("language", "ar", "UNSUPPORTED_LANGUAGE"),
         ("sort_by", "name", "INVALID_SORT_BY"),
         ("sort_order", "up", "INVALID_SORT_ORDER"),
     ])
-    def test_unsupported_enum_values(self, client, search_mocks, field, value, code):
-        resp = client.post("/v1/search", data={**BASE, "search_query": "valve", field: value})
-        _error(resp, 400, code)
-        search_mocks["search_v1"].assert_not_awaited()
+    def test_unsupported_enum_values(self, client, mocks, field, value, code):
+        _error(_post(client, {**BASE, "search_query": "valve", field: value}), 400, code)
+        mocks["search"].assert_not_awaited()
 
-    @pytest.mark.parametrize("field, value", [
-        ("page", "0"), ("page", "abc"), ("page_size", "0"), ("page_size", "201"),
-    ])
-    def test_invalid_pagination(self, client, search_mocks, field, value):
-        body = _error(client.post("/v1/search", data={**BASE, "search_query": "v", field: value}), 400, "VALIDATION_ERROR")
+    @pytest.mark.parametrize("field, value", [("page", "0"), ("page", "abc"), ("page_size", "0"), ("page_size", "201")])
+    def test_invalid_pagination(self, client, mocks, field, value):
+        body = _error(_post(client, {**BASE, "search_query": "v", field: value}), 400, "VALIDATION_ERROR")
         assert body["message"].startswith(f"{field}:")
 
-    def test_max_page_size_allowed(self, client, search_mocks):
-        assert client.post("/v1/search", data={**BASE, "search_query": "v", "page_size": "200"}).status_code == 200
-
-    @pytest.mark.parametrize("data", [
-        BASE,
-        {**BASE, "search_query": "   "},
-        {**BASE, "filters": "{}"},
-    ])
-    def test_empty_request(self, client, search_mocks, data):
-        _error(client.post("/v1/search", data=data), 400, "EMPTY_REQUEST")
-        search_mocks["filter_browse"].assert_not_awaited()
+    @pytest.mark.parametrize("data", [BASE, {**BASE, "search_query": "   "}, {**BASE, "filters": "{}"}])
+    def test_empty_request(self, client, mocks, data):
+        _error(_post(client, data), 400, "EMPTY_REQUEST")
+        mocks["resolve"].assert_not_awaited()
 
     @pytest.mark.parametrize("filters, code", [
         ("{not json", "INVALID_FILTER"),
         ('["price"]', "INVALID_FILTER"),
         ('{"colour": "red"}', "INVALID_FILTER_KEY"),
         ('{"price": "cheap"}', "INVALID_FILTER_VALUE"),
-        ('{"contract_indicator": "yes"}', "INVALID_FILTER_VALUE"),
     ])
-    def test_invalid_filters(self, client, search_mocks, filters, code):
-        _error(client.post("/v1/search", data={**BASE, "filters": filters}), 400, code)
+    def test_invalid_filters(self, client, mocks, filters, code):
+        _error(_post(client, {**BASE, "filters": filters}), 400, code)
 
-    def test_unsupported_declared_image_type(self, client, search_mocks):
-        resp = client.post("/v1/search", data=BASE, files={"image": ("a.txt", PNG_BYTES, "text/plain")})
-        body = _error(resp, 400, "UNSUPPORTED_IMAGE_TYPE")
-        assert "text/plain" in body["message"]
+    def test_must_be_multipart(self, client, mocks):
+        _error(client.post("/v1/search", data=BASE), 400, "INVALID_CONTENT_TYPE")
+        _error(client.post("/v1/search", json=BASE), 400, "INVALID_CONTENT_TYPE")
 
-    def test_bytes_that_are_not_an_image(self, client, search_mocks):
-        resp = client.post("/v1/search", data=BASE, files={"image": ("a.png", b"definitely not a png", "image/png")})
-        _error(resp, 400, "UNSUPPORTED_IMAGE_TYPE")
-        search_mocks["image_embedding"].assert_not_awaited()
-
-    def test_text_part_without_filename_is_not_an_image(self, client, search_mocks):
-        resp = client.post("/v1/search", data=BASE, files={"image": (None, "plain text ✓".encode("utf-8"))})
-        _error(resp, 400, "UNSUPPORTED_IMAGE_TYPE")
-
-    def test_oversized_image(self, client, search_mocks):
-        big = PNG_BYTES + b"\x00" * MAX_IMAGE_BYTES
-        resp = client.post("/v1/search", data=BASE, files={"image": ("big.png", big, "image/png")})
-        _error(resp, 413, "IMAGE_TOO_LARGE")
-        search_mocks["image_embedding"].assert_not_awaited()
-
-    def test_image_exactly_at_limit_is_accepted(self, client, search_mocks):
-        exact = PNG_BYTES + b"\x00" * (MAX_IMAGE_BYTES - len(PNG_BYTES))
-        resp = client.post("/v1/search", data=BASE, files={"image": ("ok.png", exact, "image/png")})
-        assert resp.status_code == 200
-
-    def test_huge_part_without_filename_is_413(self, client, search_mocks):
-        huge = PNG_BYTES + b"\x00" * (2 * MAX_IMAGE_BYTES + 1)
-        resp = client.post("/v1/search", data=BASE, files={"image": (None, huge)})
-        _error(resp, 413, "IMAGE_TOO_LARGE")
-
-    def test_malformed_multipart_body(self, client, search_mocks):
+    def test_malformed_multipart_body(self, client, mocks):
         resp = client.post("/v1/search", content=b"garbage", headers={"content-type": "multipart/form-data"})
         _error(resp, 400, "VALIDATION_ERROR")
 
+    @pytest.mark.parametrize("part, expected", [
+        (("a.txt", PNG_BYTES, "text/plain"), "multipart file part"),            # not an image part
+        (("a.bin", PNG_BYTES, "application/octet-stream"), "multipart file part"),
+        ((None, "aGVsbG8="), "multipart file part"),                            # Base64 text field
+        (("a.gif", GIF_BYTES, "image/gif"), "Only JPEG, PNG and WebP"),         # unsupported image type
+        (("a.png", GIF_BYTES, "image/png"), "Only JPEG, PNG and WebP"),         # GIF bytes, PNG header
+        (("a.png", b"definitely not a png", "image/png"), "Only JPEG, PNG and WebP"),
+        (("a.webp", WEBP_BYTES, "image/webp"), "Only JPEG, PNG and WebP"),      # right magic, undecodable
+    ])
+    def test_rejected_images(self, client, mocks, part, expected):
+        body = _error(_post(client, BASE, {"image": part}), 400, "UNSUPPORTED_IMAGE_TYPE")
+        assert expected in body["message"]
+        mocks["resolve"].assert_not_awaited()
 
-# --------------------------------------------------------------------------
-# POST /v1/search — backend error mapping
-# --------------------------------------------------------------------------
+    def test_oversized_image(self, client, mocks):
+        big = PNG_BYTES + b"\x00" * MAX_IMAGE_BYTES
+        _error(_post(client, BASE, {"image": ("big.png", big, "image/png")}), 413, "IMAGE_TOO_LARGE")
+
+    def test_huge_part_without_filename_is_413(self, client, mocks):
+        huge = PNG_BYTES + b"\x00" * (2 * MAX_IMAGE_BYTES + 1)
+        _error(_post(client, BASE, {"image": (None, huge)}), 413, "IMAGE_TOO_LARGE")
 
 
 class TestSearchErrors:
+    @pytest.mark.parametrize("error, status, code", [
+        (RequestIdNotFound("request_id 'x' was not found or its search has expired"), 400, "REQUEST_ID_NOT_FOUND"),
+        (EmbeddingStoreUnavailable("Redis is disabled"), 503, "EMBEDDING_STORE_UNAVAILABLE"),
+        (RuntimeError("OCI down"), 500, "INTERNAL_ERROR"),
+    ])
+    def test_resolve_errors(self, client, mocks, error, status, code):
+        mocks["resolve"].side_effect = error
+        body = _error(_post(client, {**BASE, "request_id": PREVIOUS_ID}), status, code)
+        assert str(error) in body["message"]
+
     @pytest.mark.parametrize("error, status, code", [
         (IndexNotFoundError("Index 'x' not found"), 404, "INDEX_NOT_FOUND"),
         (OpenSearchQueryError("bad query"), 400, "QUERY_ERROR"),
         (RuntimeError("kaboom"), 500, "INTERNAL_ERROR"),
     ])
-    def test_search_v1_errors(self, client, search_mocks, error, status, code):
-        search_mocks["search_v1"].side_effect = error
-        body = _error(client.post("/v1/search", data={**BASE, "search_query": "v"}), status, code)
+    def test_search_errors(self, client, mocks, error, status, code):
+        mocks["search"].side_effect = error
+        body = _error(_post(client, {**BASE, "search_query": "v"}), status, code)
         assert body["message"] == str(error)
-
-    @pytest.mark.parametrize("error, status, code", [
-        (IndexNotFoundError("missing"), 404, "INDEX_NOT_FOUND"),
-        (OpenSearchQueryError("bad"), 400, "QUERY_ERROR"),
-        (ValueError("boom"), 500, "INTERNAL_ERROR"),
-    ])
-    def test_filter_browse_errors(self, client, search_mocks, error, status, code):
-        search_mocks["filter_browse"].side_effect = error
-        _error(client.post("/v1/search", data={**BASE, "filters": '{"currency": "SAR"}'}), status, code)
-
-    def test_embedding_failure_is_500(self, client, search_mocks):
-        search_mocks["query_embedding"].side_effect = RuntimeError("OCI down")
-        body = _error(client.post("/v1/search", data={**BASE, "search_query": "v"}), 500, "INTERNAL_ERROR")
-        assert body["message"] == "OCI down"
-
-
-# --------------------------------------------------------------------------
-# GET /v1/search/suggestions
-# --------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -335,9 +222,7 @@ def suggestions_mock(monkeypatch):
     from models.response import SuggestionsResponse
 
     mock = AsyncMock(return_value=SuggestionsResponse(
-        query="val",
-        query_suggestions=[{"text": "Valve", "destination_url": "/search?q=Valve"}],
-        product_suggestions=[{"text": "Valve", "destination_url": "/p/1"}],
+        query="val", query_suggestions=[{"text": "Valve"}], product_suggestions=[{"text": "Valve", "sku_id": "1"}],
     ))
     monkeypatch.setattr(search_service, "get_suggestions", mock)
     return mock
@@ -351,9 +236,11 @@ class TestSuggestions:
         resp = client.get("/v1/search/suggestions", params={**SUGGEST, "query_limit": 3, "product_limit": 7})
         assert resp.status_code == 200
         assert resp.json()["query_suggestions"][0]["text"] == "Valve"
-        suggestions_mock.assert_awaited_once_with(
-            index="asmo-search-api-index", query="val", language="en", query_limit=3, product_limit=7,
-        )
+        suggestions_mock.assert_awaited_once_with(query="val", query_limit=3, product_limit=7, language="en")
+
+    def test_german_is_passed_through(self, client, suggestions_mock):
+        assert client.get("/v1/search/suggestions", params={**SUGGEST, "language": "de"}).status_code == 200
+        assert suggestions_mock.call_args.kwargs["language"] == "de"
 
     def test_default_limits(self, client, suggestions_mock):
         client.get("/v1/search/suggestions", params=SUGGEST)
@@ -389,14 +276,9 @@ class TestSuggestions:
         _error(client.get("/v1/search/suggestions", params=SUGGEST), status, code)
 
 
-# --------------------------------------------------------------------------
-# GET /indices
-# --------------------------------------------------------------------------
-
-
 class TestIndices:
     def test_list_indices(self, client, monkeypatch):
-        monkeypatch.setattr(search_service._os, "list_indices", AsyncMock(return_value=[
+        monkeypatch.setattr(os_client, "list_indices", AsyncMock(return_value=[
             {"name": "products", "doc_count": 10, "size_bytes": 2048, "status": "open"},
         ]))
         resp = client.get("/indices")
@@ -407,6 +289,5 @@ class TestIndices:
         }
 
     def test_list_indices_failure(self, client, monkeypatch):
-        monkeypatch.setattr(search_service._os, "list_indices", AsyncMock(side_effect=ConnectionError("down")))
-        body = _error(client.get("/indices"), 500, "INTERNAL_ERROR")
-        assert body["message"] == "down"
+        monkeypatch.setattr(os_client, "list_indices", AsyncMock(side_effect=ConnectionError("down")))
+        assert _error(client.get("/indices"), 500, "INTERNAL_ERROR")["message"] == "down"

@@ -1,8 +1,16 @@
+"""The application logger: one JSON object per line.
+
+Where logs go:
+  * Windows                              -> log file only (console if the file can't be opened)
+  * APP_INSIGHTS_CONNECTION_STRING set   -> console + Azure Application Insights
+  * otherwise                            -> console (LOG_TO_FILE=true also writes the log file)
+
+Note: the logging module calls ``JsonFormatter.format`` synchronously and the
+handlers are built when this module is imported, so nothing here is async.
+"""
 import contextvars
-import logging
-import functools
-import inspect
 import json
+import logging
 import os
 import platform
 import sys
@@ -10,47 +18,31 @@ import time
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from types import ModuleType
- 
+
+from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
- 
-# Set OpenTelemetry limits
+
+# OpenTelemetry limits
 os.environ["OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT"] = "4096"
 os.environ["OTEL_ATTRIBUTE_COUNT_LIMIT"] = "50"
- 
+
 IS_WINDOWS = platform.system() == "Windows"
+LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"  # <repo>/logs, whatever the working directory
 
-# Per-request id, set by the request middleware so it appears on every log line of that request.
-_request_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
-
-
-def set_log_context(request_id: str) -> None:
-    _request_id.set(request_id)
+# The current HTTP request's id. The request middleware sets it, so it appears on every log line of that request.
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 
 
-def clear_log_context() -> None:
-    _request_id.set("")
-
- 
 class JsonFormatter(logging.Formatter):
-    # The "Z" suffix means UTC, so the timestamp must actually be UTC.
-    converter = time.gmtime
- 
+    converter = time.gmtime  # the timestamp ends in "Z" (UTC), so it must be UTC
+
     def format(self, record):
-        def safe(val):
-            try:
-                json.dumps(val)
-                return val
-            except Exception:
-                return str(val)
- 
         log_entry = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%SZ"),
             "level": record.levelname,
-            "request_id": getattr(record, "request_id", None) or _request_id.get(),
+            "request_id": getattr(record, "request_id", None) or request_id_var.get(),
             "message": record.getMessage(),
             "module": record.module,
             "event": getattr(record, "event", ""),
@@ -62,11 +54,11 @@ class JsonFormatter(logging.Formatter):
             "request_path": getattr(record, "request_path", ""),
             "status_code": getattr(record, "status_code", ""),
             "duration_ms": getattr(record, "duration_ms", ""),
-            "request_payload": safe(getattr(record, "request_payload", {})),
-            "response_payload": safe(getattr(record, "response_payload", {})),
+            "request_payload": getattr(record, "request_payload", {}),
+            "response_payload": getattr(record, "response_payload", {}),
             "function_name": getattr(record, "function_name", ""),
-            "input_data": safe(getattr(record, "input_data", "")),
-            "error_details": safe(getattr(record, "error_details", "")),
+            "input_data": getattr(record, "input_data", ""),
+            "error_details": getattr(record, "error_details", ""),
             "status": getattr(record, "status", "Success"),
             "latency": getattr(record, "latency", ""),
             "latency_seconds": getattr(record, "latency_seconds", ""),
@@ -74,108 +66,76 @@ class JsonFormatter(logging.Formatter):
             "environment": getattr(record, "environment", os.environ.get("ENV_NAME")),
             "logger_name": "[ASMOS BUYER ASSISTANT CHATBOT]",
         }
- 
-        return json.dumps(log_entry, ensure_ascii=False)
- 
- 
-def _configure_logger(handlers) -> logging.Logger:
-    logger = logging.getLogger("mcit_logger")
-    logger.handlers.clear()
- 
-    for handler in handlers:
-        logger.addHandler(handler)
- 
-    configured_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logger.setLevel(getattr(logging, configured_level, logging.INFO))
-    logger.propagate = False
-    return logger
- 
- 
-def _console_handler() -> logging.Handler:
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
-    return handler
- 
- 
+        try:
+            # Values that aren't JSON-serialisable are logged as their str().
+            return json.dumps(log_entry, ensure_ascii=False, default=str)
+        except (TypeError, ValueError):  # e.g. non-string dict keys or circular data
+            simple = (str, int, float, bool, type(None))
+            return json.dumps({k: v if isinstance(v, simple) else str(v) for k, v in log_entry.items()}, ensure_ascii=False)
+
+
 def _file_handler() -> logging.Handler:
-    # <repo>/logs, regardless of the working directory the app is started from.
-    logs_dir = Path(__file__).resolve().parent.parent / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
- 
-    log_filename = datetime.now().strftime("buyer-assistant-logs-%Y_%m_%d %H_%M_%S.log")
- 
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
     handler = TimedRotatingFileHandler(
-        logs_dir / log_filename,
-        when="midnight",
-        interval=1,
-        backupCount=7,
-        encoding="utf-8",
+        LOGS_DIR / datetime.now().strftime("buyer-assistant-logs-%Y_%m_%d %H_%M_%S.log"),
+        when="midnight", interval=1, backupCount=7, encoding="utf-8",
     )
     handler.setFormatter(JsonFormatter())
     return handler
- 
-def setup_local_logger() -> logging.Logger:
-    """Windows: log file only. Any other OS: console only."""
-    if IS_WINDOWS:
-        try:
-            return _configure_logger([_file_handler()])
-        except OSError:
-            # Can't create/open the log file: fall back to console rather than crash.
-            return _configure_logger([_console_handler()])
-    return _configure_logger([_console_handler()])
- 
- 
-def setup_app_insights_logger() -> logging.Logger:
-    connection_string = os.getenv("APP_INSIGHTS_CONNECTION_STRING", "").strip()
-    if not connection_string:
-        return setup_local_logger()
- 
+
+
+# ---- Build the logger once, at import ----
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(JsonFormatter())
+
+handlers: list[logging.Handler] = [console_handler]
+setup_warning: str | None = None
+app_insights = os.getenv("APP_INSIGHTS_CONNECTION_STRING", "").strip()
+
+if IS_WINDOWS:
+    try:
+        handlers = [_file_handler()]
+    except OSError:
+        pass  # can't open the log file: keep the console rather than crash
+elif app_insights:
     try:
         logger_provider = LoggerProvider()
         set_logger_provider(logger_provider)
-        exporter = AzureMonitorLogExporter(connection_string=connection_string)
-        logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
- 
+        logger_provider.add_log_record_processor(
+            BatchLogRecordProcessor(AzureMonitorLogExporter(connection_string=app_insights))
+        )
         azure_handler = LoggingHandler()
         azure_handler.setFormatter(JsonFormatter())
-        return _configure_logger([_console_handler(), azure_handler])
- 
+        handlers = [console_handler, azure_handler]
     except Exception as exc:
-        fallback = setup_local_logger()
-        fallback.warning(
-            "app_insights_setup_failed",
-            extra={"event": "app_insights_setup_failed", "error_details": str(exc), "status": "failed"},
-        )
-        return fallback
- 
- 
-# Initialize the logger
-if IS_WINDOWS:
-    logger = setup_local_logger()
-else:
-    logger = setup_app_insights_logger()
+        setup_warning = str(exc)
+
+logger = logging.getLogger("mcit_logger")
+logger.handlers = handlers
+logger.setLevel(getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
+logger.propagate = False
+if setup_warning:
+    logger.warning(
+        "app_insights_setup_failed",
+        extra={"event": "app_insights_setup_failed", "error_details": setup_warning, "status": "failed"},
+    )
 
 
 def setup_logging(level: str = "INFO", to_file: bool = False) -> None:
-    """Apply app settings to the logger built at import time.
-
-    Windows always logs to the file only. On other OSes logs go to the console, and
-    ``to_file=True`` (LOG_TO_FILE=true) also writes the log file.
-    """
+    """Apply the app settings to the logger. Called once from app.py at import time."""
     logger.setLevel(getattr(logging, str(level).upper(), logging.INFO))
-    if to_file and not IS_WINDOWS and not any(
-        isinstance(h, TimedRotatingFileHandler) for h in logger.handlers
-    ):
+    already_has_file = any(isinstance(h, TimedRotatingFileHandler) for h in logger.handlers)
+    if to_file and not IS_WINDOWS and not already_has_file:
         try:
             logger.addHandler(_file_handler())
         except OSError as exc:
             logger.warning("log_file_setup_failed", extra={"error_details": str(exc), "status": "failed"})
 
-    # Modules that use logging.getLogger("app") (e.g. config.py) share the same handlers.
+    # config.py logs through logging.getLogger("app"); give it the same handlers.
     app_logger = logging.getLogger("app")
     app_logger.handlers = list(logger.handlers)
     app_logger.setLevel(logger.level)
     app_logger.propagate = False
 
-    for name in ("urllib3", "httpx", "httpcore", "elastic_transport", "oci", "circuitbreaker"):
-        logging.getLogger(name).setLevel(logging.WARNING)
+    for noisy in ("urllib3", "httpx", "httpcore", "elastic_transport", "oci", "circuitbreaker"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)

@@ -94,15 +94,6 @@ class TestIndices:
         with pytest.raises(ConnectionError):
             await service.list_indices()
 
-    @pytest.mark.parametrize("exists", [True, False])
-    async def test_index_exists(self, service, raw_client, exists):
-        raw_client.indices.exists.return_value = exists
-        assert await service.index_exists("products") is exists
-
-    async def test_index_exists_error_returns_false(self, service, raw_client):
-        raw_client.indices.exists.side_effect = ConnectionError("down")
-        assert await service.index_exists("products") is False
-
 
 class TestPipelines:
     async def test_pipeline_exists(self, service, raw_client):

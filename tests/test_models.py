@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from models.response import (
+    ApiError,
     ErrorResponse,
     FacetTermValue,
     HealthResponse,
@@ -18,24 +20,25 @@ from models.response import (
 
 def test_product_item_defaults():
     p = ProductItem()
-    assert p.sku_id is None
+    assert p.sku_id is None and p.sku_name is None
     assert p.seller_details == []
-    assert p.category_ids == []
-    assert p.contract_indicator is False
 
 
 def test_product_item_nests_seller_details():
-    p = ProductItem(seller_details=[{"seller_name": "Acme", "price": 9.5, "moq": 2}])
+    p = ProductItem(seller_details=[{"name": "Acme", "price": 9.5, "moq": 2}])
     assert isinstance(p.seller_details[0], SellerDetail)
     assert p.seller_details[0].price == 9.5
+
+
+def test_seller_moq_defaults_to_empty_string():
+    assert SellerDetail().moq == ""
 
 
 def test_search_response_defaults_empty_facets():
     r = SearchApiResponse(total_results=0, page=1, page_size=10, products=[])
     assert r.facets == SearchFacets()
     assert r.facets.category == [] and r.facets.seller == []
-    assert r.query_embedding_id is None
-    assert r.image_embedding_id is None
+    assert r.request_id is None
 
 
 def test_search_response_requires_core_fields():
@@ -43,18 +46,18 @@ def test_search_response_requires_core_fields():
         SearchApiResponse(page=1, page_size=10, products=[])
 
 
-def test_facet_term_value_requires_value_and_count():
+def test_facet_term_value_requires_all_fields():
     with pytest.raises(ValidationError):
-        FacetTermValue(value="x")
+        FacetTermValue(value="x", count=1)
 
 
 def test_suggestions_response_shape():
     r = SuggestionsResponse(
         query="val",
-        query_suggestions=[{"text": "Valve", "destination_url": "/search?q=Valve"}],
-        product_suggestions=[{"text": "Valve", "destination_url": "/p/1"}],
+        query_suggestions=[{"text": "Valve"}],
+        product_suggestions=[{"text": "Valve", "sku_id": "SKU-1"}],
     )
-    assert r.query_suggestions[0].destination_url == "/search?q=Valve"
+    assert r.product_suggestions[0].sku_id == "SKU-1"
 
 
 def test_health_response_redis_optional():
@@ -67,3 +70,11 @@ def test_latency_and_error_models():
     lat = LatencyResponse(target="oci", endpoint="e", samples=1, samples_ms=[1.0], min_ms=1, avg_ms=1, max_ms=1, ok=True)
     assert lat.error is None
     assert ErrorResponse(code="X", message="y").model_dump() == {"code": "X", "message": "y"}
+
+
+def test_api_error_carries_the_error_contract():
+    exc = ApiError(418, "TEAPOT", "short and stout", {"X-Extra": "1"})
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == 418
+    assert exc.detail == {"code": "TEAPOT", "message": "short and stout"}
+    assert exc.headers == {"X-Extra": "1"}

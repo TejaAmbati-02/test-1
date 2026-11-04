@@ -1,175 +1,112 @@
+"""ASMO AI Search API — FastAPI app: startup/shutdown, middleware, health checks and error handlers."""
 from __future__ import annotations
- 
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
- 
+
 import asyncio
 import os
 import time
- 
+import uuid
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Awaitable, Callable
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
- 
-import uuid
- 
+
 from config import settings
-from utils.keycloak_auth import keycloak_auth
-from utils.logger import logger, setup_logging, set_log_context, clear_log_context
 from models.response import HealthResponse, LatencyResponse
 from routers.search import index_router, v1_router
 from services.embedder import embedding_service
-from services.redis_client import redis_client
 from services.opensearch import os_client
+from services.redis_client import redis_client
 from services.search import search_service
- 
+from utils.keycloak_auth import keycloak_auth
+from utils.logger import logger, request_id_var, setup_logging
+
 setup_logging(level=settings.log_level, to_file=settings.log_to_file)
- 
-# How often the background heartbeat pings OpenSearch to keep the pooled TCP/TLS
-# connection warm. Must stay below the server/aiohttp idle-reap window (~15s) so the
-# socket is never torn down — otherwise the next request pays a full handshake (~1s).
+
+# How often to ping OpenSearch so the pooled TCP/TLS connection stays warm. Must stay below
+# the server/aiohttp idle-reap window (~15s), otherwise the next request pays a full handshake (~1s).
 OPENSEARCH_HEARTBEAT_INTERVAL = 5
- 
-# How often the background heartbeat sends a tiny embed to OCI GenAI to keep the
-# on-demand model warm. The first embed after the model goes idle pays a cold
-# spin-up (~1.5s observed); a periodic warmup keeps real searches off that path.
-# Override with OCI_EMBED_HEARTBEAT_INTERVAL (seconds). Each tick is a billable
-# on-demand call, so keep it only as frequent as needed to beat the idle window.
+
+# How often to send a tiny embed to OCI GenAI so the on-demand model stays warm (a cold
+# model costs ~1.5s on the first embed). Each tick is a billable call, so keep it only as
+# frequent as needed. Override with OCI_EMBED_HEARTBEAT_INTERVAL (seconds).
 OCI_EMBED_HEARTBEAT_INTERVAL = int(os.environ.get("OCI_EMBED_HEARTBEAT_INTERVAL", "60"))
- 
-# Throwaway query used for both the startup warmup and the keep-alive heartbeat.
+
+# Throwaway query used for the startup warmup and the keep-alive heartbeat.
 _EMBED_WARMUP_TEXT = "warmup"
- 
- 
-async def _opensearch_heartbeat(interval: int) -> None:
-    """Periodically ping OpenSearch so the keep-alive connection never goes idle-cold."""
-    logger.info(f"OpenSearch heartbeat started — every {interval}s")
+
+
+async def _heartbeat(name: str, interval: int, call: Callable[..., Awaitable[object]], *args: object) -> None:
+    """Run ``await call(*args)`` every ``interval`` seconds until cancelled. A failed call is logged, never fatal."""
+    logger.info(f"{name} heartbeat started — every {interval}s")
     while True:
         try:
             await asyncio.sleep(interval)
-            t0 = time.perf_counter()
-            ok = await os_client.ping()
-            logger.debug(f"[_opensearch_heartbeat] ping ok={ok} in {(time.perf_counter() - t0) * 1000:.1f}ms")
+            start = time.perf_counter()
+            await call(*args)
+            logger.debug(f"{name} heartbeat ok in {(time.perf_counter() - start) * 1000:.1f}ms")
         except asyncio.CancelledError:
-            logger.info("OpenSearch heartbeat cancelled")
+            logger.info(f"{name} heartbeat cancelled")
             raise
         except Exception as exc:
-            # Never let a transient ping failure kill the heartbeat loop.
-            logger.warning(
-                f"[_opensearch_heartbeat] OpenSearch heartbeat ping failed ({type(exc).__name__}): {exc}",
-                extra={"function_name": "_opensearch_heartbeat", "status": "error", "error_details": str(exc)},
-            )
- 
- 
-async def _oci_embed_heartbeat(interval: int) -> None:
-    """Periodically embed a throwaway query so the on-demand OCI model never goes idle-cold."""
-    logger.info(f"OCI embed heartbeat started — every {interval}s")
-    while True:
-        try:
-            await asyncio.sleep(interval)
-            t0 = time.perf_counter()
-            await embedding_service.encode_query(_EMBED_WARMUP_TEXT)
-            logger.debug(f"[_oci_embed_heartbeat] warmup embed ok in {(time.perf_counter() - t0) * 1000:.1f}ms")
-        except asyncio.CancelledError:
-            logger.info("OCI embed heartbeat cancelled")
-            raise
-        except Exception as exc:
-            # Never let a transient embed failure kill the heartbeat loop.
-            logger.warning(
-                f"[_oci_embed_heartbeat] OCI embed heartbeat failed ({type(exc).__name__}): {exc}",
-                extra={"function_name": "_oci_embed_heartbeat", "status": "error", "error_details": str(exc)},
-            )
- 
- 
+            logger.warning(f"{name} heartbeat failed ({type(exc).__name__}): {exc}",
+                           extra={"status": "error", "error_details": str(exc)})
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Application startup")
-    heartbeat_task: asyncio.Task | None = None
-    embed_heartbeat_task: asyncio.Task | None = None
     try:
-        logger.info(f"Loading embedding model: {settings.embedding_model_name}")
         await embedding_service.load()
-        logger.info("Embedding model ready")
- 
-        # Warm the on-demand OCI model now so the first real search doesn't pay the
-        # cold spin-up (~1.5s). A failure here must not block startup — searches can
-        # still run, they'll just warm it lazily.
-        logger.info("Warming up embedding model with a throwaway query")
+
+        # Warm the on-demand OCI model so the first real search doesn't pay the cold start.
+        # Not fatal: searches still work, they just warm it lazily.
         try:
             await embedding_service.encode_query(_EMBED_WARMUP_TEXT)
-            logger.info("Embedding model warmed up")
         except Exception as exc:
-            logger.warning(
-                f"[lifespan] Embedding warmup failed (continuing) ({type(exc).__name__}): {exc}",
-                extra={"function_name": "lifespan", "status": "error", "error_details": str(exc)},
-            )
- 
-        logger.info(f"Connecting to OpenSearch at {settings.opensearch_host}:{settings.opensearch_port}")
-        connected = await os_client.ping()
-        if not connected:
-            logger.warning("OpenSearch ping returned False — searches may fail")
-        else:
-            logger.info("OpenSearch connected")
- 
-        if redis_client.enabled:
-            logger.info(f"Connecting to Redis at {settings.redis_host}:{settings.redis_port}")
-            # Create the shared Redis client once; every request reuses it.
-            await redis_client.connect()
-            if await redis_client.ping():
-                logger.info("Redis connected — embedding cache enabled")
-            else:
-                logger.warning("Redis unreachable — searches will embed without the cache")
-        else:
-            logger.info("Redis disabled (REDIS_ENABLED=false or REDIS_HOST unset) — embedding cache off")
+            logger.warning(f"Embedding warmup failed (continuing) ({type(exc).__name__}): {exc}",
+                           extra={"status": "error", "error_details": str(exc)})
 
-        logger.info("Setting up hybrid search pipeline (RRF)")
+        logger.info(f"Connecting to OpenSearch at {settings.opensearch_host}:{settings.opensearch_port}")
+        if not await os_client.ping():
+            logger.warning("OpenSearch ping returned False — searches may fail")
+
+        if redis_client.enabled:
+            await redis_client.connect()  # one shared client, reused by every request
+            if not await redis_client.ping():
+                logger.warning("Redis unreachable — searches still run, but their request_id can't be reused")
+        else:
+            logger.info("Redis disabled (REDIS_ENABLED=false or REDIS_HOST unset) — request_id refinement off")
+
         await search_service.setup_pipeline()
-        logger.info("Search pipeline ready")
- 
-        # Keep the warmed-up connection alive so no request ever hits a cold handshake.
-        heartbeat_task = asyncio.create_task(_opensearch_heartbeat(OPENSEARCH_HEARTBEAT_INTERVAL))
-        # Keep the on-demand embedding model warm so no request ever hits a cold spin-up.
-        embed_heartbeat_task = asyncio.create_task(_oci_embed_heartbeat(OCI_EMBED_HEARTBEAT_INTERVAL))
- 
     except Exception as exc:
-        logger.exception(
-            f"[lifespan] Startup failed ({type(exc).__name__}): {exc}",
-            extra={"function_name": "lifespan", "status": "error", "error_details": str(exc)},
-        )
+        logger.exception(f"Startup failed ({type(exc).__name__}): {exc}",
+                         extra={"status": "error", "error_details": str(exc)})
         raise
- 
+
+    # Keep the warm connection / warm model alive so no request hits a cold start.
+    heartbeats = [
+        asyncio.create_task(_heartbeat("OpenSearch", OPENSEARCH_HEARTBEAT_INTERVAL, os_client.ping)),
+        asyncio.create_task(_heartbeat("OCI embed", OCI_EMBED_HEARTBEAT_INTERVAL,
+                                       embedding_service.encode_query, _EMBED_WARMUP_TEXT)),
+    ]
     logger.info("Startup complete — API is ready")
     yield
- 
+
     logger.info("Shutting down")
-    try:
-        for task in (heartbeat_task, embed_heartbeat_task):
-            if task is not None:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-        logger.debug("[lifespan] heartbeat tasks stopped")
-        await os_client.close()
-        logger.debug("[lifespan] OpenSearch client closed")
-        await redis_client.close()
-        logger.debug("[lifespan] Redis client closed")
-        await keycloak_auth.close()
-        logger.debug("[lifespan] Keycloak client closed")
-    except Exception as exc:
-        logger.exception(
-            f"[lifespan] Shutdown failed ({type(exc).__name__}): {exc}",
-            extra={"function_name": "lifespan", "status": "error", "error_details": str(exc)},
-        )
-        raise
+    for task in heartbeats:
+        task.cancel()
+    await asyncio.gather(*heartbeats, return_exceptions=True)
+    await os_client.close()
+    await redis_client.close()
+    await keycloak_auth.close()
     logger.info("Shutdown complete")
- 
- 
+
+
 app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
@@ -178,296 +115,181 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
- 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-        set_log_context(request_id)
- 
-        client_ip = request.client.host if request.client else "unknown"
-        query_string = str(request.url.query) if request.url.query else ""
-        user_agent = request.headers.get("user-agent", "")
-        content_type = request.headers.get("content-type", "")
- 
-        start = time.perf_counter()
-        logger.info(
-            f"REQUEST {request.method} {request.url.path}",
-            extra={
-                "function_name": f"{request.method} {request.url.path}",
-                "input_data": {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "query": query_string,
-                    "client_ip": client_ip,
-                    "user_agent": user_agent,
-                    "content_type": content_type,
-                },
-                "status": "received",
-            },
-        )
- 
-        try:
-            response = await call_next(request)
-            elapsed_ms = (time.perf_counter() - start) * 1000
-            status = "success" if response.status_code < 400 else "error"
-            logger.info(
-                f"RESPONSE {request.method} {request.url.path} — {response.status_code} in {elapsed_ms:.1f}ms",
-                extra={
-                    "function_name": f"{request.method} {request.url.path}",
-                    "status": status,
-                    "latency": f"{elapsed_ms:.1f}ms",
-                    "response_payload": {
-                        "http_status": response.status_code,
-                        "latency_ms": round(elapsed_ms, 1),
-                    },
-                },
-            )
-            return response
-        except Exception as exc:
-            elapsed_ms = (time.perf_counter() - start) * 1000
-            logger.exception(
-                f"REQUEST {request.method} {request.url.path} — unhandled exception "
-                f"({type(exc).__name__}) after {elapsed_ms:.1f}ms: {exc}",
-                extra={
-                    "function_name": f"{request.method} {request.url.path}",
-                    "status": "error",
-                    "latency": f"{elapsed_ms:.1f}ms",
-                    "error_details": str(exc),
-                },
-            )
-            raise
-        finally:
-            clear_log_context()
- 
- 
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
- 
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Give every request an id (put on all its log lines) and log the request and response."""
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+    token = request_id_var.set(request_id)
+    where = f"{request.method} {request.url.path}"
+    logger.info(f"REQUEST {where}", extra={
+        "function_name": where,
+        "status": "received",
+        "input_data": {
+            "method": request.method,
+            "path": request.url.path,
+            "query": str(request.url.query),
+            "client_ip": request.client.host if request.client else "unknown",
+            "user_agent": request.headers.get("user-agent", ""),
+            "content_type": request.headers.get("content-type", ""),
+        },
+    })
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info(f"RESPONSE {where} — {response.status_code} in {elapsed_ms:.1f}ms", extra={
+            "function_name": where,
+            "status": "success" if response.status_code < 400 else "error",
+            "latency": f"{elapsed_ms:.1f}ms",
+            "response_payload": {"http_status": response.status_code, "latency_ms": round(elapsed_ms, 1)},
+        })
+        return response
+    except Exception as exc:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.exception(f"REQUEST {where} — unhandled {type(exc).__name__} after {elapsed_ms:.1f}ms: {exc}",
+                         extra={"function_name": where, "status": "error", "error_details": str(exc)})
+        raise
+    finally:
+        request_id_var.reset(token)
+
+
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(index_router)
 app.include_router(v1_router)
- 
- 
+
+
+# Health checks
+
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health() -> HealthResponse:
-    logger.info("GET /health")
-    try:
-        # Single OpenSearch round-trip: cluster_name() already confirms connectivity.
-        cluster = await os_client.cluster_name()
-        connected = cluster is not None
-        model_loaded = embedding_service.is_loaded
-        redis_connected = await redis_client.ping() if redis_client.enabled else None
-        status = "ok" if connected and model_loaded and redis_connected is not False else "degraded"
-        logger.info(f"Health: status={status} opensearch={connected} model={model_loaded} redis={redis_connected}")
-        return HealthResponse(
-            status=status,
-            opensearch_connected=connected,
-            opensearch_cluster=cluster,
-            embedding_model_loaded=model_loaded,
-            embedding_model_name=embedding_service.model_name,
-            redis_connected=redis_connected,
-        )
-    except Exception as exc:
-        logger.exception(
-            f"[health] Health check failed ({type(exc).__name__}): {exc}",
-            extra={"function_name": "health", "status": "error", "error_details": str(exc)},
-        )
-        raise
- 
- 
-async def _measure_latency(call, samples: int) -> tuple[list[float], str | None]:
-    """Run an async no-arg call `samples` times, returning per-call ms and any error."""
-    logger.debug(f"[_measure_latency] start — {samples} samples")
+    cluster = await os_client.cluster_name()  # one round-trip: a name back means connected
+    redis_connected = await redis_client.ping() if redis_client.enabled else None
+    healthy = cluster is not None and embedding_service.is_loaded and redis_connected is not False
+    return HealthResponse(
+        status="ok" if healthy else "degraded",
+        opensearch_connected=cluster is not None,
+        opensearch_cluster=cluster,
+        embedding_model_loaded=embedding_service.is_loaded,
+        embedding_model_name=embedding_service.model_name,
+        redis_connected=redis_connected,
+    )
+
+
+async def _measure_latency(target: str, endpoint: str, samples: int,
+                           call: Callable[[], Awaitable[object]]) -> LatencyResponse:
+    """Await ``call`` ``samples`` times (clamped to 1..20) and report the round-trip times. Stops at the first failure."""
+    samples = max(1, min(samples, 20))
     times: list[float] = []
     error: str | None = None
     for i in range(samples):
-        t0 = time.perf_counter()
+        start = time.perf_counter()
         try:
             await call()
-            times.append(round((time.perf_counter() - t0) * 1000, 1))
-            logger.debug(f"[_measure_latency] sample {i + 1}/{samples} took {times[-1]}ms")
         except Exception as exc:
             error = f"sample {i + 1} failed: {exc}"
-            logger.warning(
-                f"[_measure_latency] sample {i + 1}/{samples} failed after "
-                f"{(time.perf_counter() - t0) * 1000:.1f}ms ({type(exc).__name__}): {exc}",
-                extra={"function_name": "_measure_latency", "status": "error", "error_details": str(exc)},
-            )
+            logger.warning(f"{target} latency {error}", extra={"status": "error", "error_details": str(exc)})
             break
-    logger.debug(f"[_measure_latency] done — {len(times)}/{samples} succeeded, error={error}")
-    return times, error
- 
- 
-def _latency_response(target: str, endpoint: str, samples: int, times: list[float], error: str | None) -> LatencyResponse:
-    try:
-        return LatencyResponse(
-            target=target,
-            endpoint=endpoint,
-            samples=samples,
-            samples_ms=times,
-            min_ms=min(times) if times else 0.0,
-            avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
-            max_ms=max(times) if times else 0.0,
-            ok=error is None and len(times) == samples,
-            error=error,
-        )
-    except Exception as exc:
-        logger.exception(
-            f"[_latency_response] failed to build latency response for {target}: {exc}",
-            extra={"function_name": "_latency_response", "status": "error", "error_details": str(exc)},
-        )
-        raise
- 
- 
+        times.append(round((time.perf_counter() - start) * 1000, 1))
+
+    result = LatencyResponse(
+        target=target,
+        endpoint=endpoint,
+        samples=samples,
+        samples_ms=times,
+        min_ms=min(times) if times else 0.0,
+        avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
+        max_ms=max(times) if times else 0.0,
+        ok=error is None and len(times) == samples,
+        error=error,
+    )
+    logger.info(f"{target} latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+    return result
+
+
+# One sample of each latency check.
+async def _opensearch_info() -> None:
+    await (await os_client.get_client()).info()
+
+
+async def _redis_ping() -> None:
+    await redis_client.client.ping()
+
+
+async def _oci_embed() -> None:
+    await embedding_service.encode_query("latency check")
+
+
 @app.get("/health/latency/opensearch", response_model=LatencyResponse, tags=["Health"])
 async def latency_opensearch(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to OpenSearch (one GET / per sample)."""
-    try:
-        samples = max(1, min(samples, 20))
-        logger.info(f"GET /health/latency/opensearch — {samples} samples")
- 
-        async def _call() -> None:
-            client = await os_client.get_client()
-            await client.info()
- 
-        times, error = await _measure_latency(_call, samples)
-        endpoint = f"{settings.opensearch_host}:{settings.opensearch_port}"
-        result = _latency_response("opensearch", endpoint, samples, times, error)
-        logger.info(f"OpenSearch latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-        return result
-    except Exception as exc:
-        logger.exception(
-            f"[latency_opensearch] latency check failed ({type(exc).__name__}): {exc}",
-            extra={"function_name": "latency_opensearch", "status": "error", "error_details": str(exc)},
-        )
-        raise
- 
- 
+    return await _measure_latency("opensearch", f"{settings.opensearch_host}:{settings.opensearch_port}",
+                                  samples, _opensearch_info)
+
+
 @app.get("/health/latency/redis", response_model=LatencyResponse, tags=["Health"])
 async def latency_redis(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to Redis (one PING per sample)."""
-    try:
-        samples = max(1, min(samples, 20))
-        logger.info(f"GET /health/latency/redis — {samples} samples")
-        endpoint = f"{settings.redis_host}:{settings.redis_port}"
-        if not redis_client.enabled:
-            return _latency_response("redis", endpoint, samples, [], "Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)")
-
-        async def _call() -> None:
-            await redis_client.client.ping()
-
-        times, error = await _measure_latency(_call, samples)
-        result = _latency_response("redis", endpoint, samples, times, error)
-        logger.info(f"Redis latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-        return result
-    except Exception as exc:
-        logger.exception(
-            f"[latency_redis] latency check failed ({type(exc).__name__}): {exc}",
-            extra={"function_name": "latency_redis", "status": "error", "error_details": str(exc)},
+    endpoint = redis_client.endpoint
+    if not redis_client.enabled:
+        return LatencyResponse(
+            target="redis", endpoint=endpoint, samples=max(1, min(samples, 20)), samples_ms=[],
+            min_ms=0.0, avg_ms=0.0, max_ms=0.0, ok=False,
+            error="Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)",
         )
-        raise
+    return await _measure_latency("redis", endpoint, samples, _redis_ping)
 
 
 @app.get("/health/latency/oci", response_model=LatencyResponse, tags=["Health"])
 async def latency_oci(samples: int = 5) -> LatencyResponse:
     """Measure round-trip latency to OCI GenAI (one embed call per sample)."""
-    try:
-        samples = max(1, min(samples, 20))
-        logger.info(f"GET /health/latency/oci — {samples} samples")
- 
-        async def _call() -> None:
-            await embedding_service.encode_query("latency check")
- 
-        times, error = await _measure_latency(_call, samples)
-        result = _latency_response("oci", settings.oci_genai_endpoint, samples, times, error)
-        logger.info(f"OCI latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-        return result
-    except Exception as exc:
-        logger.exception(
-            f"[latency_oci] latency check failed ({type(exc).__name__}): {exc}",
-            extra={"function_name": "latency_oci", "status": "error", "error_details": str(exc)},
-        )
-        raise
- 
- 
+    return await _measure_latency("oci", settings.oci_genai_endpoint, samples, _oci_embed)
+
+
+# Error handlers — every error leaves the API as {"code", "message"} (5.1)
+
+
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    try:
-        detail = exc.detail
-        log = logger.error if exc.status_code >= 500 else logger.warning
-        log(
-            f"[http_exception_handler] HTTP {exc.status_code} on {_request.method} {_request.url.path}: {detail}",
-            extra={"function_name": "http_exception_handler", "status": "error", "error_details": str(detail)},
-        )
-        if isinstance(detail, dict) and "code" in detail and "message" in detail:
-            return JSONResponse(status_code=exc.status_code, content=detail)
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"code": "HTTP_ERROR", "message": str(detail)},
-        )
-    except Exception as handler_exc:
-        logger.exception(
-            f"[http_exception_handler] failed while handling HTTP {exc.status_code}: {handler_exc}",
-            extra={"function_name": "http_exception_handler", "status": "error", "error_details": str(handler_exc)},
-        )
-        raise
- 
- 
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    log = logger.error if exc.status_code >= 500 else logger.warning
+    log(f"HTTP {exc.status_code} on {request.method} {request.url.path}: {exc.detail}",
+        extra={"status": "error", "error_details": str(exc.detail)})
+    detail = exc.detail
+    if isinstance(detail, dict) and "code" in detail and "message" in detail:
+        return JSONResponse(status_code=exc.status_code, content=detail)
+    return JSONResponse(status_code=exc.status_code, content={"code": "HTTP_ERROR", "message": str(detail)})
+
+
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
-    # Missing/malformed form or query fields map to the contract's 400 Bad Request .
-    try:
-        errors = exc.errors()
-        logger.warning(
-            f"[validation_exception_handler] Request validation failed on "
-            f"{_request.method} {_request.url.path} ({len(errors)} error(s)): {errors}",
-            extra={"function_name": "validation_exception_handler", "status": "error", "error_details": str(errors)},
-        )
-        first = errors[0] if errors else {}
-        loc = ".".join(str(p) for p in first.get("loc", []) if p != "body")
-        msg = first.get("msg", "Request validation failed")
-        message = f"{loc}: {msg}" if loc else msg
-        return JSONResponse(status_code=400, content={"code": "VALIDATION_ERROR", "message": message})
-    except Exception as handler_exc:
-        logger.exception(
-            f"[validation_exception_handler] failed while handling validation error: {handler_exc}",
-            extra={"function_name": "validation_exception_handler", "status": "error", "error_details": str(handler_exc)},
-        )
-        raise
- 
- 
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # Missing/malformed form or query fields map to the contract's 400 Bad Request.
+    errors = exc.errors()
+    logger.warning(f"Request validation failed on {request.method} {request.url.path}: {errors}",
+                   extra={"status": "error", "error_details": str(errors)})
+    first = errors[0] if errors else {}
+    loc = ".".join(str(p) for p in first.get("loc", []) if p != "body")
+    msg = first.get("msg", "Request validation failed")
+    return JSONResponse(status_code=400, content={"code": "VALIDATION_ERROR", "message": f"{loc}: {msg}" if loc else msg})
+
+
 @app.exception_handler(Exception)
-async def global_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
-    logger.exception(
-        f"[global_exception_handler] Unhandled exception on {_request.method} {_request.url.path} "
-        f"({type(exc).__name__}): {exc}",
-        extra={"function_name": "global_exception_handler", "status": "error", "error_details": str(exc)},
-    )
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception(f"Unhandled {type(exc).__name__} on {request.method} {request.url.path}: {exc}",
+                     extra={"status": "error", "error_details": str(exc)})
     return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR", "message": str(exc)})
- 
- 
+
+
 if __name__ == "__main__":
-    # Auto-reload is OFF by default. Enable only for local dev with RELOAD=true, and
-    # never in a OneDrive/synced folder — background file syncing triggers endless reloads.
+    # Auto-reload is OFF by default. Enable it only for local dev with RELOAD=true, and never in a
+    # OneDrive/synced folder — background file syncing triggers endless reloads.
     reload_enabled = os.environ.get("RELOAD", "false").strip().lower() in ("1", "true", "yes", "on")
-    logger.info(f"[__main__] starting uvicorn on 0.0.0.0:8000 (reload={reload_enabled})")
-    try:
-        uvicorn.run(
-            "app:app",
-            host="0.0.0.0",
-            port=8000,
-            reload=reload_enabled,
-            # If reload is on, ignore log writes under ./logs (they'd otherwise trigger restarts).
-            reload_excludes=["logs/*", "*.log", "*.log.*"] if reload_enabled else None,
-        )
-    except Exception as exc:
-        logger.exception(
-            f"[__main__] uvicorn server failed ({type(exc).__name__}): {exc}",
-            extra={"function_name": "__main__", "status": "error", "error_details": str(exc)},
-        )
-        raise
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=reload_enabled,
+        # With reload on, ignore log writes under ./logs (they'd otherwise trigger restarts).
+        reload_excludes=["logs/*", "*.log", "*.log.*"] if reload_enabled else None,
+    )

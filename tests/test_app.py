@@ -11,11 +11,12 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import app as app_module
-from app import _latency_response, _measure_latency
+from app import _measure_latency
 from services.embedder import embedding_service
-from services.embedding_store import embedding_store
 from services.opensearch import os_client
+from services.redis_client import redis_client
 from services.search import search_service
+from tests.conftest import make_search_response, multipart
 
 
 # --------------------------------------------------------------------------
@@ -77,33 +78,26 @@ class TestHealth:
 # --------------------------------------------------------------------------
 
 
-class TestLatencyHelpers:
-    async def test_measure_latency_all_succeed(self):
+class TestMeasureLatency:
+    async def test_all_succeed(self):
         call = AsyncMock()
-        times, error = await _measure_latency(call, 3)
-        assert len(times) == 3 and error is None
-        assert all(t >= 0 for t in times)
+        r = await _measure_latency("oci", "ep", 3, call)
+        assert (r.target, r.endpoint, r.samples) == ("oci", "ep", 3)
+        assert len(r.samples_ms) == 3 and all(t >= 0 for t in r.samples_ms)
+        assert r.min_ms <= r.avg_ms <= r.max_ms
+        assert r.ok is True and r.error is None
         assert call.await_count == 3
 
-    async def test_measure_latency_stops_on_first_error(self):
+    async def test_stops_on_first_error(self):
         call = AsyncMock(side_effect=[None, RuntimeError("down"), None])
-        times, error = await _measure_latency(call, 3)
-        assert len(times) == 1
-        assert error == "sample 2 failed: down"
+        r = await _measure_latency("oci", "ep", 3, call)
+        assert len(r.samples_ms) == 1
+        assert r.ok is False and r.error == "sample 2 failed: down"
         assert call.await_count == 2
 
-    def test_latency_response_stats(self):
-        r = _latency_response("oci", "ep", 3, [1.0, 2.0, 6.0], None)
-        assert (r.min_ms, r.avg_ms, r.max_ms) == (1.0, 3.0, 6.0)
-        assert r.ok is True and r.error is None
-
-    def test_latency_response_without_samples(self):
-        r = _latency_response("redis", "ep", 2, [], "failed")
-        assert (r.min_ms, r.avg_ms, r.max_ms) == (0.0, 0.0, 0.0)
-        assert r.ok is False and r.error == "failed"
-
-    def test_latency_response_partial_is_not_ok(self):
-        assert _latency_response("x", "ep", 3, [1.0], None).ok is False
+    async def test_first_call_fails(self):
+        r = await _measure_latency("redis", "ep", 2, AsyncMock(side_effect=RuntimeError("x")))
+        assert (r.samples_ms, r.min_ms, r.avg_ms, r.max_ms) == ([], 0.0, 0.0, 0.0)
 
 
 class TestLatencyEndpoints:
@@ -146,7 +140,7 @@ class TestLatencyEndpoints:
     def test_redis_enabled(self, client, enable_redis, monkeypatch):
         fake = MagicMock()
         fake.ping = AsyncMock(return_value=True)
-        monkeypatch.setattr(enable_redis, "_redis", lambda: fake)
+        monkeypatch.setattr(enable_redis, "_client", fake)
         body = client.get("/health/latency/redis", params={"samples": 4}).json()
         assert body["ok"] is True
         assert body["endpoint"] == "redis.test:443"
@@ -188,15 +182,15 @@ def startup_deps(monkeypatch):
     monkeypatch.setattr(embedding_service, "encode_query", deps["encode_query"])
     monkeypatch.setattr(os_client, "ping", deps["os_ping"])
     monkeypatch.setattr(os_client, "close", deps["os_close"])
-    monkeypatch.setattr(embedding_store, "ping", deps["redis_ping"])
-    monkeypatch.setattr(embedding_store, "close", deps["redis_close"])
+    monkeypatch.setattr(redis_client, "connect", AsyncMock())
+    monkeypatch.setattr(redis_client, "ping", deps["redis_ping"])
+    monkeypatch.setattr(redis_client, "close", deps["redis_close"])
     monkeypatch.setattr(search_service, "setup_pipeline", deps["setup_pipeline"])
     return deps
 
 
 def _heartbeat_tasks() -> list[asyncio.Task]:
-    names = ("_opensearch_heartbeat", "_oci_embed_heartbeat")
-    return [t for t in asyncio.all_tasks() if t.get_coro().__name__ in names]
+    return [t for t in asyncio.all_tasks() if t.get_coro().__name__ == "_heartbeat"]
 
 
 class TestLifespan:
@@ -254,21 +248,18 @@ class TestHeartbeats:
         monkeypatch.setattr(app_module.asyncio, "sleep", sleep)
         return sleep
 
-    async def test_opensearch_heartbeat_survives_errors(self, monkeypatch, fake_sleep):
-        ping = AsyncMock(side_effect=[ConnectionError("blip"), True])
-        monkeypatch.setattr(os_client, "ping", ping)
+    async def test_heartbeat_survives_errors(self, fake_sleep):
+        call = AsyncMock(side_effect=[ConnectionError("blip"), True])
         with pytest.raises(asyncio.CancelledError):
-            await app_module._opensearch_heartbeat(7)
-        assert ping.await_count == 2
+            await app_module._heartbeat("OpenSearch", 7, call)
+        assert call.await_count == 2
         fake_sleep.assert_awaited_with(7)
 
-    async def test_oci_heartbeat_survives_errors(self, monkeypatch, fake_sleep):
-        encode = AsyncMock(side_effect=[RuntimeError("cold"), [0.1]])
-        monkeypatch.setattr(embedding_service, "encode_query", encode)
+    async def test_heartbeat_passes_arguments(self, fake_sleep):
+        call = AsyncMock()
         with pytest.raises(asyncio.CancelledError):
-            await app_module._oci_embed_heartbeat(60)
-        assert encode.await_count == 2
-        encode.assert_awaited_with("warmup")
+            await app_module._heartbeat("OCI embed", 60, call, "warmup")
+        call.assert_awaited_with("warmup")
 
 
 # --------------------------------------------------------------------------
@@ -277,34 +268,34 @@ class TestHeartbeats:
 
 
 class TestMiddleware:
-    def test_request_context_is_set_and_cleared(self, client, monkeypatch):
-        # TestClient runs the app on another thread, so spy on the context calls
-        # instead of reading the thread-local directly.
-        set_ctx, clear_ctx = MagicMock(), MagicMock()
-        monkeypatch.setattr(app_module, "set_log_context", set_ctx)
-        monkeypatch.setattr(app_module, "clear_log_context", clear_ctx)
+    @pytest.fixture
+    def request_id_var(self, monkeypatch):
+        # TestClient runs the app on another thread, so spy on the context variable
+        # instead of reading it directly.
+        var = MagicMock()
+        var.set.return_value = "token"
+        monkeypatch.setattr(app_module, "request_id_var", var)
+        return var
+
+    def test_request_context_is_set_and_reset(self, client, monkeypatch, request_id_var):
         monkeypatch.setattr(os_client, "cluster_name", AsyncMock(return_value="c"))
         client.get("/health")
-        set_ctx.assert_called_once()
-        assert len(set_ctx.call_args.args[0]) == 36  # a UUID4 string
-        clear_ctx.assert_called_once()
+        request_id_var.set.assert_called_once()
+        assert len(request_id_var.set.call_args.args[0]) == 36  # a UUID4 string
+        request_id_var.reset.assert_called_once_with("token")
 
-    def test_context_is_cleared_even_when_the_request_fails(self, client, monkeypatch):
-        clear_ctx = MagicMock()
-        monkeypatch.setattr(app_module, "clear_log_context", clear_ctx)
+    def test_context_is_reset_even_when_the_request_fails(self, client, monkeypatch, request_id_var):
         monkeypatch.setattr(os_client, "cluster_name", AsyncMock(side_effect=RuntimeError("boom")))
         assert client.get("/health").status_code == 500
-        clear_ctx.assert_called_once()
+        request_id_var.reset.assert_called_once_with("token")
 
     def test_each_request_gets_a_unique_id(self, client, monkeypatch):
-        from tests.conftest import make_search_response
-
         monkeypatch.setattr(
-            search_service, "filter_browse",
+            search_service, "search",
             AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"])),
         )
         data = {"channel": "web", "language": "en", "filters": '{"currency": "SAR"}'}
-        ids = {client.post("/v1/search", data=data).json()["request_id"] for _ in range(3)}
+        ids = {client.post("/v1/search", files=multipart(data)).json()["request_id"] for _ in range(3)}
         assert len(ids) == 3
 
     def test_cors_headers(self, client, monkeypatch):
@@ -358,11 +349,12 @@ class TestExceptionHandlers:
 def test_app_metadata_and_routes():
     assert app_module.app.title == "ASMO AI Search API"
     assert app_module.app.version == "2.1.0"
-    paths = {r.path for r in app_module.app.routes}
+    paths = set(app_module.app.openapi()["paths"])
     assert {
         "/health", "/health/latency/opensearch", "/health/latency/redis", "/health/latency/oci",
-        "/indices", "/v1/search", "/v1/search/suggestions", "/docs",
+        "/indices", "/v1/search", "/v1/search/suggestions",
     } <= paths
+    assert app_module.app.docs_url == "/docs"
 
 
 def test_openapi_documents_multipart_search_body(client):

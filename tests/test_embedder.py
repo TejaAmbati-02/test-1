@@ -30,6 +30,16 @@ def service(test_settings, oci_client):
     return svc
 
 
+@pytest.fixture
+def oci_sdk(monkeypatch, oci_client):
+    """Stand-ins for oci.config.from_file and the GenAI client class."""
+    from_file = MagicMock(return_value={"tenancy": "t"})
+    client_cls = MagicMock(return_value=oci_client)
+    monkeypatch.setattr(embedder_module.oci.config, "from_file", from_file)
+    monkeypatch.setattr(embedder_module.oci.generative_ai_inference, "GenerativeAiInferenceClient", client_cls)
+    return SimpleNamespace(from_file=from_file, client_cls=client_cls)
+
+
 def test_properties(test_settings):
     svc = EmbeddingService(test_settings)
     assert svc.is_loaded is False
@@ -39,45 +49,38 @@ def test_properties(test_settings):
 
 
 class TestLoad:
-    async def test_load_builds_client(self, monkeypatch, test_settings):
-        build = MagicMock(return_value="client")
-        monkeypatch.setattr(embedder_module, "build_genai_client", build)
+    async def test_load_builds_client_from_profile(self, test_settings, oci_sdk, oci_client):
         svc = EmbeddingService(test_settings)
         await svc.load()
-        assert svc._client == "client"
-        build.assert_called_once_with(test_settings)
+        assert svc._client is oci_client
+        kwargs = oci_sdk.from_file.call_args.kwargs
+        assert kwargs["profile_name"] == "DEFAULT"
+        assert not kwargs["file_location"].startswith("~")  # ~ is expanded
+        client_kwargs = oci_sdk.client_cls.call_args.kwargs
+        assert client_kwargs["config"] == {"tenancy": "t", "region": "us-chicago-1"}
+        assert client_kwargs["service_endpoint"] == "https://genai.test"
 
-    async def test_load_is_skipped_when_already_loaded(self, monkeypatch, service):
-        build = MagicMock()
-        monkeypatch.setattr(embedder_module, "build_genai_client", build)
+    async def test_load_is_skipped_when_already_loaded(self, service, oci_sdk):
         await service.load()
-        build.assert_not_called()
+        oci_sdk.from_file.assert_not_called()
 
-    async def test_load_failure_propagates(self, monkeypatch, test_settings):
-        monkeypatch.setattr(embedder_module, "build_genai_client", MagicMock(side_effect=RuntimeError("no config")))
+    async def test_load_failure_propagates(self, test_settings, oci_sdk):
+        oci_sdk.from_file.side_effect = oci.exceptions.ConfigFileNotFound("no config")
         svc = EmbeddingService(test_settings)
-        with pytest.raises(RuntimeError, match="no config"):
+        with pytest.raises(oci.exceptions.ConfigFileNotFound):
             await svc.load()
         assert svc.is_loaded is False
-
-
-class TestL2Normalize:
-    def test_normalises_to_unit_length(self):
-        v = EmbeddingService._l2_normalize([3.0, 4.0])
-        assert v == pytest.approx([0.6, 0.8])
-        assert math.isclose(math.sqrt(sum(x * x for x in v)), 1.0)
-
-    def test_zero_vector_is_returned_unchanged(self):
-        assert EmbeddingService._l2_normalize([0.0, 0.0]) == [0.0, 0.0]
 
 
 class TestEncodeQuery:
     async def test_embeds_and_normalises(self, service, oci_client):
         vector = await service.encode_query("ball valve")
         assert vector == pytest.approx([0.6, 0.8, 0.0, 0.0])
+        assert math.isclose(math.sqrt(sum(x * x for x in vector)), 1.0)
         details = oci_client.embed_text.call_args.kwargs["embed_text_details"]
         assert details.inputs == ["ball valve"]
         assert details.input_type == "SEARCH_QUERY"
+        assert details.truncate == "END"
         assert details.output_dimensions == 4
         assert details.compartment_id == "ocid1.compartment.test"
         assert details.serving_mode.model_id == "cohere.embed-v4.0"
@@ -87,39 +90,46 @@ class TestEncodeQuery:
         svc._client = oci_client
         assert await svc.encode_query("x") == [3.0, 4.0, 0.0, 0.0]
 
+    async def test_zero_vector_is_left_unnormalised(self, service, oci_client):
+        oci_client.embed_text.return_value = _embed_response([0.0, 0.0, 0.0, 0.0])
+        assert await service.encode_query("x") == [0.0, 0.0, 0.0, 0.0]
+
+    async def test_reads_embeddings_by_type(self, service, oci_client):
+        for by_type in ({"float": [[0.0, 2.0, 0.0, 0.0]]}, SimpleNamespace(float=[[0.0, 2.0, 0.0, 0.0]])):
+            oci_client.embed_text.return_value = SimpleNamespace(data=SimpleNamespace(embeddings=None, embeddings_by_type=by_type))
+            service._cache.clear()
+            assert await service.encode_query("x") == pytest.approx([0.0, 1.0, 0.0, 0.0])
+
     async def test_cache_hit_skips_oci(self, service, oci_client):
         first = await service.encode_query("Ball Valve")
         second = await service.encode_query("  ball valve ")  # same after strip + lower
         assert first == second
         assert oci_client.embed_text.call_count == 1
 
-    async def test_lru_cache_evicts_oldest(self, service, oci_client):
-        service._cache_max = 2
+    async def test_lru_cache_evicts_oldest(self, service, oci_client, monkeypatch):
+        monkeypatch.setattr(embedder_module, "QUERY_CACHE_SIZE", 2)
         await service.encode_query("a")
         await service.encode_query("b")
         await service.encode_query("a")  # refresh "a"; "b" is now the oldest
         await service.encode_query("c")  # evicts "b"
-        assert len(service._cache) == 2
-        keys = [k[0] for k in service._cache]
-        assert keys == ["a", "c"]
+        assert [k[0] for k in service._cache] == ["a", "c"]
         await service.encode_query("b")
         assert oci_client.embed_text.call_count == 4
 
-    async def test_lazy_loads_client(self, monkeypatch, test_settings, oci_client):
-        monkeypatch.setattr(embedder_module, "build_genai_client", MagicMock(return_value=oci_client))
+    async def test_lazy_loads_client(self, test_settings, oci_sdk):
         svc = EmbeddingService(test_settings)
         await svc.encode_query("q")
         assert svc.is_loaded
 
-    async def test_oci_service_error_propagates(self, service, oci_client):
+    async def test_oci_service_error_propagates_and_is_not_cached(self, service, oci_client):
         oci_client.embed_text.side_effect = oci.exceptions.ServiceError(500, "Internal", {}, "down")
         with pytest.raises(oci.exceptions.ServiceError):
             await service.encode_query("q")
-        assert service._cache == {}
+        assert len(service._cache) == 0
 
-    async def test_other_errors_propagate(self, service, oci_client):
+    async def test_empty_response_raises(self, service, oci_client):
         oci_client.embed_text.return_value = SimpleNamespace(data=SimpleNamespace(embeddings=None, embeddings_by_type=None))
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="no embeddings"):
             await service.encode_query("q")
 
 
@@ -131,16 +141,14 @@ class TestEncodeImage:
         details = oci_client.embed_text.call_args.kwargs["embed_text_details"]
         assert details.input_type == "IMAGE"
         assert details.embedding_types == ["float"]
-        url = details.embed_contents[0].image_url.url
-        assert url == "data:image/png;base64," + base64.b64encode(data).decode()
+        assert details.embed_contents[0].image_url.url == "data:image/png;base64," + base64.b64encode(data).decode()
 
     async def test_image_is_not_cached(self, service, oci_client):
         await service.encode_image(b"x", "image/png")
         await service.encode_image(b"x", "image/png")
         assert oci_client.embed_text.call_count == 2
 
-    async def test_lazy_loads_client(self, monkeypatch, test_settings, oci_client):
-        monkeypatch.setattr(embedder_module, "build_genai_client", MagicMock(return_value=oci_client))
+    async def test_lazy_loads_client(self, test_settings, oci_sdk):
         svc = EmbeddingService(test_settings)
         await svc.encode_image(b"x", "image/jpeg")
         assert svc.is_loaded

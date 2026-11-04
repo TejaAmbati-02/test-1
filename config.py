@@ -78,32 +78,14 @@ class Settings(BaseSettings):
     api_description: str = "Frontend contract v2.1 — text/image/filter search with hybrid BM25 + kNN (RRF) and suggestions"
  
  
-def _load_settings() -> Settings:
-    """Build Settings from the environment / .env, logging what failed if it can't."""
-    logger.debug("[config._load_settings] start — reading settings from environment / .env")
-    try:
-        loaded = Settings()
-        # Connection targets only — never passwords, usernames or OCI identifiers.
-        logger.debug(
-            f"[config._load_settings] loaded — opensearch={loaded.opensearch_host}:{loaded.opensearch_port} "
-            f"index={loaded.opensearch_index_name} redis_enabled={loaded.redis_enabled} "
-            f"embedding_model={loaded.embedding_model_name} log_level={loaded.log_level}"
-        )
-        return loaded
-    except ValidationError as exc:
-        # Field names + error types only; input values could be secrets.
-        problems = ", ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}" for e in exc.errors())
-        logger.error(
-            f"[config._load_settings] invalid/missing settings ({exc.error_count()}): {problems}",
-            extra={"function_name": "config._load_settings", "status": "error", "error_details": problems},
-        )
-        raise
-    except Exception as exc:
-        logger.exception(
-            f"[config._load_settings] failed to load settings ({type(exc).__name__}): {exc}",
-            extra={"function_name": "config._load_settings", "status": "error", "error_details": str(exc)},
-        )
-        raise
-
-
-settings = _load_settings()
+# Settings are read once, when this module is first imported.
+try:
+    settings = Settings()
+except ValidationError as exc:
+    # Log field names + error types only: pydantic's own message includes the input values, which may be secrets.
+    problems = ", ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}" for e in exc.errors())
+    logger.error(
+        f"[config] invalid/missing settings ({exc.error_count()}): {problems}",
+        extra={"function_name": "config", "status": "error", "error_details": problems},
+    )
+    raise

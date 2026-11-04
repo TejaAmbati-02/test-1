@@ -25,7 +25,6 @@ def test_defaults_for_optional_settings():
     assert s.text_image_image_weight == 0.6
     assert s.redis_port == 443
     assert s.redis_ssl is True
-    assert s.redis_collection == "asmo:embeddings"
     assert s.redis_ttl_seconds == 3600
     assert s.api_version == "2.1.0"
 
