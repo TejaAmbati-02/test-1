@@ -157,8 +157,16 @@ class TestSearch:
         await _search(service, query="valve", query_vector=[0.1, 0.2])
         hybrid = _body(os_client)["query"]["hybrid"]
         bm25, knn = hybrid["queries"]
-        assert bm25["multi_match"]["query"] == "valve"
-        assert bm25["multi_match"]["fields"] == KEYWORD_FIELDS
+        main, seller = bm25["bool"]["should"]
+        assert main["multi_match"]["query"] == "valve"
+        assert main["multi_match"]["fields"] == KEYWORD_FIELDS == [
+            "aramco_material_number^8", "asmo_material_number^8", "product_name^7", "product_description^3",
+            "category_name^1", "sub_category_name^1", "product_type^1", "content^1",
+        ]
+        assert seller["nested"]["path"] == "seller_details"
+        assert seller["nested"]["query"]["multi_match"]["fields"] == [
+            "seller_details.seller_name^5", "seller_details.seller_id^5",
+        ]
         assert knn == {"knn": {"content_vector": {"vector": [0.1, 0.2], "k": 100, "method_parameters": {"ef_search": 500}}}}
         assert "filter" not in hybrid
         assert _pipeline(os_client) == PIPELINE_ID
@@ -166,9 +174,10 @@ class TestSearch:
     async def test_german_searches_de_fields_and_content(self, service, os_client):
         await _search(service, query="Ventil", query_vector=[0.1], language="de")
         bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
-        assert bm25["multi_match"]["fields"] == KEYWORD_FIELDS_DE == [
-            "product_name_de", "product_description_de", "category_name_de",
-            "sub_category_name_de", "product_type_de", "content",
+        assert bm25["bool"]["should"][0]["multi_match"]["fields"] == KEYWORD_FIELDS_DE == [
+            "aramco_material_number^8", "asmo_material_number^8", "product_name_de^7",
+            "product_description_de^3", "category_name_de^1", "sub_category_name_de^1",
+            "product_type_de^1", "content^1",
         ]
 
     async def test_image_is_plain_nested_knn_with_min_score(self, service, os_client):
@@ -198,7 +207,9 @@ class TestSearch:
         await _search(service, query="valve", query_vector=[0.1], image_vector=[0.3])
         hybrid = _body(os_client)["query"]["hybrid"]
         bm25, text_knn, image = hybrid["queries"]  # order matches the pipeline weights
-        assert "operator" not in bm25["multi_match"]
+        main, seller = bm25["bool"]["should"]
+        assert "operator" not in main["multi_match"]
+        assert "operator" not in seller["nested"]["query"]["multi_match"]
         assert text_knn["knn"]["content_vector"]["vector"] == [0.1]
         assert image["function_score"]["query"]["nested"]["query"]["knn"][IMAGE_VECTOR_FIELD]["vector"] == [0.3]
         assert "filter" not in hybrid  # the text ranks, it does not filter
@@ -211,7 +222,9 @@ class TestSearch:
         assert len(hybrid["queries"]) == 1 and "function_score" in hybrid["queries"][0]
         applied = hybrid["filter"]["bool"]["filter"]
         assert applied[0] == {"term": {"currency": "SAR"}}
-        assert applied[1]["multi_match"]["operator"] == "and"
+        main, seller = applied[1]["bool"]["should"]
+        assert main["multi_match"]["operator"] == "and"
+        assert seller["nested"]["query"]["multi_match"]["operator"] == "and"
         assert _pipeline(os_client) == PIPELINE_ID
         assert user_filters == [{"term": {"currency": "SAR"}}]  # caller's list not modified
 

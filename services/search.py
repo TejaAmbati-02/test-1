@@ -114,13 +114,37 @@ IMAGE_PATH = "images"
 IMAGE_VECTOR_FIELD = "images.image_vector"
 
 # Text fields searched by the BM25 half of the hybrid query, per request language.
-# English uses the base fields; German uses their ``*_de`` copies plus the shared
-# ``content`` blob. Fields missing from the index are skipped (``lenient``), so German
-# search still works on ``content`` until the index carries the ``*_de`` fields.
-_LOCALIZED_FIELDS = ["product_name", "product_description", "category_name", "sub_category_name", "product_type"]
-KEYWORD_FIELDS = [*_LOCALIZED_FIELDS, "content"]
-KEYWORD_FIELDS_DE = [*(f"{f}_de" for f in _LOCALIZED_FIELDS), "content"]
+# "field^N" = weight N (higher = a match in that field ranks higher; no ^ means 1).
+# English uses the base fields; German uses their ``*_de`` copies. Fields missing from the
+# index are skipped (``lenient``), so German search still works on ``content`` until the
+# index carries the ``*_de`` fields.
+KEYWORD_FIELDS = [
+    "aramco_material_number^8",
+    "asmo_material_number^8",
+    "product_name^7",
+    "product_description^3",
+    "category_name^1",
+    "sub_category_name^1",
+    "product_type^1",
+    "content^1",
+]
+KEYWORD_FIELDS_DE = [
+    "aramco_material_number^8",
+    "asmo_material_number^8",
+    "product_name_de^7",
+    "product_description_de^3",
+    "category_name_de^1",
+    "sub_category_name_de^1",
+    "product_type_de^1",
+    "content^1",
+]
 KEYWORD_FIELDS_BY_LANGUAGE: dict[str, list[str]] = {"en": KEYWORD_FIELDS, "de": KEYWORD_FIELDS_DE}
+# Seller fields live inside the nested ``seller_details`` objects, so they are searched by a
+# separate nested query (a normal multi_match can't reach nested fields).
+SELLER_FIELDS = [
+    "seller_details.seller_name^5",
+    "seller_details.seller_id^5",
+]
 # Field the autocomplete matches on (and shows), per language.
 SUGGEST_FIELD_BY_LANGUAGE: dict[str, str] = {"en": "product_name", "de": "product_name_de"}
 
@@ -208,8 +232,14 @@ class SearchService:
                     image_knn["filter"] = {"bool": {"filter": filters}}
                 query_clause = image_clause
             else:
+                # BM25: match the weighted product fields OR any seller's name / id.
                 fields = KEYWORD_FIELDS_BY_LANGUAGE.get(language, KEYWORD_FIELDS)
-                bm25 = {"multi_match": {"query": query, "fields": fields, "type": "best_fields", "lenient": True}}
+                product_match = {"multi_match": {"query": query, "fields": fields, "type": "best_fields", "lenient": True}}
+                seller_match = {"multi_match": {"query": query, "fields": SELLER_FIELDS, "type": "best_fields", "lenient": True}}
+                bm25 = {"bool": {"should": [
+                    product_match,
+                    {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
+                ]}}
                 text_knn = {"knn": {_cfg.opensearch_vector_field: {
                     "vector": query_vector, "k": _cfg.hybrid_retrieval_k, **knn_params,
                 }}}
@@ -223,7 +253,10 @@ class SearchService:
                     pipeline_id = TEXT_IMAGE_PIPELINE_ID
                 else:
                     mode = "text+image (text as filter)"
-                    filters.append({"multi_match": {**bm25["multi_match"], "operator": "and"}})  # every word must appear
+                    # The text only filters here: every word must appear.
+                    product_match["multi_match"]["operator"] = "and"
+                    seller_match["multi_match"]["operator"] = "and"
+                    filters.append(bm25)
                     subqueries = [image_clause]
                     pipeline_id = PIPELINE_ID
                 # A hybrid query must be the top-level query, so filters go in its own `filter`
