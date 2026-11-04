@@ -289,8 +289,10 @@ class SearchService:
                             logger.info("Search — step: products contain the query words -> results limited to "
                                         "keyword matches; vector search only re-ranks them")
                         else:
-                            logger.info("Search — step: no product contains the query words -> "
-                                        "vector search finds results on its own")
+                            logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
+                                        extra={"search_query": query, "status": "no_results"})
+                            empty = {"took": check.get("took", 0), "hits": {"total": {"value": 0}, "hits": []}}
+                            return await _to_search_response(empty, page, page_size, request_id)
                 elif self._text_image_fusion:
                     mode = "text+image"
                     subqueries = [bm25, text_knn, image_clause]  # order matches the pipeline weights

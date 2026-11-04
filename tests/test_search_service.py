@@ -181,11 +181,12 @@ class TestSearch:
         assert _body(os_client)["query"]["hybrid"]["filter"] == {"bool": {"filter": [*user_filters, bm25]}}
         assert user_filters == [{"term": {"currency": "SAR"}}]  # caller's list not modified
 
-    async def test_text_falls_back_to_vector_when_no_keyword_match(self, service, os_client):
-        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([HIT], total=42, aggs=AGGS)]
-        await _search(service, query="pmup", query_vector=[0.1])
-        assert "filter" not in _body(os_client)["query"]["hybrid"]  # vector results are not restricted
-        assert os_client.search.await_count == 2
+    async def test_text_returns_nothing_when_no_product_has_the_words(self, service, os_client):
+        os_client.search.return_value = os_search_result([], total=0)
+        r = await _search(service, query="pump", query_vector=[0.1])
+        assert os_client.search.await_count == 1  # only the keyword check; no vector search
+        assert (r.total_results, r.products) == (0, [])
+        assert r.facets.category == [] and r.facets.seller == []
 
     async def test_text_keyword_check_can_be_disabled(self, service, os_client, monkeypatch):
         from services import search as search_module
