@@ -52,6 +52,20 @@ class TestBuildFilters:
             {"nested": {"path": "seller_details", "query": {"range": {"seller_details.lead_time": {"lt": 9}}}}},
         ]
 
+    async def test_seller_id_and_seller_name(self):
+        assert await _build_filters('{"seller_id": ["s1"], "seller_name": "Acme"}') == [
+            {"nested": {"path": "seller_details", "query": {"terms": {"seller_details.seller_id": ["s1"]}}}},
+            {"nested": {"path": "seller_details", "query": {"term": {"seller_details.seller_name.keyword": "Acme"}}}},
+        ]
+
+    async def test_sellername_matches_id_or_name(self):
+        assert await _build_filters('{"sellername": ["Acme"]}') == [{"nested": {"path": "seller_details", "query": {
+            "bool": {"should": [
+                {"terms": {"seller_details.seller_id": ["Acme"]}},
+                {"terms": {"seller_details.seller_name.keyword": ["Acme"]}},
+            ], "minimum_should_match": 1},
+        }}}]
+
     @pytest.mark.parametrize("raw", ["{bad json", '["a"]', '"text"', "42"])
     async def test_not_a_json_object(self, raw):
         with pytest.raises(HTTPException) as exc:

@@ -87,7 +87,7 @@ class SearchForm(BaseModel):
     filters: str | None = Field(default=None, description=(
         "Filter object encoded as a JSON string, e.g. {\"category\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. "
         "Every facet key is a filter key and takes the facet's id: category, sub_category, product_type, seller "
-        "(category_name, sub_category_name and sellername are still accepted). Also: price, moq, lead_time (number or range), "
+        "(category_name, sub_category_name and sellername are still accepted). Also: seller_id, seller_name (match any of a product's sellers), price, moq, lead_time (number or range), "
         "material_type, availability, category_ids, currency, contract_indicator, "
         "temporary_unavailable, under_agreement, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, "
         "asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take "

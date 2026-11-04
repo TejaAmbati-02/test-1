@@ -44,6 +44,10 @@ FILTER_KEY_MAP: dict[str, str] = {
     "category_name": "category_ids",
     "sub_category_name": "sub_category_id",
     "sellername": "seller_details.seller_id",
+    # Seller by its own field names: matches a product if ANY of its sellers matches
+    # (not just the primary one, unlike sold_by).
+    "seller_id": "seller_details.seller_id",
+    "seller_name": "seller_details.seller_name.keyword",
     # Not a facet, but filterable by a number or range.
     "lead_time": "seller_details.lead_time",
     # Other filters.
@@ -70,10 +74,15 @@ ALLOWED_FILTER_KEYS: frozenset[str] = frozenset(FILTER_KEY_MAP)
 # Filter keys on a nested field: the clause is wrapped in a nested query on this path.
 NESTED_FILTER_PATHS: dict[str, str] = {
     "seller": "seller_details", "sellername": "seller_details", "lead_time": "seller_details",
+    "seller_id": "seller_details", "seller_name": "seller_details",
 }
 # Filter keys that match any of several fields: product_type takes the facet id
-# (product_type_id) or, as before, the product-type name.
-FILTER_ALT_FIELDS: dict[str, tuple[str, ...]] = {"product_type": ("product_type_id", "product_type.keyword")}
+# (product_type_id) or, as before, the product-type name; sellername takes the
+# seller id or the seller name (it used to compare names against the id field).
+FILTER_ALT_FIELDS: dict[str, tuple[str, ...]] = {
+    "product_type": ("product_type_id", "product_type.keyword"),
+    "sellername": ("seller_details.seller_id", "seller_details.seller_name.keyword"),
+}
 
 # Facets returned to the frontend, counted over ALL matching products (not just the page).
 # Each value is {id, value, count}: ``id`` is what the frontend sends back as the filter
