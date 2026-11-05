@@ -57,10 +57,21 @@ MAX_PART_BYTES = 2 * MAX_IMAGE_BYTES
 
 
 class _InMemorySpool(SpooledTemporaryFile):
-    """Keeps uploaded parts (up to MAX_PART_BYTES) in memory instead of spilling them to a temp file."""
+    """Keeps uploaded parts (up to MAX_PART_BYTES) in memory and NEVER writes a temp file.
+
+    Starlette's max_part_size only limits text fields, not file uploads: a bigger upload would
+    be spilled to a temp file on disk, which fails with 500 "No usable temporary directory" on a
+    read-only container. Instead, a part that grows past MAX_PART_BYTES is rejected while it is
+    being received; _read_search_form turns that into 413 IMAGE_TOO_LARGE.
+    """
 
     def __init__(self, max_size: int = 0, *args: Any, **kwargs: Any) -> None:
         super().__init__(max(max_size, MAX_PART_BYTES), *args, **kwargs)
+
+    def rollover(self) -> None:
+        # Called when the part outgrows memory — i.e. it would be written to disk. Refuse instead.
+        raise _starlette_formparsers.MultiPartException(
+            f"Part exceeded maximum size of {MAX_PART_BYTES // 1024}KB.")
 
 
 _starlette_formparsers.SpooledTemporaryFile = _InMemorySpool

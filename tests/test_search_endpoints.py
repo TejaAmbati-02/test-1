@@ -209,6 +209,18 @@ class TestSearchValidation:
         big = PNG_BYTES + b"\x00" * MAX_IMAGE_BYTES
         _error(_post(client, BASE, {"image": ("big.png", big, "image/png")}), 413, "IMAGE_TOO_LARGE")
 
+    def test_huge_file_upload_is_413_and_never_touches_disk(self, client, mocks, monkeypatch):
+        # Like a read-only container: any attempt to create a temp file fails.
+        import tempfile
+
+        def no_disk(*args, **kwargs):
+            raise FileNotFoundError("No usable temporary directory found in ['/tmp', '/var/tmp', '/usr/tmp', '/app']")
+        monkeypatch.setattr(tempfile, "TemporaryFile", no_disk)
+        monkeypatch.setattr(tempfile, "NamedTemporaryFile", no_disk)
+        huge = PNG_BYTES + b"\x00" * (2 * MAX_IMAGE_BYTES + 1)  # bigger than the 20 MiB in-memory limit
+        _error(_post(client, BASE, {"image": ("huge.png", huge, "image/png")}), 413, "IMAGE_TOO_LARGE")
+        mocks["resolve"].assert_not_awaited()
+
     def test_huge_part_without_filename_is_413(self, client, mocks):
         huge = PNG_BYTES + b"\x00" * (2 * MAX_IMAGE_BYTES + 1)
         _error(_post(client, BASE, {"image": (None, huge)}), 413, "IMAGE_TOO_LARGE")
