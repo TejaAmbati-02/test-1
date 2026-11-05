@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -36,8 +35,8 @@ OPENSEARCH_HEARTBEAT_INTERVAL = 5
 
 # How often to send a tiny embed to OCI GenAI so the on-demand model stays warm (a cold
 # model costs ~1.5s on the first embed). Each tick is a billable call, so keep it only as
-# frequent as needed. Override with OCI_EMBED_HEARTBEAT_INTERVAL (seconds).
-OCI_EMBED_HEARTBEAT_INTERVAL = int(os.environ.get("OCI_EMBED_HEARTBEAT_INTERVAL", "60"))
+# frequent as needed. Set OCI_EMBED_HEARTBEAT_INTERVAL (seconds) in .env.
+OCI_EMBED_HEARTBEAT_INTERVAL = settings.oci_embed_heartbeat_interval
 
 # Throwaway query used for the startup warmup and the keep-alive heartbeat.
 _EMBED_WARMUP_TEXT = "warmup"
@@ -287,7 +286,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 if __name__ == "__main__":
     # Auto-reload is OFF by default. Enable it only for local dev with RELOAD=true, and never in a
     # OneDrive/synced folder — background file syncing triggers endless reloads.
-    reload_enabled = os.environ.get("RELOAD", "false").strip().lower() in ("1", "true", "yes", "on")
+    reload_enabled = settings.reload
     uvicorn.run(
         "app:app",
         host="0.0.0.0",

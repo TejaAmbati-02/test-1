@@ -33,7 +33,10 @@ _TEST_ENV = {
     "HYBRID_RETRIEVAL_K": "100",
     "KNN_EF_SEARCH": "500",
     "IMAGE_MIN_SCORE": "0.6",
-    "TEXT_IMAGE_IMAGE_WEIGHT": "0.6",
+    "TEXT_IMAGE_IMAGE_WEIGHT": "0.4",
+    "MIN_QUERY_CHARS": "3",
+    "TEXT_REQUIRE_KEYWORD_MATCH": "true",
+    "TEXT_MIN_WORDS_MATCH": "2<75%",
     # Redis off by default; tests that need it enable it explicitly.
     "REDIS_ENABLED": "true",
     "REDIS_HOST": "",

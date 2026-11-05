@@ -56,6 +56,25 @@ def _error(resp, status: int, code: str) -> dict:
 
 
 class TestSearchModes:
+    @pytest.mark.parametrize("text", ["p", "pu", " pu "])
+    def test_text_under_3_characters_is_not_searched(self, client, mocks, text):
+        resp = _post(client, {**BASE, "search_query": text})
+        assert resp.status_code == 200
+        assert (resp.json()["total_results"], resp.json()["products"]) == (0, [])
+        mocks["resolve"].assert_not_awaited()  # no embedding call
+        mocks["search"].assert_not_awaited()   # no OpenSearch call
+
+    def test_short_text_with_image_searches_the_image_only(self, client, mocks):
+        resp = _post(client, {**BASE, "search_query": "pu"}, {"image": ("a.png", REAL_PNG, "image/png")})
+        assert resp.status_code == 200
+        _, query, image, _ = mocks["resolve"].call_args.args
+        assert query is None and image is not None
+
+    def test_short_text_with_filters_browses_the_filters(self, client, mocks):
+        assert _post(client, {**BASE, "search_query": "pu", "filters": '{"currency": "SAR"}'}).status_code == 200
+        assert mocks["search"].call_args.kwargs["query"] is None
+        assert mocks["search"].call_args.kwargs["filters"] == [{"term": {"currency": "SAR"}}]
+
     def test_text_search(self, client, mocks):
         resp = _post(client, {**BASE, "search_query": "  ball valve  "})
         assert resp.status_code == 200
@@ -118,14 +137,14 @@ class TestSearchModes:
         assert mocks["search"].call_args.kwargs["sort_by"] is None
 
     def test_mobile_channel(self, client, mocks):
-        assert _post(client, {"channel": "mobile", "language": "en", "search_query": "v"}).status_code == 200
+        assert _post(client, {"channel": "mobile", "language": "en", "search_query": "valve"}).status_code == 200
 
     def test_german_is_passed_through(self, client, mocks):
         assert _post(client, {"channel": "web", "language": "de", "search_query": "Ventil"}).status_code == 200
         assert mocks["search"].call_args.kwargs["language"] == "de"
 
     def test_max_page_size_allowed(self, client, mocks):
-        assert _post(client, {**BASE, "search_query": "v", "page_size": "200"}).status_code == 200
+        assert _post(client, {**BASE, "search_query": "valve", "page_size": "200"}).status_code == 200
 
 
 class TestSearchValidation:
@@ -147,7 +166,7 @@ class TestSearchValidation:
 
     @pytest.mark.parametrize("field, value", [("page", "0"), ("page", "abc"), ("page_size", "0"), ("page_size", "201")])
     def test_invalid_pagination(self, client, mocks, field, value):
-        body = _error(_post(client, {**BASE, "search_query": "v", field: value}), 400, "VALIDATION_ERROR")
+        body = _error(_post(client, {**BASE, "search_query": "valve", field: value}), 400, "VALIDATION_ERROR")
         assert body["message"].startswith(f"{field}:")
 
     @pytest.mark.parametrize("data", [BASE, {**BASE, "search_query": "   "}, {**BASE, "filters": "{}"}])
@@ -213,7 +232,7 @@ class TestSearchErrors:
     ])
     def test_search_errors(self, client, mocks, error, status, code):
         mocks["search"].side_effect = error
-        body = _error(_post(client, {**BASE, "search_query": "v"}), status, code)
+        body = _error(_post(client, {**BASE, "search_query": "valve"}), status, code)
         assert body["message"] == str(error)
 
 
@@ -237,6 +256,13 @@ class TestSuggestions:
         assert resp.status_code == 200
         assert resp.json()["query_suggestions"][0]["text"] == "Valve"
         suggestions_mock.assert_awaited_once_with(query="val", query_limit=3, product_limit=7, language="en")
+
+    @pytest.mark.parametrize("q", ["p", "pu", " pu "])
+    def test_under_3_characters_gives_no_suggestions(self, client, suggestions_mock, q):
+        resp = client.get("/v1/search/suggestions", params={**SUGGEST, "q": q})
+        assert resp.status_code == 200
+        assert (resp.json()["query_suggestions"], resp.json()["product_suggestions"]) == ([], [])
+        suggestions_mock.assert_not_awaited()
 
     def test_german_is_passed_through(self, client, suggestions_mock):
         assert client.get("/v1/search/suggestions", params={**SUGGEST, "language": "de"}).status_code == 200

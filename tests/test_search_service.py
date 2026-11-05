@@ -108,7 +108,7 @@ class TestSetupPipeline:
         await service.setup_pipeline()
         created = self._created(os_client)
         assert set(created) == {TEXT_IMAGE_PIPELINE_ID}  # the RRF pipeline already exists
-        assert created[TEXT_IMAGE_PIPELINE_ID]["weights"] == pytest.approx([0.2, 0.2, 0.6])
+        assert created[TEXT_IMAGE_PIPELINE_ID]["weights"] == pytest.approx([0.3, 0.3, 0.4])  # text 60%, image 40%
         assert service._text_image_fusion is True
 
     async def test_missing_rrf_pipeline_is_created(self, service, os_client):
@@ -236,8 +236,29 @@ class TestSearch:
         assert "operator" not in seller["nested"]["query"]["multi_match"]
         assert text_knn["knn"]["content_vector"]["vector"] == [0.1]
         assert image["function_score"]["query"]["nested"]["query"]["knn"][IMAGE_VECTOR_FIELD]["vector"] == [0.3]
-        assert "filter" not in hybrid  # the text ranks, it does not filter
+        assert hybrid["filter"] == {"bool": {"filter": [bm25]}}  # only products containing the words
         assert _pipeline(os_client) == TEXT_IMAGE_PIPELINE_ID
+
+    async def test_text_plus_image_returns_nothing_when_no_product_has_the_words(self, service, os_client):
+        service._text_image_fusion = True
+        os_client.search.return_value = os_search_result([], total=0)
+        r = await _search(service, query="zzqxvw", query_vector=[0.1], image_vector=[0.3])
+        assert os_client.search.await_count == 1  # only the keyword check
+        assert (r.total_results, r.products) == (0, [])
+
+    async def test_minimum_words_match(self, service, os_client):
+        await _search(service, query="busbar system 3.3kv", query_vector=[0.1])
+        bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
+        main, seller = bm25["bool"]["should"]
+        assert main["multi_match"]["minimum_should_match"] == "2<75%"
+        assert seller["nested"]["query"]["multi_match"]["minimum_should_match"] == "2<75%"
+
+    async def test_minimum_words_match_can_be_off(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_min_words_match", "")
+        await _search(service, query="busbar system", query_vector=[0.1])
+        main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
+        assert "minimum_should_match" not in main["multi_match"]
 
     async def test_text_plus_image_falls_back_to_text_filter(self, service, os_client):
         user_filters = [{"term": {"currency": "SAR"}}]
@@ -284,8 +305,16 @@ class TestSuggestions:
         ])
         result = await service.get_suggestions("val", query_limit=5, product_limit=2)
         body = _body(os_client)
-        assert body["size"] == 5
-        assert body["query"]["match_phrase_prefix"]["product_name"]["query"] == "val"
+        assert body["size"] == 15
+        name, aramco, asmo, seller = body["query"]["bool"]["should"]
+        assert name["match_phrase_prefix"]["product_name"]["query"] == "val"
+        assert aramco["prefix"]["aramco_material_number"] == {
+            "value": "val", "case_insensitive": True, "boost": 8, "_name": "aramco_material_number"}
+        assert asmo["prefix"]["asmo_material_number"]["value"] == "val"
+        assert seller["nested"]["path"] == "seller_details"
+        seller_name, seller_id = seller["nested"]["query"]["bool"]["should"]
+        assert seller_name["match_phrase_prefix"]["seller_details.seller_name"]["query"] == "val"
+        assert seller_id["prefix"]["seller_details.seller_id"] == {"value": "val", "case_insensitive": True}
         assert result.query == "val"
         assert [q.text for q in result.query_suggestions] == ["Ball Valve", "Gate Valve"]
         assert [(p.text, p.sku_id) for p in result.product_suggestions] == [("Ball Valve", "1"), ("Ball Valve", "2")]
@@ -294,8 +323,42 @@ class TestSuggestions:
         os_client.search.return_value = os_search_result([{"_source": {"product_name_de": "Kugelhahn", "sku_id": "1"}}])
         result = await service.get_suggestions("kug", language="de")
         body = _body(os_client)
-        assert body["query"]["match_phrase_prefix"]["product_name_de"]["query"] == "kug"
+        assert body["query"]["bool"]["should"][0]["match_phrase_prefix"]["product_name_de"]["query"] == "kug"
         assert [q.text for q in result.query_suggestions] == ["Kugelhahn"]
+
+    @pytest.mark.parametrize("matched, expected", [
+        (["aramco_material_number"], "JH231A"),
+        (["asmo_material_number"], "a-880000629768"),
+    ])
+    async def test_suggests_the_matched_material_number(self, service, os_client, matched, expected):
+        os_client.search.return_value = os_search_result([{
+            "matched_queries": matched,
+            "_source": {"product_name": "HPE X142 40G QSFP", "sku_id": "S1",
+                        "aramco_material_number": "JH231A", "asmo_material_number": "a-880000629768"},
+        }])
+        result = await service.get_suggestions(expected[:4])
+        assert [q.text for q in result.query_suggestions] == [expected]
+        assert [(p.text, p.sku_id) for p in result.product_suggestions] == [("HPE X142 40G QSFP", "S1")]
+
+    @pytest.mark.parametrize("typed, expected", [("wholes", "Wholesale Warehouse"), ("C7AF", "c7afe285-2a70")])
+    async def test_suggests_the_matched_seller(self, service, os_client, typed, expected):
+        os_client.search.return_value = os_search_result([{
+            "matched_queries": ["seller"],
+            "_source": {"product_name": "Aruba 40G QSFP", "sku_id": "S2"},
+            "inner_hits": {"seller_details": {"hits": {"hits": [
+                {"_source": {"seller_name": "Wholesale Warehouse", "seller_id": "c7afe285-2a70"}}]}}},
+        }])
+        result = await service.get_suggestions(typed)
+        assert [q.text for q in result.query_suggestions] == [expected]
+        assert [p.text for p in result.product_suggestions] == ["Aruba 40G QSFP"]
+
+    async def test_product_name_match_wins(self, service, os_client):
+        os_client.search.return_value = os_search_result([{
+            "matched_queries": ["product_name", "asmo_material_number"],
+            "_source": {"product_name": "Aruba 40G QSFP", "asmo_material_number": "a-1", "sku_id": "S3"},
+        }])
+        result = await service.get_suggestions("a")
+        assert [q.text for q in result.query_suggestions] == ["Aruba 40G QSFP"]
 
     async def test_query_limit(self, service, os_client):
         os_client.search.return_value = os_search_result([{"_source": {"product_name": "A"}}, {"_source": {"product_name": "B"}}])

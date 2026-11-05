@@ -14,24 +14,26 @@ from tempfile import SpooledTemporaryFile
 from typing import Annotated, Any
 
 import starlette.formparsers as _starlette_formparsers
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from config import settings
 from models.response import (
     ApiError,
     ErrorResponse,
     IndexInfo,
     IndicesResponse,
     SearchApiResponse,
+    SearchFacets,
     SuggestionsResponse,
 )
 from services.embedding_store import EmbeddingStoreUnavailable, RequestIdNotFound, embedding_store
 from services.image_processor import MAX_IMAGE_BYTES, process_image
 from services.opensearch import IndexNotFoundError, OpenSearchQueryError, os_client
 from services.search import ALLOWED_FILTER_KEYS, FILTER_ALT_FIELDS, FILTER_KEY_MAP, NESTED_FILTER_PATHS, search_service
-from utils.keycloak_auth import require_auth
+from utils.keycloak_auth import keycloak_auth
 from utils.logger import logger
 
 index_router = APIRouter(prefix="/indices", tags=["Indices"])
@@ -219,8 +221,8 @@ async def _build_filters(raw: str | None) -> list[dict]:
 # Endpoints
 
 
-@index_router.get("", response_model=IndicesResponse, responses=_ERROR_RESPONSES, summary="List all indices")
-@require_auth
+@index_router.get("", response_model=IndicesResponse, responses=_ERROR_RESPONSES, summary="List all indices",
+                  dependencies=[Depends(keycloak_auth.require_auth)])
 async def list_indices(_request: Request) -> IndicesResponse:
     start = time.perf_counter()
     try:
@@ -239,8 +241,8 @@ async def list_indices(_request: Request) -> IndicesResponse:
     responses=_SEARCH_ERROR_RESPONSES,
     summary="Search products (text / image / text+image / filter-browse)",
     openapi_extra={"requestBody": _SEARCH_REQUEST_BODY},
+    dependencies=[Depends(keycloak_auth.require_auth)],
 )
-@require_auth
 async def v1_search(request: Request) -> SearchApiResponse:
     # This HTTP request's id (set by the app middleware); a new search context is stored under it.
     request_id: str = getattr(request.state, "request_id", "") or str(uuid.uuid4())
@@ -249,6 +251,16 @@ async def v1_search(request: Request) -> SearchApiResponse:
         form, image = await _read_search_form(request)
         filters = await _build_filters(form.filters)
         query = form.search_query.strip() if form.search_query and form.search_query.strip() else None
+        # Text shorter than MIN_QUERY_CHARS (e.g. "pu") is not searched.
+        if query and len(query) < settings.min_query_chars:
+            if image is None and not form.request_id and not filters:
+                logger.info(f"POST /v1/search — search_query {query!r} is shorter than {settings.min_query_chars} "
+                            f"characters -> no search, 0 results", extra={"search_query": query, "status": "no_results"})
+                return SearchApiResponse(request_id=None, total_results=0, page=form.page, page_size=form.page_size,
+                                         products=[], facets=SearchFacets())
+            logger.info(f"POST /v1/search — search_query {query!r} is shorter than {settings.min_query_chars} "
+                        f"characters -> ignored; searching by the image / filters / request_id only")
+            query = None
         if not query and image is None and not form.request_id and not filters:
             raise ApiError(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or request_id must be provided")
         logger.info(
@@ -317,8 +329,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
     response_model=SuggestionsResponse,
     responses=_ERROR_RESPONSES,
     summary="Autocomplete suggestions",
+    dependencies=[Depends(keycloak_auth.require_auth)],
 )
-@require_auth
 async def v1_suggestions(
     _request: Request,
     q: Annotated[str, Query(min_length=1, description="Partial text entered by the user")],
@@ -330,6 +342,11 @@ async def v1_suggestions(
     start = time.perf_counter()
     await _check_allowed(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
     await _check_allowed(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
+    # Text shorter than MIN_QUERY_CHARS (e.g. "pu") is not searched.
+    if len(q.strip()) < settings.min_query_chars:
+        logger.info(f"GET /v1/search/suggestions — q {q!r} is shorter than {settings.min_query_chars} characters "
+                    f"-> no suggestions", extra={"search_query": q, "status": "no_results"})
+        return SuggestionsResponse(query=q, query_suggestions=[], product_suggestions=[])
     try:
         result = await search_service.get_suggestions(
             query=q, query_limit=query_limit, product_limit=product_limit, language=language,

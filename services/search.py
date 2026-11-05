@@ -260,6 +260,11 @@ class SearchService:
                 fields = KEYWORD_FIELDS_BY_LANGUAGE.get(language, KEYWORD_FIELDS)
                 product_match = {"multi_match": {"query": query, "fields": fields, "type": "best_fields", "lenient": True}}
                 seller_match = {"multi_match": {"query": query, "fields": SELLER_FIELDS, "type": "best_fields", "lenient": True}}
+                if _cfg.text_min_words_match:
+                    # e.g. "2<75%": queries of 1-2 words need every word; longer ones 75% of the words.
+                    product_match["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
+                    seller_match["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
+                    logger.info(f"Search — step: a product must match {_cfg.text_min_words_match} of the query words")
                 bm25 = {"bool": {"should": [
                     product_match,
                     {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
@@ -271,30 +276,35 @@ class SearchService:
                 }}}
                 logger.info(f"Search — step: text kNN on '{_cfg.opensearch_vector_field}' "
                             f"(vector dim={len(query_vector or [])}, k={_cfg.hybrid_retrieval_k})")
+                # Keyword check (text, and text + image): only products that contain the query words
+                # may be returned — the vectors (text and image) then just rank them. Without it the text
+                # vector search would add its 100 nearest products, related or not. (The text-as-filter
+                # mode below already requires every word, so it skips this.)
+                keyword_only = False
+                if _cfg.text_require_keyword_match and (not has_image or self._text_image_fusion):
+                    # Does any product (within the filters) contain the query words? A cheap
+                    # size-0 search that stops at the first match.
+                    check = await self._os.search(_cfg.opensearch_index_name, {
+                        "size": 0, "track_total_hits": 1, "terminate_after": 1,
+                        "query": {"bool": {"filter": [bm25, *filters]}},
+                    })
+                    if check["hits"]["total"]["value"] == 0:
+                        logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
+                                    extra={"search_query": query, "status": "no_results"})
+                        empty = {"took": check.get("took", 0), "hits": {"total": {"value": 0}, "hits": []}}
+                        return await _to_search_response(empty, page, page_size, request_id)
+                    filters.append(bm25)
+                    keyword_only = True
+                    logger.info("Search — step: products contain the query words -> results limited to "
+                                "keyword matches; the vector search only re-ranks them")
+
                 if not has_image:
-                    mode = "text"
+                    mode = "text (keyword matches only)" if keyword_only else "text"
                     subqueries = [bm25, text_knn]
                     pipeline_id = PIPELINE_ID
                     logger.info(f"Search — step: text only -> hybrid [BM25, text kNN] fused by '{pipeline_id}'")
-                    if _cfg.text_require_keyword_match:
-                        # Does any product (within the filters) contain the query words? A cheap
-                        # size-0 search that stops at the first match.
-                        check = await self._os.search(_cfg.opensearch_index_name, {
-                            "size": 0, "track_total_hits": 1, "terminate_after": 1,
-                            "query": {"bool": {"filter": [bm25, *filters]}},
-                        })
-                        if check["hits"]["total"]["value"] > 0:
-                            filters.append(bm25)
-                            mode = "text (keyword matches only)"
-                            logger.info("Search — step: products contain the query words -> results limited to "
-                                        "keyword matches; vector search only re-ranks them")
-                        else:
-                            logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
-                                        extra={"search_query": query, "status": "no_results"})
-                            empty = {"took": check.get("took", 0), "hits": {"total": {"value": 0}, "hits": []}}
-                            return await _to_search_response(empty, page, page_size, request_id)
                 elif self._text_image_fusion:
-                    mode = "text+image"
+                    mode = "text+image (keyword matches only)" if keyword_only else "text+image"
                     subqueries = [bm25, text_knn, image_clause]  # order matches the pipeline weights
                     pipeline_id = TEXT_IMAGE_PIPELINE_ID
                     logger.info(f"Search — step: text + image -> hybrid [BM25, text kNN, image kNN] "
@@ -386,38 +396,85 @@ class SearchService:
     async def get_suggestions(
         self, query: str, query_limit: int = 5, product_limit: int = 5, language: str = "en",
     ) -> SuggestionsResponse:
-        """Autocomplete: product names (in ``language``) that start with ``query``."""
+        """Autocomplete on what the user is typing. Matches any of:
+
+          * product name (in ``language``) — the typed words in order, the last one may be unfinished
+          * Aramco material number / ASMO material number — starts with the typed text (any case)
+          * seller name (words, like the product name) / seller id (starts with) — any of the product's sellers
+
+        ``query_suggestions`` are the matched values (a product name, a material number or a
+        seller name / id); ``product_suggestions`` are the matching products.
+        """
         name_field = SUGGEST_FIELD_BY_LANGUAGE.get(language, "product_name")
+        typed = query.strip()
         body = {
-            "size": max(product_limit, query_limit),  # enough hits to fill both lists
-            "_source": [name_field, "sku_id"],
-            "query": {"match_phrase_prefix": {name_field: {"query": query, "max_expansions": 20}}},
+            "size": max(product_limit, query_limit) * 3,  # extra hits so duplicates still fill both lists
+            "_source": [name_field, "sku_id", "aramco_material_number", "asmo_material_number"],
+            # Each clause has a "_name", so OpenSearch tells us which one matched (hit["matched_queries"]).
+            "query": {"bool": {"should": [
+                {"match_phrase_prefix": {name_field: {"query": typed, "max_expansions": 20, "boost": 7,
+                                                      "_name": "product_name"}}},
+                {"prefix": {"aramco_material_number": {"value": typed, "case_insensitive": True, "boost": 8,
+                                                       "_name": "aramco_material_number"}}},
+                {"prefix": {"asmo_material_number": {"value": typed, "case_insensitive": True, "boost": 8,
+                                                     "_name": "asmo_material_number"}}},
+                # Sellers are nested objects: inner_hits returns the seller that matched.
+                {"nested": {
+                    "path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "boost": 5, "_name": "seller",
+                    "query": {"bool": {"should": [
+                        {"match_phrase_prefix": {"seller_details.seller_name": {"query": typed, "max_expansions": 20}}},
+                        {"prefix": {"seller_details.seller_id": {"value": typed, "case_insensitive": True}}},
+                    ]}},
+                    "inner_hits": {"size": 1},
+                }},
+            ]}},
         }
-        logger.info(f"Search — suggestions start: q={query!r}, language={language}, field={name_field}, "
+        logger.info(f"Search — suggestions start: q={query!r}, language={language}, fields=[{name_field}, "
+                    f"aramco_material_number, asmo_material_number, seller name, seller id], "
                     f"query_limit={query_limit}, product_limit={product_limit}", extra={"search_query": query})
         raw = await self._os.search(_cfg.opensearch_index_name, body)
         logger.info(f"Search — suggestions: {raw['hits']['total']['value']} total matches, "
                     f"{len(raw['hits']['hits'])} returned (server={raw.get('took', 0)}ms)",
                     extra={"search_query": query})
 
+        query_texts: list[str] = []
         products: list[ProductSuggestion] = []
         for rank, hit in enumerate(raw["hits"]["hits"], start=1):
             src = hit.get("_source", {})
-            logger.info(f"Search — suggestion #{rank}: score={hit.get('_score')}, sku_id={src.get('sku_id')}, "
-                        f"name={src.get(name_field)!r}", extra={"search_query": query})
-            if src.get(name_field):
-                products.append(ProductSuggestion(text=src[name_field], sku_id=src.get("sku_id")))
-            else:
-                logger.info(f"Search — suggestion #{rank} skipped: no {name_field}")
-        # Query suggestions: the distinct product names, in order.
-        distinct_names = list(dict.fromkeys(p.text for p in products))
-        logger.info(f"Search — suggestions: {len(distinct_names)} distinct names; returning "
-                    f"{min(len(distinct_names), query_limit)} queries and {min(len(products), product_limit)} products")
+            matched = set(hit.get("matched_queries") or [])
+            seller_hits = hit.get("inner_hits", {}).get("seller_details", {}).get("hits", {}).get("hits", [])
+            seller = seller_hits[0].get("_source", {}) if seller_hits else {}
 
-        logger.info(f"Search — suggestions for '{query}': {len(products)} products", extra={"status": "success"})
+            # The value to suggest is whatever matched — product name first, then material numbers, then seller.
+            if "product_name" in matched or not matched:
+                matched_by, value = name_field, src.get(name_field)
+            elif "aramco_material_number" in matched:
+                matched_by, value = "aramco_material_number", src.get("aramco_material_number")
+            elif "asmo_material_number" in matched:
+                matched_by, value = "asmo_material_number", src.get("asmo_material_number")
+            elif str(seller.get("seller_id", "")).lower().startswith(typed.lower()):
+                matched_by, value = "seller_id", seller.get("seller_id")
+            else:
+                matched_by, value = "seller_name", seller.get("seller_name")
+
+            logger.info(f"Search — suggestion #{rank}: score={hit.get('_score')}, matched_by={matched_by}, "
+                        f"value={value!r}, sku_id={src.get('sku_id')}, name={src.get(name_field)!r}",
+                        extra={"search_query": query})
+            if value:
+                query_texts.append(str(value))
+            if src.get(name_field) or value:
+                products.append(ProductSuggestion(text=src.get(name_field) or str(value), sku_id=src.get("sku_id")))
+            else:
+                logger.info(f"Search — suggestion #{rank} skipped: nothing to show")
+
+        # Query suggestions: the distinct matched values, in order.
+        distinct_texts = list(dict.fromkeys(query_texts))
+        logger.info(f"Search — suggestions for '{query}': {len(distinct_texts)} distinct values, {len(products)} products; "
+                    f"returning {min(len(distinct_texts), query_limit)} queries and {min(len(products), product_limit)} "
+                    f"products", extra={"status": "success"})
         return SuggestionsResponse(
             query=query,
-            query_suggestions=[QuerySuggestion(text=name) for name in distinct_names[:query_limit]],
+            query_suggestions=[QuerySuggestion(text=text) for text in distinct_texts[:query_limit]],
             product_suggestions=products[:product_limit],
         )
 

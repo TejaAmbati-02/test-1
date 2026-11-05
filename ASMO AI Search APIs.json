@@ -1,0 +1,3426 @@
+{
+  "info": {
+    "name": "ASMO AI Search API v2.1",
+    "description": "Test cases for the ASMO AI Search API (generated together with the Bruno collection).\n\n1. Set base_url (and, when Keycloak auth is on, keycloak_client_secret, keycloak_username, keycloak_password).\n2. Run '00 Auth / A01' to get a token (skip when KEYCLOAK_AUTH_ENABLED=false).\n3. File uploads use paths relative to the project folder: set Postman's working directory to ASMO_SEARCH_CODE (Settings > General > Working directory).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "default"
+    },
+    {
+      "key": "keycloak_url",
+      "value": "https://keycloak.apps.asmonpeclr.np.asmo.com",
+      "type": "default"
+    },
+    {
+      "key": "keycloak_realm",
+      "value": "asmo",
+      "type": "default"
+    },
+    {
+      "key": "keycloak_client_id",
+      "value": "ai-app",
+      "type": "default"
+    },
+    {
+      "key": "keycloak_client_secret",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "keycloak_username",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "keycloak_password",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "request_id",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "image_request_id",
+      "value": "",
+      "type": "default"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Auth",
+      "item": [
+        {
+          "name": "A01 Get Keycloak token (username + password)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{keycloak_url}}/realms/{{keycloak_realm}}/protocol/openid-connect/token",
+              "host": [
+                "{{keycloak_url}}"
+              ],
+              "path": [
+                "realms",
+                "{{keycloak_realm}}",
+                "protocol",
+                "openid-connect",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "Run this first when KEYCLOAK_AUTH_ENABLED=true. Fill keycloak_client_secret, keycloak_username and keycloak_password. Saves access_token, which every other request sends as 'Authorization: Bearer'.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{keycloak_client_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{keycloak_client_secret}}",
+                  "type": "text"
+                },
+                {
+                  "key": "username",
+                  "value": "{{keycloak_username}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{keycloak_password}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Got access_token\", () => expect(body.access_token).to.be.a(\"string\"));",
+                  "setVar(\"access_token\", body.access_token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 Health",
+      "item": [
+        {
+          "name": "H01 Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "query": []
+            },
+            "description": "Service health: OpenSearch, embedding model and Redis.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has status\", () => expect([\"ok\", \"degraded\"]).to.include(body.status));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "H02 List indices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/indices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "indices"
+              ],
+              "query": []
+            },
+            "description": "All OpenSearch indices (needs a token when auth is on)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"indices is an array\", () => expect(body.indices).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Text Search",
+      "item": [
+        {
+          "name": "T01 Text search - pump",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Keyword + semantic search. Only products containing the words are returned. Saves request_id for R01.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+                  "setVar(\"request_id\", body.request_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T02 Text search - mobile channel",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Same search from the mobile channel.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "mobile",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "valve",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T03 Text search - German",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "German searches the *_de fields and content.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "de",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "Pumpe",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T04 Search by Aramco material number",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Material numbers have the highest weight (8), so the exact product ranks first.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "EM773",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+                  "t(\"First result is EM773\", () => expect(body.products[0].aramco_material_number).to.equal(\"EM773\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T05 Search by ASMO material number",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Search by ASMO material number.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "183000-001-pumps",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+                  "t(\"Returns 183000-001-pumps\", () => expect(body.products.some(p => p.asmo_material_number === \"183000-001-pumps\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T06 Search by seller name",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Seller name is searched through the nested seller_details.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "Wholesale Warehouse",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+                  "t(\"Results include Wholesale Warehouse products\", () => expect(body.products.some(p => p.seller_details.some(s => s.name === \"Wholesale Warehouse\"))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T07 No product contains the words - 0 results",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "TEXT_REQUIRE_KEYWORD_MATCH=true: when no product contains the words, nothing is returned (no 'similar' products from vector search).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "zzqxvw",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"No results\", () => expect(body.total_results).to.equal(0));",
+                  "t(\"Empty products\", () => expect(body.products).to.have.length(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T08 Sort by price ascending",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Cheapest first.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "asc",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "20",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "const prices = body.products.map(p => (p.seller_details[0] || {}).price).filter(p => p != null);",
+                  "t(\"Prices sorted asc\", () => prices.slice(1).forEach((p, i) => expect(prices[i] <= p).to.be.true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T09 Sort by price descending",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Most expensive first.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "20",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "const prices = body.products.map(p => (p.seller_details[0] || {}).price).filter(p => p != null);",
+                  "t(\"Prices sorted desc\", () => prices.slice(1).forEach((p, i) => expect(prices[i] >= p).to.be.true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T10 Pagination - page 2",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Second page of 10.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"page is 2\", () => expect(body.page).to.equal(2));",
+                  "t(\"page_size is 10\", () => expect(body.page_size).to.equal(10));",
+                  "t(\"At most 10 products\", () => expect(body.products.length).to.be.at.most(10));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Filters",
+      "item": [
+        {
+          "name": "F01 Browse by category (no text)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Filter-only browse: Static Equipment.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"category\": [\"5f7195cf-b988-4f19-97ba-d85242fb0fb6\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F02 Price range",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Numeric range filter.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Prices within 50-150\", () => body.products.filter(p => p.seller_details.length).forEach(p => expect(p.seller_details[0].price).to.be.within(50, 150)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F03 Seller",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Products where ANY seller is the given seller id.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"seller\": [\"3a7b23e0-0047-4d63-88a9-cd05d1006a39\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+                  "t(\"Every product has the seller\", () => expect(body.products.every(p => p.seller_details.some(s => s.seller_id === \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\"))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F04 Text + sub-category",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Pumps sub-category, text 'pump'.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"sub_category\": [\"042f0405-452f-4299-a787-fa29745387e7\"]}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F05 Multiple filters",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "material_type AND price.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9COM\"], \"price\": {\"lte\": 100}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F06 Aramco material number filter",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Exact material-number filter.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"aramco_material_number\": \"EM773\"}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+                  "t(\"Only EM773\", () => expect(body.products.every(p => p.aramco_material_number === \"EM773\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F07 Facets returned",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Facet counts (id, value, count) for category, sub-category, product type and seller.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "[\"category\", \"sub_category\", \"product_type\", \"seller\"].forEach(k => t(`facets.${k} is an array`, () => expect(body.facets[k]).to.be.an(\"array\")));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Image Search",
+      "item": [
+        {
+          "name": "I01 Image search - JPEG",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Image only. Saves image_request_id.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+                  "setVar(\"image_request_id\", body.request_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "I02 Image search - PNG",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Image only (PNG).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/172000-001-hvac.png",
+                  "contentType": "image/png"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "I03 Image + filters",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Image search limited by filters.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9COM\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/172000-001-hvac.png",
+                  "contentType": "image/png"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "I04 Text + image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Text and image together (image weighted higher).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "air handling unit",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/172000-001-hvac.png",
+                  "contentType": "image/png"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Refine (request_id)",
+      "item": [
+        {
+          "name": "R01 Refine previous text search - page 2",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Reuses T01's search (needs Redis). Run T01 first.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "request_id",
+                  "value": "{{request_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "R02 Refine previous image search + filter",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Reuses I01's image (needs Redis). Run I01 first.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "request_id",
+                  "value": "{{image_request_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"material_type\": [\"9COM\"]}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));",
+                  "t(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));",
+                  "t(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Suggestions",
+      "item": [
+        {
+          "name": "S01 Product name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=submersible pu&channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "submersible pu"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": "Words in order, last word unfinished."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"Has suggestions\", () => expect(body.query_suggestions.length).to.be.above(0));",
+                  "t(\"product_suggestions have sku_id\", () => body.product_suggestions.forEach(p => expect(p).to.have.property(\"sku_id\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S02 Aramco material number",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=EM77&channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "EM77"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": "Starts with, any case."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));",
+                  "t(\"Suggests EM773\", () => expect(body.query_suggestions.some(q => q.text === \"EM773\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S03 ASMO material number",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=183000-001&channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "183000-001"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": "Starts with, any case."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));",
+                  "t(\"Suggests 183000-001\", () => expect(body.query_suggestions.some(q => q.text.toLowerCase().startsWith(\"183000-001\"))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S04 Seller name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=wholes&channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "wholes"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": "Any of the product's sellers."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));",
+                  "t(\"Suggests Wholesale Warehouse\", () => expect(body.query_suggestions.some(q => q.text === \"Wholesale Warehouse\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S05 Seller id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=3a7b23e0&channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "3a7b23e0"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": "Starts with, any case."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));",
+                  "t(\"Suggests 3a7b23e0-0047-4d63-88a9-cd05d1006a39\", () => expect(body.query_suggestions.some(q => q.text === \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S06 Limits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=en&query_limit=2&product_limit=3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pu"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "2"
+                },
+                {
+                  "key": "product_limit",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": "query_limit / product_limit."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"At most 2 query suggestions\", () => expect(body.query_suggestions.length).to.be.at.most(2));",
+                  "t(\"At most 3 product suggestions\", () => expect(body.product_suggestions.length).to.be.at.most(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S07 No match",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=zzqxvw&channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "zzqxvw"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": "Nothing matches."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 200\", () => expect(status).to.equal(200));",
+                  "t(\"No query suggestions\", () => expect(body.query_suggestions).to.have.length(0));",
+                  "t(\"No product suggestions\", () => expect(body.product_suggestions).to.have.length(0));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 Negative",
+      "item": [
+        {
+          "name": "N01 Unsupported language",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Only en / de.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "fr",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code UNSUPPORTED_LANGUAGE\", () => expect(body.code).to.equal(\"UNSUPPORTED_LANGUAGE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N02 Unsupported channel",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Only web / mobile.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "tv",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code UNSUPPORTED_CHANNEL\", () => expect(body.code).to.equal(\"UNSUPPORTED_CHANNEL\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N03 Empty request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Needs search_query, image, filters or request_id.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code EMPTY_REQUEST\", () => expect(body.code).to.equal(\"EMPTY_REQUEST\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N04 Unknown filter key",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"colour\": \"red\"}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code INVALID_FILTER_KEY\", () => expect(body.code).to.equal(\"INVALID_FILTER_KEY\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N05 Malformed filters JSON",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": ",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code INVALID_FILTER\", () => expect(body.code).to.equal(\"INVALID_FILTER\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N06 Invalid filter value",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "filters",
+                  "value": "{\"price\": \"cheap\"}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code INVALID_FILTER_VALUE\", () => expect(body.code).to.equal(\"INVALID_FILTER_VALUE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N07 Invalid sort_by",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "name",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code INVALID_SORT_BY\", () => expect(body.code).to.equal(\"INVALID_SORT_BY\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N08 Invalid sort_order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "price",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "up",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code INVALID_SORT_ORDER\", () => expect(body.code).to.equal(\"INVALID_SORT_ORDER\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N09 page_size over 200",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page_size",
+                  "value": "201",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N10 page below 1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N11 Not multipart",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Body must be multipart/form-data (this one is form-urlencoded).",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code INVALID_CONTENT_TYPE\", () => expect(body.code).to.equal(\"INVALID_CONTENT_TYPE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N12 GIF image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Only JPEG, PNG, WebP.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/sample.gif",
+                  "contentType": "image/gif"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code UNSUPPORTED_IMAGE_TYPE\", () => expect(body.code).to.equal(\"UNSUPPORTED_IMAGE_TYPE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N13 Not an image (PNG content type)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "The bytes are checked, not just the Content-Type.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/not_an_image.png",
+                  "contentType": "image/png"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code UNSUPPORTED_IMAGE_TYPE\", () => expect(body.code).to.equal(\"UNSUPPORTED_IMAGE_TYPE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N14 application/octet-stream",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "The image part must declare image/jpeg, image/png or image/webp.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/ao-100018_1.bin",
+                  "contentType": "application/octet-stream"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code UNSUPPORTED_IMAGE_TYPE\", () => expect(body.code).to.equal(\"UNSUPPORTED_IMAGE_TYPE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N15 Image larger than 10 MiB",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Max 10 MiB (10485760 bytes).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "test_images/oversized.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 413\", () => expect(status).to.equal(413));",
+                  "t(\"Error code IMAGE_TOO_LARGE\", () => expect(body.code).to.equal(\"IMAGE_TOO_LARGE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N16 Unknown request_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Expired / unknown request_id.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "request_id",
+                  "value": "11111111-1111-4111-8111-111111111111",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400 (or 503 when Redis is off)\", () => expect([400, 503]).to.include(status));",
+                  "t(\"Error code\", () => expect([\"REQUEST_ID_NOT_FOUND\", \"EMBEDDING_STORE_UNAVAILABLE\"]).to.include(body.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N17 Malformed request_id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "request_id",
+                  "value": "not-a-uuid",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code REQUEST_ID_NOT_FOUND\", () => expect(body.code).to.equal(\"REQUEST_ID_NOT_FOUND\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N18 Suggestions - missing q",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N19 Suggestions - missing channel",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pu&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pu"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N20 Suggestions - unsupported language",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=fr",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pu"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "fr"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code UNSUPPORTED_LANGUAGE\", () => expect(body.code).to.equal(\"UNSUPPORTED_LANGUAGE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N21 Suggestions - query_limit over 50",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=en&query_limit=51",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pu"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "query_limit",
+                  "value": "51"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 400\", () => expect(status).to.equal(400));",
+                  "t(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 Auth checks",
+      "item": [
+        {
+          "name": "X01 No token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Only when KEYCLOAK_AUTH_ENABLED=true (with auth off this returns 200).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 401\", () => expect(status).to.equal(401));",
+                  "t(\"Error code UNAUTHORIZED\", () => expect(body.code).to.equal(\"UNAUTHORIZED\"));",
+                  "t(\"WWW-Authenticate header\", () => expect(HEADER(\"www-authenticate\")).to.contain(\"Bearer\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "X02 Invalid token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Only when KEYCLOAK_AUTH_ENABLED=true.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "invalid-token",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "channel",
+                  "value": "web",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "search_query",
+                  "value": "pump",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 401\", () => expect(status).to.equal(401));",
+                  "t(\"Error code UNAUTHORIZED\", () => expect(body.code).to.equal(\"UNAUTHORIZED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "X03 Suggestions - no token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=en",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pu"
+                },
+                {
+                  "key": "channel",
+                  "value": "web"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                }
+              ]
+            },
+            "description": "Only when KEYCLOAK_AUTH_ENABLED=true.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let body = {}; try { body = pm.response.json(); } catch (e) {}",
+                  "const status = pm.response.code;",
+                  "const t = (name, fn) => pm.test(name, fn);",
+                  "const setVar = (k, v) => pm.collectionVariables.set(k, v);",
+                  "const HEADER = (h) => pm.response.headers.get(h) || '';",
+                  "t(\"Status 401\", () => expect(status).to.equal(401));",
+                  "t(\"Error code UNAUTHORIZED\", () => expect(body.code).to.equal(\"UNAUTHORIZED\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -27,7 +27,7 @@ def test_defaults_for_optional_settings():
     assert s.hybrid_retrieval_k == 100
     assert s.knn_ef_search == 500
     assert s.image_min_score == 0.6
-    assert s.text_image_image_weight == 0.6
+    assert s.text_image_image_weight == 0.4
     assert s.image_max_pixels == 2_400_000
     assert s.image_jpeg_quality == 90
     assert s.redis_enabled is True

@@ -1,0 +1,3825 @@
+{
+  "version": "1",
+  "uid": "Xr5YTof5IL1iRCWCm7rUZ",
+  "name": "ASMO AI Search API v2.1",
+  "items": [
+    {
+      "uid": "ujOeHwdFcAefAZhnM6Jy8",
+      "type": "folder",
+      "name": "00 Auth",
+      "seq": 1,
+      "root": {
+        "meta": {
+          "name": "00 Auth",
+          "seq": 1
+        }
+      },
+      "items": [
+        {
+          "uid": "mkvdajgwb2Mjpvwh09CDf",
+          "type": "http-request",
+          "name": "A01 Get Keycloak token (username + password)",
+          "seq": 1,
+          "request": {
+            "url": "{{keycloak_url}}/realms/{{keycloak_realm}}/protocol/openid-connect/token",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "formUrlEncoded",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [
+                {
+                  "uid": "c1rihtYlKNxHddmQAtKCs",
+                  "name": "grant_type",
+                  "value": "password",
+                  "enabled": true
+                },
+                {
+                  "uid": "XRpJG2Tr8hzUjEcPVJ2tR",
+                  "name": "client_id",
+                  "value": "{{keycloak_client_id}}",
+                  "enabled": true
+                },
+                {
+                  "uid": "KJC06DPdRO9YrxPbCkhdV",
+                  "name": "client_secret",
+                  "value": "{{keycloak_client_secret}}",
+                  "enabled": true
+                },
+                {
+                  "uid": "ipy2eBI2Y1rzw27jkooEK",
+                  "name": "username",
+                  "value": "{{keycloak_username}}",
+                  "enabled": true
+                },
+                {
+                  "uid": "qazwJ7QFMPd3W2XyygNde",
+                  "name": "password",
+                  "value": "{{keycloak_password}}",
+                  "enabled": true
+                }
+              ],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Got access_token\", () => expect(body.access_token).to.be.a(\"string\"));\nsetVar(\"access_token\", body.access_token);",
+            "docs": "Run this first when KEYCLOAK_AUTH_ENABLED=true. Fill keycloak_client_secret, keycloak_username and keycloak_password. Saves access_token, which every other request sends as 'Authorization: Bearer'."
+          }
+        }
+      ]
+    },
+    {
+      "uid": "gvqZkb6GjHbG81RqwkVHW",
+      "type": "folder",
+      "name": "01 Health",
+      "seq": 2,
+      "root": {
+        "meta": {
+          "name": "01 Health",
+          "seq": 2
+        }
+      },
+      "items": [
+        {
+          "uid": "unY90XYToGwbbrqQ7B697",
+          "type": "http-request",
+          "name": "H01 Health check",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/health",
+            "method": "GET",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has status\", () => expect([\"ok\", \"degraded\"]).to.include(body.status));",
+            "docs": "Service health: OpenSearch, embedding model and Redis."
+          }
+        },
+        {
+          "uid": "wnommM30DOXfO4WUDlWuX",
+          "type": "http-request",
+          "name": "H02 List indices",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/indices",
+            "method": "GET",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"indices is an array\", () => expect(body.indices).to.be.an(\"array\"));",
+            "docs": "All OpenSearch indices (needs a token when auth is on)."
+          }
+        }
+      ]
+    },
+    {
+      "uid": "8yy6Skhj4YjZ8OvIia8OG",
+      "type": "folder",
+      "name": "02 Text Search",
+      "seq": 3,
+      "root": {
+        "meta": {
+          "name": "02 Text Search",
+          "seq": 3
+        }
+      },
+      "items": [
+        {
+          "uid": "vmtSbIBbuMFd9W8gqcWqi",
+          "type": "http-request",
+          "name": "T01 Text search - pump",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "5A2ZnpsoKqzi4vCK4A4FG",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "GbBlaXkDSIuGIWgIprVFI",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "V4BLFFQCHD6R26qI60ihB",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "eoePW3jSOi27n7yE9ZkAF",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));\nsetVar(\"request_id\", body.request_id);",
+            "docs": "Keyword + semantic search. Only products containing the words are returned. Saves request_id for R01."
+          }
+        },
+        {
+          "uid": "twaxDFmFaqfycbsoKGUOS",
+          "type": "http-request",
+          "name": "T02 Text search - mobile channel",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "A4Yqj4JRfdQAe6NXf1e1C",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "mobile",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "vI5qiGogkdmtsVrFlvbpa",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "TIlD5gYAEZyFQ8vZRNzvd",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "valve",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "ieTpkf01PrpsCjBq78Hp7",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "Same search from the mobile channel."
+          }
+        },
+        {
+          "uid": "6nKiG7iYF2Ro3EbaEBsiv",
+          "type": "http-request",
+          "name": "T03 Text search - German",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "2yu9jSNcZ3MTYiGFZXZK3",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "QQobiwgZIMMQEaXUFHOeT",
+                  "type": "text",
+                  "name": "language",
+                  "value": "de",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "peqTmT8ExDQVMNejpUsJa",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "Pumpe",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "dqPQPsGCCh3m86bCY8Bqn",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "German searches the *_de fields and content."
+          }
+        },
+        {
+          "uid": "ilfvfoqJ3UzzGxudr7hFN",
+          "type": "http-request",
+          "name": "T04 Search by Aramco material number",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "t0aU0h5S3rxy9KwArcgZr",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "6pqFlx72YN46ISdTBUNrd",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "5hDvsT8qOsIykkm4En49B",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "EM773",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));\nt(\"First result is EM773\", () => expect(body.products[0].aramco_material_number).to.equal(\"EM773\"));",
+            "docs": "Material numbers have the highest weight (8), so the exact product ranks first."
+          }
+        },
+        {
+          "uid": "PApP5ocuAQmXTFm8tYonV",
+          "type": "http-request",
+          "name": "T05 Search by ASMO material number",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "1nqpyB702bbR3DKay5Z18",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "pgjGQ6SOVCIcWo5OshpNR",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "geGKynLasC7N2Dop7RtbE",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "183000-001-pumps",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));\nt(\"Returns 183000-001-pumps\", () => expect(body.products.some(p => p.asmo_material_number === \"183000-001-pumps\")).to.be.true);",
+            "docs": "Search by ASMO material number."
+          }
+        },
+        {
+          "uid": "XTZVLutwWemUpecIu829q",
+          "type": "http-request",
+          "name": "T06 Search by seller name",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "s7ElnzP6jyn8iddy32T95",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "ul6UbPxxukarv7h7mwYYA",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "dDx5lw3bzYVccd5pU3vq7",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "Wholesale Warehouse",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "MqStraU4N6boD77xpAE5l",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));\nt(\"Results include Wholesale Warehouse products\", () => expect(body.products.some(p => p.seller_details.some(s => s.name === \"Wholesale Warehouse\"))).to.be.true);",
+            "docs": "Seller name is searched through the nested seller_details."
+          }
+        },
+        {
+          "uid": "QltmXHdgyINfkRzrt7tJw",
+          "type": "http-request",
+          "name": "T07 No product contains the words - 0 results",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "ffESBozMPU0Ph0sJxTmpp",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "j2Juy9FoYO9gDY04cshl8",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "K5x1BqW6gKMnwimpLOmau",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "zzqxvw",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"No results\", () => expect(body.total_results).to.equal(0));\nt(\"Empty products\", () => expect(body.products).to.have.length(0));",
+            "docs": "TEXT_REQUIRE_KEYWORD_MATCH=true: when no product contains the words, nothing is returned (no 'similar' products from vector search)."
+          }
+        },
+        {
+          "uid": "lj6Q3kWhGNw2IJ2g9NyXq",
+          "type": "http-request",
+          "name": "T08 Sort by price ascending",
+          "seq": 8,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "z19wmTma3AYz2CkaIN4fM",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "wFjrG5gEX7mh68Dd5y4MZ",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "jWnz0ZlnyGxhpS3cIUcZh",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "LIMsAKAOBBbMEoVWClDgh",
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "AfBFcNfTWFdFx6i19TYm8",
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "asc",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "E74kW5evUj3rYiF5mqFtc",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "20",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nconst prices = body.products.map(p => (p.seller_details[0] || {}).price).filter(p => p != null);\nt(\"Prices sorted asc\", () => prices.slice(1).forEach((p, i) => expect(prices[i] <= p).to.be.true));",
+            "docs": "Cheapest first."
+          }
+        },
+        {
+          "uid": "nMe4ibg5vibcQNRTeKwYY",
+          "type": "http-request",
+          "name": "T09 Sort by price descending",
+          "seq": 9,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "9JwVBkUcYpN9KPtacjMAF",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "3ioObawgwnKKmMDi6pjfN",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "2WyqaNIvOB6Tp4cGzodWa",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "I6imLFNYktsd3WSa0UCTC",
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "ogocuUR0SqIBWGqN7n2aq",
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "desc",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "oU6Uu2uo4NQP8D0R1BSJt",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "20",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nconst prices = body.products.map(p => (p.seller_details[0] || {}).price).filter(p => p != null);\nt(\"Prices sorted desc\", () => prices.slice(1).forEach((p, i) => expect(prices[i] >= p).to.be.true));",
+            "docs": "Most expensive first."
+          }
+        },
+        {
+          "uid": "jjpuGjul8Tg7gx8XTAmNg",
+          "type": "http-request",
+          "name": "T10 Pagination - page 2",
+          "seq": 10,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "3e146gmgc0YNZNrggUmtA",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "bprSwt7F0MbzBVvRHn1fY",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "kamV8aEEXlEvZq6rnREgN",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "fWRWMwyy3f3bmq3Fx2oCG",
+                  "type": "text",
+                  "name": "page",
+                  "value": "2",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "UUOvuj0PUkBVJhC2olsR0",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"page is 2\", () => expect(body.page).to.equal(2));\nt(\"page_size is 10\", () => expect(body.page_size).to.equal(10));\nt(\"At most 10 products\", () => expect(body.products.length).to.be.at.most(10));",
+            "docs": "Second page of 10."
+          }
+        }
+      ]
+    },
+    {
+      "uid": "mycyXQFNCiLzT4AJUAoS2",
+      "type": "folder",
+      "name": "03 Filters",
+      "seq": 4,
+      "root": {
+        "meta": {
+          "name": "03 Filters",
+          "seq": 4
+        }
+      },
+      "items": [
+        {
+          "uid": "0qxpAlaSrpsDANOw50dZ4",
+          "type": "http-request",
+          "name": "F01 Browse by category (no text)",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "VR0QNCtMgAWSNpACMzP5l",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "OWyE8cHjW6GgJHSFNZGz6",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "nQyVh9wdryazARvqnT6Gn",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"category\": [\"5f7195cf-b988-4f19-97ba-d85242fb0fb6\"]}",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "XyniWYNDIo7vNYYDsHhZv",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+            "docs": "Filter-only browse: Static Equipment."
+          }
+        },
+        {
+          "uid": "8OXutsKNWcS2Hdsal5LOW",
+          "type": "http-request",
+          "name": "F02 Price range",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "WiZNaa7OpgioWvj4Xk3LW",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "P3W0mQGTB2IqoiEdCiEEH",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "1a0DIP0xz7eNNbLQ5u8FE",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "3cSMu1wDGVnAAIZsZzFqF",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": {\"gte\": 50, \"lte\": 150}}",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Prices within 50-150\", () => body.products.filter(p => p.seller_details.length).forEach(p => expect(p.seller_details[0].price).to.be.within(50, 150)));",
+            "docs": "Numeric range filter."
+          }
+        },
+        {
+          "uid": "wJBPiXwNNzxW6WJsd8RZu",
+          "type": "http-request",
+          "name": "F03 Seller",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "4LMMRKQnPCVglcW4OwZWI",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "psAtAN5dJchYJ4BayK68D",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "zgNnjaaQh7f1hbSpTldVS",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"seller\": [\"3a7b23e0-0047-4d63-88a9-cd05d1006a39\"]}",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "1TfMRC5p7SaaOYetTk1Ed",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));\nt(\"Every product has the seller\", () => expect(body.products.every(p => p.seller_details.some(s => s.seller_id === \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\"))).to.be.true);",
+            "docs": "Products where ANY seller is the given seller id."
+          }
+        },
+        {
+          "uid": "VY7pcmlfdI1C64dLyh7pI",
+          "type": "http-request",
+          "name": "F04 Text + sub-category",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "L8ZLtA3xQL3YraqAKY3cZ",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "Y1Jq0YQ4vfIXmU5oLQCmp",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "UXCfYVoJ32GDKlllRwIyG",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "jc9xgNWjLvGbc91EJqWA6",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"sub_category\": [\"042f0405-452f-4299-a787-fa29745387e7\"]}",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));",
+            "docs": "Pumps sub-category, text 'pump'."
+          }
+        },
+        {
+          "uid": "w995gr3dTs8aYviaZGlA4",
+          "type": "http-request",
+          "name": "F05 Multiple filters",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "N7PyBj79ncpv34ZcWRO9d",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "iU6PsKUguphDkoiQaSmc5",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "n513iBg50MCvZDMindSIi",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9COM\"], \"price\": {\"lte\": 100}}",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "1qzjq0ukEt3h8d3PnDrpm",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "material_type AND price."
+          }
+        },
+        {
+          "uid": "pYbfRmbLJGRg1SchEFrhz",
+          "type": "http-request",
+          "name": "F06 Aramco material number filter",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "nJilVSmefLEqmLRYKmeTz",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "SdYu01Ea4D2qlZwkxKaGB",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "FhSY1tSxUd27EFGHb7nlg",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"aramco_material_number\": \"EM773\"}",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"At least one result\", () => expect(body.total_results).to.be.above(0));\nt(\"Only EM773\", () => expect(body.products.every(p => p.aramco_material_number === \"EM773\")).to.be.true);",
+            "docs": "Exact material-number filter."
+          }
+        },
+        {
+          "uid": "7FqCHjhiszrpfH0LJOmSC",
+          "type": "http-request",
+          "name": "F07 Facets returned",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "iK1jJUkZ6yA0Gy6WuouB8",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "X4Y0dG75pANwGeAFbi8W6",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "NY22cNqQqH5MpGA6rsOhK",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\n[\"category\", \"sub_category\", \"product_type\", \"seller\"].forEach(k => t(`facets.${k} is an array`, () => expect(body.facets[k]).to.be.an(\"array\")));",
+            "docs": "Facet counts (id, value, count) for category, sub-category, product type and seller."
+          }
+        }
+      ]
+    },
+    {
+      "uid": "HLDtpnFxKav1oIEr9sVje",
+      "type": "folder",
+      "name": "04 Image Search",
+      "seq": 5,
+      "root": {
+        "meta": {
+          "name": "04 Image Search",
+          "seq": 5
+        }
+      },
+      "items": [
+        {
+          "uid": "yIJ27EBM9vGYkt8ZFg3QY",
+          "type": "http-request",
+          "name": "I01 Image search - JPEG",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "2BdyBTgn7TjuvPM0YGTUV",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "DWR4h1aVKE7JzW2LxCCSs",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "yIxtW0EBlsiJKf5u0Z7mA",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "4acJE5VH9GGQywKv6PGgx",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.jpg"
+                  ],
+                  "contentType": "image/jpeg",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));\nsetVar(\"image_request_id\", body.request_id);",
+            "docs": "Image only. Saves image_request_id."
+          }
+        },
+        {
+          "uid": "kwl8sIhHxyehZvplrocPv",
+          "type": "http-request",
+          "name": "I02 Image search - PNG",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "93AjrFFllNLv9NczWtQas",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "0KPmEIqOG9JzhjVggkGZM",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "YdaVuSvkqg4KvBxd3K7BM",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "pc50t3YsL7E6pySnt2EXp",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.png"
+                  ],
+                  "contentType": "image/png",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "Image only (PNG)."
+          }
+        },
+        {
+          "uid": "ctNl0JSpAQvaZWrc0Lcpg",
+          "type": "http-request",
+          "name": "I03 Image + filters",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "jRfqZhBZXjvSx7m6FoCiR",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "q3KwpLn2hFHqVxOJtyfk0",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "tPgIwFsetohSrz4W21irb",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9COM\"]}",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "QPvzORp0vMlh4TScckmsx",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.png"
+                  ],
+                  "contentType": "image/png",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "Image search limited by filters."
+          }
+        },
+        {
+          "uid": "IgEAlHa5NM5OppibW0slN",
+          "type": "http-request",
+          "name": "I04 Text + image",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "Xn4UfRyUZrf6A5QTZMCdR",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "AF5hVcRXqH8NHpdwzmtiR",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "PooFB6vs2iIuYHVkPLCVZ",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "air handling unit",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "hrwmdrmRBhuDwkea9UfS8",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/172000-001-hvac.png"
+                  ],
+                  "contentType": "image/png",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "Text and image together (image weighted higher)."
+          }
+        }
+      ]
+    },
+    {
+      "uid": "05kWZUulZtwIwZocJMYR4",
+      "type": "folder",
+      "name": "05 Refine (request_id)",
+      "seq": 6,
+      "root": {
+        "meta": {
+          "name": "05 Refine (request_id)",
+          "seq": 6
+        }
+      },
+      "items": [
+        {
+          "uid": "WdoxaKnsRA3M2I41kUvVQ",
+          "type": "http-request",
+          "name": "R01 Refine previous text search - page 2",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "6EEjsKeQkB8fcBlSa01WA",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "rPFAuBPZ4ksBIvmfuC841",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "87MYdPLsJ7DOsv2blQBfO",
+                  "type": "text",
+                  "name": "request_id",
+                  "value": "{{request_id}}",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "xKzGJyhl3Hg1pfGpEIoJh",
+                  "type": "text",
+                  "name": "page",
+                  "value": "2",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "FKezeB1ISUh9SgZyk7IWi",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "10",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "Reuses T01's search (needs Redis). Run T01 first."
+          }
+        },
+        {
+          "uid": "WNNwrX26QsVTFNvIzduu9",
+          "type": "http-request",
+          "name": "R02 Refine previous image search + filter",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "ZhxT6ScLgIXh5PplBZKhb",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "gXlIrQxi2HQY6avjF2Xcl",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "YQyDj0y2Leun3KckwDJyv",
+                  "type": "text",
+                  "name": "request_id",
+                  "value": "{{image_request_id}}",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "aJubC9cjPqqFqJG79cIV2",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"material_type\": [\"9COM\"]}",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has request_id\", () => expect(body.request_id).to.be.a(\"string\"));\nt(\"products is an array\", () => expect(body.products).to.be.an(\"array\"));\nt(\"facets present\", () => expect(body.facets).to.be.an(\"object\"));",
+            "docs": "Reuses I01's image (needs Redis). Run I01 first."
+          }
+        }
+      ]
+    },
+    {
+      "uid": "Dwpovia2CBJskestTI6v5",
+      "type": "folder",
+      "name": "06 Suggestions",
+      "seq": 7,
+      "root": {
+        "meta": {
+          "name": "06 Suggestions",
+          "seq": 7
+        }
+      },
+      "items": [
+        {
+          "uid": "KelJ9wWA1eE3rpbkqRnym",
+          "type": "http-request",
+          "name": "S01 Product name",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=submersible pu&channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "L1OmT7LeY2vilH2N5nuUO",
+                "name": "q",
+                "value": "submersible pu",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "zQudzcMuELpCa5I9dMSuf",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "jiVfYAHKIOLuTpSVWtV8C",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"Has suggestions\", () => expect(body.query_suggestions.length).to.be.above(0));\nt(\"product_suggestions have sku_id\", () => body.product_suggestions.forEach(p => expect(p).to.have.property(\"sku_id\")));",
+            "docs": "Words in order, last word unfinished."
+          }
+        },
+        {
+          "uid": "rG6iaDOVw9oUfbidFIl6w",
+          "type": "http-request",
+          "name": "S02 Aramco material number",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=EM77&channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "jlT5kbWp8ENvXCu4gTeOy",
+                "name": "q",
+                "value": "EM77",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "1dIz46MnpqAomVNs9nJj1",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "1qUZruE3kQLCJ2n2wW1l1",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));\nt(\"Suggests EM773\", () => expect(body.query_suggestions.some(q => q.text === \"EM773\")).to.be.true);",
+            "docs": "Starts with, any case."
+          }
+        },
+        {
+          "uid": "9sbg8a4jTgkQfv4S28coX",
+          "type": "http-request",
+          "name": "S03 ASMO material number",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=183000-001&channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "QcFoAgb9t2hEiAlQjTFgv",
+                "name": "q",
+                "value": "183000-001",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "E4vn72TqkqecFzIwaQOHI",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "Q82Sytz8xxzi9aL5pLxom",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));\nt(\"Suggests 183000-001\", () => expect(body.query_suggestions.some(q => q.text.toLowerCase().startsWith(\"183000-001\"))).to.be.true);",
+            "docs": "Starts with, any case."
+          }
+        },
+        {
+          "uid": "h0W4dRuOIt8aU0FK9oNUx",
+          "type": "http-request",
+          "name": "S04 Seller name",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=wholes&channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "SyGLPtMHnLq4DSGDni5GG",
+                "name": "q",
+                "value": "wholes",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "GYokYCNZ31cxZYhjpgwXG",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "Cfy9RBDXVjQwGowvxbmJd",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));\nt(\"Suggests Wholesale Warehouse\", () => expect(body.query_suggestions.some(q => q.text === \"Wholesale Warehouse\")).to.be.true);",
+            "docs": "Any of the product's sellers."
+          }
+        },
+        {
+          "uid": "lSruoZfN1mAXMxcBwSszO",
+          "type": "http-request",
+          "name": "S05 Seller id",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=3a7b23e0&channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "YvxJ5l8SxPueUxGE3UbKC",
+                "name": "q",
+                "value": "3a7b23e0",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "C0zD3BEFZPTycQIVVhneY",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "gfUIdQSDdQzK9Y2juGa9r",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"query_suggestions is an array\", () => expect(body.query_suggestions).to.be.an(\"array\"));\nt(\"Suggests 3a7b23e0-0047-4d63-88a9-cd05d1006a39\", () => expect(body.query_suggestions.some(q => q.text === \"3a7b23e0-0047-4d63-88a9-cd05d1006a39\")).to.be.true);",
+            "docs": "Starts with, any case."
+          }
+        },
+        {
+          "uid": "qtp1IFAds1X1pmdHxCEKw",
+          "type": "http-request",
+          "name": "S06 Limits",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=en&query_limit=2&product_limit=3",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "Xm5IdtHzJuqXsSXKC5B2d",
+                "name": "q",
+                "value": "pu",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "ANd1eKl5IXEPPsnZj4mgf",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "W6zOp4QjdRcZsoKtIj4u0",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "jX8ycxNnHfCTAQhZh596G",
+                "name": "query_limit",
+                "value": "2",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "svUE5fE1LHfiq30o5cL7v",
+                "name": "product_limit",
+                "value": "3",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"At most 2 query suggestions\", () => expect(body.query_suggestions.length).to.be.at.most(2));\nt(\"At most 3 product suggestions\", () => expect(body.product_suggestions.length).to.be.at.most(3));",
+            "docs": "query_limit / product_limit."
+          }
+        },
+        {
+          "uid": "6OduBpUlWseIfIWKCcFgO",
+          "type": "http-request",
+          "name": "S07 No match",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=zzqxvw&channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "iJvxPkk6u02Djf2hEHhDk",
+                "name": "q",
+                "value": "zzqxvw",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "HFwmzmho2F3a6EXJQoUjq",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "byGs3fJoKWSdpL8cMQYvY",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 200\", () => expect(status).to.equal(200));\nt(\"No query suggestions\", () => expect(body.query_suggestions).to.have.length(0));\nt(\"No product suggestions\", () => expect(body.product_suggestions).to.have.length(0));",
+            "docs": "Nothing matches."
+          }
+        }
+      ]
+    },
+    {
+      "uid": "C5a6zzfpTQjvimnu89XDE",
+      "type": "folder",
+      "name": "07 Negative",
+      "seq": 8,
+      "root": {
+        "meta": {
+          "name": "07 Negative",
+          "seq": 8
+        }
+      },
+      "items": [
+        {
+          "uid": "zLCunv0MsfqRBOYhQcZlq",
+          "type": "http-request",
+          "name": "N01 Unsupported language",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "W4UNmM0WfSvk7PUiZ64UZ",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "XKAZW1s7G6h8WpZomCoE4",
+                  "type": "text",
+                  "name": "language",
+                  "value": "fr",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "QSyWXQ6ZzfOZvKZXaEbgY",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code UNSUPPORTED_LANGUAGE\", () => expect(body.code).to.equal(\"UNSUPPORTED_LANGUAGE\"));",
+            "docs": "Only en / de."
+          }
+        },
+        {
+          "uid": "UNrVsHA8OXPx7SQrkJZXv",
+          "type": "http-request",
+          "name": "N02 Unsupported channel",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "7wn3L3yE7F9lZkGak6CYp",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "tv",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "vgI1Fx53PeMB7wONxGP4E",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "w8dZQIBU3TUcui73iKJcy",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code UNSUPPORTED_CHANNEL\", () => expect(body.code).to.equal(\"UNSUPPORTED_CHANNEL\"));",
+            "docs": "Only web / mobile."
+          }
+        },
+        {
+          "uid": "NqVcZJv6qpeIUQzYgtN7N",
+          "type": "http-request",
+          "name": "N03 Empty request",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "iF2kTktdsx77lt6mtBgqy",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "x7qm4BZNWtjUDIPUrw4Gr",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code EMPTY_REQUEST\", () => expect(body.code).to.equal(\"EMPTY_REQUEST\"));",
+            "docs": "Needs search_query, image, filters or request_id."
+          }
+        },
+        {
+          "uid": "dBIYcZgnNvuJnXm0YHbWb",
+          "type": "http-request",
+          "name": "N04 Unknown filter key",
+          "seq": 4,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "QWy6UvyXvl2GGP3ivezF0",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "PJzJq0WZjPUF33UYO2iRR",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "LreLZqnnfP8XwReZuaNir",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"colour\": \"red\"}",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code INVALID_FILTER_KEY\", () => expect(body.code).to.equal(\"INVALID_FILTER_KEY\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "jWD94XDYhgIFmpb4S68BT",
+          "type": "http-request",
+          "name": "N05 Malformed filters JSON",
+          "seq": 5,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "FAdNSKyFKo19X7u9eDiCQ",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "RCvlyrmTGBmRmqIR8U65S",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "Sdma1SNqwkN9sckw3XCgg",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": ",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code INVALID_FILTER\", () => expect(body.code).to.equal(\"INVALID_FILTER\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "o5nP5N4qjbUg8SlYkFgW3",
+          "type": "http-request",
+          "name": "N06 Invalid filter value",
+          "seq": 6,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "xY0ianKxaZWCc3HeuM2EN",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "mp4xgKhmCKNRBeSdDyPSo",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "OQDi4Ldo9oyWZNTcf8Xcd",
+                  "type": "text",
+                  "name": "filters",
+                  "value": "{\"price\": \"cheap\"}",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code INVALID_FILTER_VALUE\", () => expect(body.code).to.equal(\"INVALID_FILTER_VALUE\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "5uVW3XGgZtMwH7jGOH6z4",
+          "type": "http-request",
+          "name": "N07 Invalid sort_by",
+          "seq": 7,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "4a0IYFMKXedHsyaUbZYCh",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "OmAg8HvfT00gwsVjL8Vae",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "hQLGCzLO4TX4ZSbQ0A2l6",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "BRpsvufB8O5VZ9Urpzbo2",
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "name",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code INVALID_SORT_BY\", () => expect(body.code).to.equal(\"INVALID_SORT_BY\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "hCSfhDkoBhewD6IenUI17",
+          "type": "http-request",
+          "name": "N08 Invalid sort_order",
+          "seq": 8,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "Q7fnr4aqS9kBQQUUppbQm",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "q7NKOLRsdeawigE8QqVlg",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "szQBTf5vZbZo1XPral4jO",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "KOlig8xOJnea0i7wSiWpw",
+                  "type": "text",
+                  "name": "sort_by",
+                  "value": "price",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "GgpXrxVnmnxwND1dPZobB",
+                  "type": "text",
+                  "name": "sort_order",
+                  "value": "up",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code INVALID_SORT_ORDER\", () => expect(body.code).to.equal(\"INVALID_SORT_ORDER\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "ISioh7jiGK2dokKCz3P17",
+          "type": "http-request",
+          "name": "N09 page_size over 200",
+          "seq": 9,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "1g6Gok1nfq5CTeCtmPwh9",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "DlaOFbDTHoELOiX6T1w3l",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "oL3fncBilUK6yQa6oDF6E",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "9MnZm9Co7tzvPbxkZaLpC",
+                  "type": "text",
+                  "name": "page_size",
+                  "value": "201",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "ZNNR7mVspYL02KmaHSqea",
+          "type": "http-request",
+          "name": "N10 page below 1",
+          "seq": 10,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "q6zd4gbrr71AG0YOFhpOK",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "X37le3JlQpowGPeTMDPXa",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "DQROl7WoA7mz73oTwPVhn",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "nqcizAeK6JwRBkDbPjw7V",
+                  "type": "text",
+                  "name": "page",
+                  "value": "0",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "sNQM3mtPqjoVZS7XttSdL",
+          "type": "http-request",
+          "name": "N11 Not multipart",
+          "seq": 11,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "formUrlEncoded",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [
+                {
+                  "uid": "kRaoqS9bh58juGtzDqdfk",
+                  "name": "channel",
+                  "value": "web",
+                  "enabled": true
+                },
+                {
+                  "uid": "fMRqXTvEl5IdjQxSoXXfK",
+                  "name": "language",
+                  "value": "en",
+                  "enabled": true
+                },
+                {
+                  "uid": "lRXXofPJilKgNoqAHSbSn",
+                  "name": "search_query",
+                  "value": "pump",
+                  "enabled": true
+                }
+              ],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code INVALID_CONTENT_TYPE\", () => expect(body.code).to.equal(\"INVALID_CONTENT_TYPE\"));",
+            "docs": "Body must be multipart/form-data (this one is form-urlencoded)."
+          }
+        },
+        {
+          "uid": "uhp8hqT34D7LrCSTim7gY",
+          "type": "http-request",
+          "name": "N12 GIF image",
+          "seq": 12,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "fdFj52CmhFGwSGWgexDpP",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "ntDSVxB55MgCNrc84hCMs",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "eUVBfyf7drVigekGZkkVA",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/sample.gif"
+                  ],
+                  "contentType": "image/gif",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code UNSUPPORTED_IMAGE_TYPE\", () => expect(body.code).to.equal(\"UNSUPPORTED_IMAGE_TYPE\"));",
+            "docs": "Only JPEG, PNG, WebP."
+          }
+        },
+        {
+          "uid": "CvWW1nvpgubXoeeTmCyX7",
+          "type": "http-request",
+          "name": "N13 Not an image (PNG content type)",
+          "seq": 13,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "vppD9j0tkUvlzY1JaVL37",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "u0Yqwxvxgo4zN3Up5X9TU",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "YpOx0iHuYv002i6UPOc1H",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/not_an_image.png"
+                  ],
+                  "contentType": "image/png",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code UNSUPPORTED_IMAGE_TYPE\", () => expect(body.code).to.equal(\"UNSUPPORTED_IMAGE_TYPE\"));",
+            "docs": "The bytes are checked, not just the Content-Type."
+          }
+        },
+        {
+          "uid": "5mbF337F5IiNXALqrAFDf",
+          "type": "http-request",
+          "name": "N14 application/octet-stream",
+          "seq": 14,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "tN3D3Tt2JgKZGEz2Pmww7",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "Rh4cKASAfGYWwnUXn29Ax",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "S5msuTlHFPi79IXl4IV1w",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/ao-100018_1.bin"
+                  ],
+                  "contentType": "application/octet-stream",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code UNSUPPORTED_IMAGE_TYPE\", () => expect(body.code).to.equal(\"UNSUPPORTED_IMAGE_TYPE\"));",
+            "docs": "The image part must declare image/jpeg, image/png or image/webp."
+          }
+        },
+        {
+          "uid": "yj1Ja0TvN5yAsIPT6jw0X",
+          "type": "http-request",
+          "name": "N15 Image larger than 10 MiB",
+          "seq": 15,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "avSUopGkL4mKSUSSqZ5d6",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "BfeXQiCN9uVpmjzMsknfl",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "tFlDB8E6DmKikeR7zvAvQ",
+                  "type": "file",
+                  "name": "image",
+                  "value": [
+                    "test_images/oversized.jpg"
+                  ],
+                  "contentType": "image/jpeg",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 413\", () => expect(status).to.equal(413));\nt(\"Error code IMAGE_TOO_LARGE\", () => expect(body.code).to.equal(\"IMAGE_TOO_LARGE\"));",
+            "docs": "Max 10 MiB (10485760 bytes)."
+          }
+        },
+        {
+          "uid": "dhbRNgklLP8w8Aypo89Rk",
+          "type": "http-request",
+          "name": "N16 Unknown request_id",
+          "seq": 16,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "KPv6Iylh3XbuDEw3vG5ND",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "uyLWqwyw4HruYjQbldXjo",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "dqTS46I5f5AlU1xf2UL8c",
+                  "type": "text",
+                  "name": "request_id",
+                  "value": "11111111-1111-4111-8111-111111111111",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400 (or 503 when Redis is off)\", () => expect([400, 503]).to.include(status));\nt(\"Error code\", () => expect([\"REQUEST_ID_NOT_FOUND\", \"EMBEDDING_STORE_UNAVAILABLE\"]).to.include(body.code));",
+            "docs": "Expired / unknown request_id."
+          }
+        },
+        {
+          "uid": "4KA5fWgrh2BTpTOgESnOr",
+          "type": "http-request",
+          "name": "N17 Malformed request_id",
+          "seq": 17,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "ljvTdGQcBXJB2Luy614Ii",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "kxQaXWFaXzPJTz775Mtxq",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "4XWY9QtUqLj1Er5f5UjVJ",
+                  "type": "text",
+                  "name": "request_id",
+                  "value": "not-a-uuid",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code REQUEST_ID_NOT_FOUND\", () => expect(body.code).to.equal(\"REQUEST_ID_NOT_FOUND\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "w569AJYVC1y6DhUiQd9HT",
+          "type": "http-request",
+          "name": "N18 Suggestions - missing q",
+          "seq": 18,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "iNxpYcDf03cCDSTv5liYh",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "lFuk5DWp4n4L8VNH0Bg4X",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "QUoCZ75jQIzkiDEqwIVKk",
+          "type": "http-request",
+          "name": "N19 Suggestions - missing channel",
+          "seq": 19,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pu&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "2w78iK7xHtbmhrNI6Qw6N",
+                "name": "q",
+                "value": "pu",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "H1PwLs8p8daImFhZPQ59Q",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "SadA8tJaz3KZamlZg5q2F",
+          "type": "http-request",
+          "name": "N20 Suggestions - unsupported language",
+          "seq": 20,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=fr",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "u7zReZ8gUqjwP799MOjTI",
+                "name": "q",
+                "value": "pu",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "w3pijjKXjFJIzHadAoUoZ",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "ofDyuVnPZCF5LlefufOAt",
+                "name": "language",
+                "value": "fr",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code UNSUPPORTED_LANGUAGE\", () => expect(body.code).to.equal(\"UNSUPPORTED_LANGUAGE\"));",
+            "docs": ""
+          }
+        },
+        {
+          "uid": "F6pjsu4RAkch0OjMdFugU",
+          "type": "http-request",
+          "name": "N21 Suggestions - query_limit over 50",
+          "seq": 21,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=en&query_limit=51",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "SFkPAOf3anymfQ9uqPnyQ",
+                "name": "q",
+                "value": "pu",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "AjeH95gFEmPEYs5YDiDhQ",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "RJ8cSXgtdKSvRwSr8BafT",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "1Nj2ShxPacv29t4W1K8N6",
+                "name": "query_limit",
+                "value": "51",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "inherit"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 400\", () => expect(status).to.equal(400));\nt(\"Error code VALIDATION_ERROR\", () => expect(body.code).to.equal(\"VALIDATION_ERROR\"));",
+            "docs": ""
+          }
+        }
+      ]
+    },
+    {
+      "uid": "JmGDuxFKnrFFzPlGrVRWG",
+      "type": "folder",
+      "name": "08 Auth checks",
+      "seq": 9,
+      "root": {
+        "meta": {
+          "name": "08 Auth checks",
+          "seq": 9
+        }
+      },
+      "items": [
+        {
+          "uid": "3ByKpbyxaxVuQMlbPLsm1",
+          "type": "http-request",
+          "name": "X01 No token",
+          "seq": 1,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "p5FxsyRYDTnCwswUTmoWO",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "PNQqdwc7GP7XougXTEwqE",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "S301BAt8ljr50u03AlVxh",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 401\", () => expect(status).to.equal(401));\nt(\"Error code UNAUTHORIZED\", () => expect(body.code).to.equal(\"UNAUTHORIZED\"));\nt(\"WWW-Authenticate header\", () => expect(HEADER(\"www-authenticate\")).to.contain(\"Bearer\"));",
+            "docs": "Only when KEYCLOAK_AUTH_ENABLED=true (with auth off this returns 200)."
+          }
+        },
+        {
+          "uid": "2wuMIrf7whOGuu0uz7wyk",
+          "type": "http-request",
+          "name": "X02 Invalid token",
+          "seq": 2,
+          "request": {
+            "url": "{{base_url}}/v1/search",
+            "method": "POST",
+            "headers": [],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "invalid-token"
+              }
+            },
+            "body": {
+              "mode": "multipartForm",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": [
+                {
+                  "uid": "4oKJtcuNLFhntzw3h9o1p",
+                  "type": "text",
+                  "name": "channel",
+                  "value": "web",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "KxcXYqWD9dxoMW0HyXgqU",
+                  "type": "text",
+                  "name": "language",
+                  "value": "en",
+                  "contentType": "",
+                  "enabled": true
+                },
+                {
+                  "uid": "B9fCnaffwAFrRF8kFEx1m",
+                  "type": "text",
+                  "name": "search_query",
+                  "value": "pump",
+                  "contentType": "",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 401\", () => expect(status).to.equal(401));\nt(\"Error code UNAUTHORIZED\", () => expect(body.code).to.equal(\"UNAUTHORIZED\"));",
+            "docs": "Only when KEYCLOAK_AUTH_ENABLED=true."
+          }
+        },
+        {
+          "uid": "PPBzoWCZxTbn7QPEDmkOR",
+          "type": "http-request",
+          "name": "X03 Suggestions - no token",
+          "seq": 3,
+          "request": {
+            "url": "{{base_url}}/v1/search/suggestions?q=pu&channel=web&language=en",
+            "method": "GET",
+            "headers": [],
+            "params": [
+              {
+                "uid": "qNiMkFtIiDMitQHMWJnBZ",
+                "name": "q",
+                "value": "pu",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "JUwB8YOgLc58Tq0kZGa3B",
+                "name": "channel",
+                "value": "web",
+                "type": "query",
+                "enabled": true
+              },
+              {
+                "uid": "ZQH1m3vbueeMhjsr5419B",
+                "name": "language",
+                "value": "en",
+                "type": "query",
+                "enabled": true
+              }
+            ],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "none",
+              "json": null,
+              "text": null,
+              "xml": null,
+              "sparql": null,
+              "formUrlEncoded": [],
+              "multipartForm": []
+            },
+            "script": {
+              "req": null,
+              "res": null
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "const body = res.getBody() || {};\nconst status = res.getStatus();\nconst t = (name, fn) => test(name, fn);\nconst setVar = (k, v) => bru.setVar(k, v);\nconst HEADER = (h) => res.getHeader(h) || '';\nt(\"Status 401\", () => expect(status).to.equal(401));\nt(\"Error code UNAUTHORIZED\", () => expect(body.code).to.equal(\"UNAUTHORIZED\"));",
+            "docs": "Only when KEYCLOAK_AUTH_ENABLED=true."
+          }
+        }
+      ]
+    }
+  ],
+  "environments": [
+    {
+      "uid": "pRynn7wFFbUU2wnvTOzGj",
+      "name": "local",
+      "variables": [
+        {
+          "uid": "4DFWmSvYfrNDxJnBaXpZI",
+          "name": "base_url",
+          "value": "http://localhost:8000",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        },
+        {
+          "uid": "LMhWs1WQYBP7lgzFjn1yj",
+          "name": "keycloak_url",
+          "value": "https://keycloak.apps.asmonpeclr.np.asmo.com",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        },
+        {
+          "uid": "lJlDHBFZb5mcVJHnWsToJ",
+          "name": "keycloak_realm",
+          "value": "asmo",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        },
+        {
+          "uid": "OxDeNQjITg01dpfpfEpsC",
+          "name": "keycloak_client_id",
+          "value": "ai-app",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        },
+        {
+          "uid": "xWShnaugRW9mcUz5yte6F",
+          "name": "keycloak_client_secret",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": true
+        },
+        {
+          "uid": "BBVZDlz3zOICJpI1ew28a",
+          "name": "keycloak_username",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        },
+        {
+          "uid": "MN0DisSTmNOObBuLuhPrX",
+          "name": "keycloak_password",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": true
+        },
+        {
+          "uid": "sHYhTe6bSwlyFzhGs7xAo",
+          "name": "access_token",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        },
+        {
+          "uid": "8tOZyUrgcB2mBVrjGA63o",
+          "name": "request_id",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        },
+        {
+          "uid": "IzcB4sKSd5gsSbxhDajnf",
+          "name": "image_request_id",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        }
+      ]
+    }
+  ],
+  "root": {
+    "request": {
+      "auth": {
+        "mode": "bearer",
+        "bearer": {
+          "token": "{{access_token}}"
+        }
+      }
+    },
+    "docs": "Generated together with the Postman collection. Pick the 'local' environment; when Keycloak auth is on, fill keycloak_client_secret, keycloak_username and keycloak_password and run 00 Auth / A01 first. Image tests read files from test_images/ in the project folder: set the collection's location to the project folder."
+  },
+  "brunoConfig": {
+    "version": "1",
+    "name": "ASMO AI Search API v2.1",
+    "type": "collection",
+    "ignore": [
+      "node_modules",
+      ".git"
+    ]
+  }
+}

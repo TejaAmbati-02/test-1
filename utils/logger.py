@@ -23,6 +23,8 @@ from opentelemetry._logs import set_logger_provider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 
+from config import settings
+
 # OpenTelemetry limits
 os.environ["OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT"] = "4096"
 os.environ["OTEL_ATTRIBUTE_COUNT_LIMIT"] = "50"
@@ -65,7 +67,7 @@ class JsonFormatter(logging.Formatter):
             "latency": getattr(record, "latency", ""),
             "latency_seconds": getattr(record, "latency_seconds", ""),
             "metric_type": getattr(record, "metric_type", ""),
-            "environment": getattr(record, "environment", os.environ.get("ENV_NAME")),
+            "environment": getattr(record, "environment", settings.env_name),
             "logger_name": "[ASMOS BUYER ASSISTANT CHATBOT]",
             "source": f"{record.name}:{record.funcName}:{record.lineno}",
         }
@@ -102,7 +104,7 @@ console_handler.setFormatter(JsonFormatter())
 
 handlers: list[logging.Handler] = [console_handler]
 setup_warning: str | None = None
-app_insights = os.getenv("APP_INSIGHTS_CONNECTION_STRING", "").strip()
+app_insights = settings.app_insights_connection_string.strip()
 
 if IS_WINDOWS:
     try:
@@ -124,7 +126,7 @@ elif app_insights:
 
 logger = logging.getLogger("mcit_logger")
 logger.handlers = handlers
-logger.setLevel(getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
+logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
 logger.propagate = False
 if setup_warning:
     logger.warning(

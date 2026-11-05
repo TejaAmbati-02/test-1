@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # products (e.g. fans for "pump"). No product contains the words -> 0 results.
     # false = old behaviour: always mix in vector-only matches.
     text_require_keyword_match: bool = True
+    # How many of the query words a product must contain (OpenSearch minimum_should_match).
+    # "2<75%": 1-2 words -> all of them; 3+ words -> 75% (e.g. 2 of 3). "" = any one word is enough.
+    text_min_words_match: str = "2<75%"
     # HNSW candidate list size per kNN query. The Lucene engine ignores the index
     # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
     # exact image matches at k=100; 500 found every known-answer test image.
@@ -50,8 +53,10 @@ class Settings(BaseSettings):
     # so an exact copy is 1.0; 0 disables. Calibrate with eval_image_search.py.
     image_min_score: float = 0.6
     # Weight of the image kNN in text + image RRF fusion; the rest is split
-    # equally between BM25 and the text kNN.
-    text_image_image_weight: float = 0.6
+    # equally between BM25 and the text kNN. 0.4 = text 60% (BM25 30% + text kNN 30%), image 40%.
+    text_image_image_weight: float = 0.4
+    # Text shorter than this many characters is not searched (search and suggestions).
+    min_query_chars: int = 3
     # Uploaded images larger than this many pixels are scaled down (aspect ratio
     # kept) before embedding; see services/image_processor.py.
     image_max_pixels: int = 2_400_000
@@ -77,6 +82,23 @@ class Settings(BaseSettings):
     # also writes JSON lines to logs/asmo-<YYYY-MM-DD-HH-MM-SS>.log (a new file for every app start).
     log_level: str = "INFO"
     log_to_file: bool = False
+    # Azure Application Insights: when set, logs are also sent there.
+    app_insights_connection_string: str = ""
+    # Environment name written on every log line (e.g. dev / qa / prod).
+    env_name: str | None = None
+
+    # How often (seconds) to send a tiny embed to OCI GenAI so the model stays warm. Each tick is a billable call.
+    oci_embed_heartbeat_interval: int = 60
+    # Auto-reload on code changes when started with `python app.py` (local dev only; never in a OneDrive folder).
+    reload: bool = False
+
+    # Keycloak — checks the "Authorization: Bearer <token>" on every endpoint (utils/keycloak_auth.py).
+    keycloak_auth_enabled: bool = True
+    keycloak_server_url: str = ""
+    keycloak_realm: str = ""
+    keycloak_client_id: str = ""
+    keycloak_client_secret: str = ""
+    keycloak_timeout: int = 5
 
     api_title: str = "ASMO AI Search API"
     api_version: str = "2.1.0"
