@@ -291,8 +291,8 @@ class SearchService:
                     if check["hits"]["total"]["value"] == 0:
                         logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
                                     extra={"search_query": query, "status": "no_results"})
-                        empty = {"took": check.get("took", 0), "hits": {"total": {"value": 0}, "hits": []}}
-                        return await _to_search_response(empty, page, page_size, request_id)
+                        return SearchApiResponse(request_id=request_id, total_results=0, page=page,
+                                                 page_size=page_size, products=[], facets=SearchFacets())
                     filters.append(bm25)
                     keyword_only = True
                     logger.info("Search — step: products contain the query words -> results limited to "
@@ -388,7 +388,66 @@ class SearchService:
             for key in FACETS
         }
         logger.info(f"Search — facets: {facet_counts}", extra={"search_query": query, "facets": facet_counts})
-        response = await _to_search_response(raw, page, page_size, request_id)
+        # Map the OpenSearch response to the frontend contract (2.4): products + facets.
+        logger.info(f"Search — mapping {len(raw['hits']['hits'])} hits to the response")
+        products: list[ProductItem] = []
+        for hit in raw["hits"]["hits"]:
+            src = hit.get("_source", {})
+            sellers: list[SellerDetail] = []
+            for i, seller in enumerate(src.get("seller_details") or []):
+                # Older indexes keep temporary_unavailable / under_agreement on the root document
+                # (the primary, cheapest seller's offer): use those for seller 0 when its offer has none.
+                fallback = src if i == 0 else {}
+                sellers.append(SellerDetail(
+                    seller_id=seller.get("seller_id"),
+                    name=seller.get("seller_name"),
+                    lead_time=seller.get("lead_time"),
+                    unit_type=seller.get("unit_type"),
+                    price=seller.get("price"),
+                    moq=seller["moq"] if seller.get("moq") is not None else "",  # the FE expects "" when there's no MOQ
+                    currency=seller.get("currency"),
+                    temporary_unavailable=(
+                        seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None
+                        else fallback.get("temporary_unavailable")
+                    ),
+                    under_agreement=(
+                        seller["under_agreement"] if seller.get("under_agreement") is not None
+                        else fallback.get("under_agreement")
+                    ),
+                ))
+            products.append(ProductItem(
+                sku_id=src.get("sku_id"),
+                sku_name=src.get("sku_name") or src.get("product_name"),  # older indexes only have product_name
+                primary_image_url=src.get("primary_image_url"),
+                asmo_material_number=src.get("asmo_material_number"),
+                aramco_material_number=src.get("aramco_material_number"),
+                seller_details=sellers,
+            ))
+            logger.info(f"Search — mapped product sku_id={src.get('sku_id')}: {len(sellers)} sellers, "
+                        f"prices={[sd.price for sd in sellers]}, "
+                        f"name_from={'sku_name' if src.get('sku_name') else 'product_name'}")
+
+        aggs = raw.get("aggregations", {})
+        facets: dict[str, list[FacetTermValue]] = {}
+        for key, (_id_field, label_field, nested_path) in FACETS.items():
+            agg = aggs.get(key, {})
+            buckets = agg.get("values", {}).get("buckets", []) if nested_path else agg.get("buckets", [])
+            facets[key] = []
+            for bucket in buckets:
+                labels = bucket.get("label", {}).get("buckets", [])
+                label = labels[0]["key"] if label_field and labels else bucket["key"]
+                count = bucket["products"]["doc_count"] if nested_path else bucket["doc_count"]
+                facets[key].append(FacetTermValue(id=bucket["key"], value=str(label), count=count))
+            logger.info(f"Search — facet '{key}': {[(f.value, f.count) for f in facets[key]]}")
+
+        response = SearchApiResponse(
+            request_id=request_id,
+            total_results=raw["hits"]["total"]["value"],
+            page=page,
+            page_size=page_size,
+            products=products,
+            facets=SearchFacets(**facets),
+        )
         logger.info(f"Search — done: returning {len(response.products)} products (total={response.total_results}, "
                     f"request_id={response.request_id})", extra={"search_query": query, "status": "success"})
         return response
@@ -479,67 +538,5 @@ class SearchService:
         )
 
 
-async def _to_search_response(raw: dict[str, Any], page: int, page_size: int, request_id: str | None) -> SearchApiResponse:
-    """Map a raw OpenSearch response to the frontend contract (2.4): products + facets."""
-    logger.info(f"Search — mapping {len(raw['hits']['hits'])} hits to the response")
-    products: list[ProductItem] = []
-    for hit in raw["hits"]["hits"]:
-        src = hit.get("_source", {})
-        sellers: list[SellerDetail] = []
-        for i, seller in enumerate(src.get("seller_details") or []):
-            # Older indexes keep temporary_unavailable / under_agreement on the root document
-            # (the primary, cheapest seller's offer): use those for seller 0 when its offer has none.
-            fallback = src if i == 0 else {}
-            sellers.append(SellerDetail(
-                seller_id=seller.get("seller_id"),
-                name=seller.get("seller_name"),
-                lead_time=seller.get("lead_time"),
-                unit_type=seller.get("unit_type"),
-                price=seller.get("price"),
-                moq=seller["moq"] if seller.get("moq") is not None else "",  # the FE expects "" when there's no MOQ
-                currency=seller.get("currency"),
-                temporary_unavailable=(
-                    seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None
-                    else fallback.get("temporary_unavailable")
-                ),
-                under_agreement=(
-                    seller["under_agreement"] if seller.get("under_agreement") is not None
-                    else fallback.get("under_agreement")
-                ),
-            ))
-        products.append(ProductItem(
-            sku_id=src.get("sku_id"),
-            sku_name=src.get("sku_name") or src.get("product_name"),  # older indexes only have product_name
-            primary_image_url=src.get("primary_image_url"),
-            asmo_material_number=src.get("asmo_material_number"),
-            aramco_material_number=src.get("aramco_material_number"),
-            seller_details=sellers,
-        ))
-        logger.info(f"Search — mapped product sku_id={src.get('sku_id')}: {len(sellers)} sellers, "
-                    f"prices={[sd.price for sd in sellers]}, "
-                    f"name_from={'sku_name' if src.get('sku_name') else 'product_name'}")
-
-    aggs = raw.get("aggregations", {})
-    facets: dict[str, list[FacetTermValue]] = {}
-    for key, (_id_field, label_field, nested_path) in FACETS.items():
-        agg = aggs.get(key, {})
-        buckets = agg.get("values", {}).get("buckets", []) if nested_path else agg.get("buckets", [])
-        facets[key] = []
-        for bucket in buckets:
-            labels = bucket.get("label", {}).get("buckets", [])
-            label = labels[0]["key"] if label_field and labels else bucket["key"]
-            count = bucket["products"]["doc_count"] if nested_path else bucket["doc_count"]
-            facets[key].append(FacetTermValue(id=bucket["key"], value=str(label), count=count))
-        logger.info(f"Search — facet '{key}': {[(f.value, f.count) for f in facets[key]]}")
-
-    return SearchApiResponse(
-        request_id=request_id,
-        total_results=raw["hits"]["total"]["value"],
-        page=page,
-        page_size=page_size,
-        products=products,
-        facets=SearchFacets(**facets),
-    )
-
-
+# The one object the app uses — import it where needed:  from services.search import search_service
 search_service = SearchService(os_client)

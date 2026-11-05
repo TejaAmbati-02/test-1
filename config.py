@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The shared "app" logger (same one utils.logger exposes). Imported via logging
-# directly so config stays free of app imports; handlers attach once setup_logging runs.
+# directly so config stays free of app imports; handlers attach once app_logging.setup runs.
 logger = logging.getLogger("app")
  
  
@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # Image matches scoring below this are dropped. Scores are (1 + cosine) / 2,
     # so an exact copy is 1.0; 0 disables. Calibrate with eval_image_search.py.
     image_min_score: float = 0.6
+    # Images whose pixels vary less than this (std dev per colour channel, 0-255) are treated as
+    # blank / single colour and not searched. 0 = off.
+    image_min_detail: float = 6.0
     # Weight of the image kNN in text + image RRF fusion; the rest is split
     # equally between BM25 and the text kNN. 0.4 = text 60% (BM25 30% + text kNN 30%), image 40%.
     text_image_image_weight: float = 0.4

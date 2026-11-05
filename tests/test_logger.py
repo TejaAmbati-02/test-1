@@ -5,8 +5,9 @@ import logging
 
 import pytest
 
-from utils import logger as logger_module
-from utils.logger import JsonFormatter, logger, request_id_var, setup_logging
+from utils.logger import JsonFormatter, app_logging, logger, request_id_var
+
+setup_logging = app_logging.setup
 
 
 def _record(msg: str = "hello", **extra) -> logging.LogRecord:
@@ -91,14 +92,14 @@ def test_setup_logging_unknown_level_falls_back_to_info(restore_logger):
 
 
 def test_setup_logging_adds_one_file_handler(restore_logger, monkeypatch, tmp_path):
-    monkeypatch.setattr(logger_module, "IS_WINDOWS", False)
-    monkeypatch.setattr(logger_module, "LOGS_DIR", tmp_path / "logs")
+    monkeypatch.setattr(app_logging, "is_windows", False)
+    monkeypatch.setattr(app_logging, "logs_dir", tmp_path / "logs")
     # On Windows the module attaches its file handler at import; start without it
     # (restore_logger puts it back) so setup_logging adds one under tmp_path.
-    logger.handlers = [h for h in logger.handlers if h.get_name() != logger_module.FILE_HANDLER_NAME]
+    logger.handlers = [h for h in logger.handlers if h.get_name() != app_logging.file_handler_name]
     setup_logging(to_file=True)
     setup_logging(to_file=True)  # idempotent
-    file_handlers = [h for h in logger.handlers if h.get_name() == logger_module.FILE_HANDLER_NAME]
+    file_handlers = [h for h in logger.handlers if h.get_name() == app_logging.file_handler_name]
     assert len(file_handlers) == 1
 
     logger.warning("to file")
@@ -129,14 +130,13 @@ def test_json_formatter_keeps_any_extra_and_traceback():
     assert out["source"].startswith("app:")
 
 
-def test_new_log_file_per_start_named_with_seconds(monkeypatch, tmp_path):
+def test_new_log_file_per_start_named_with_seconds(restore_logger, monkeypatch, tmp_path):
     import re
 
-    monkeypatch.setattr(logger_module, "LOGS_DIR", tmp_path)
-    handler = logger_module._file_handler()
-    try:
-        name = handler.baseFilename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
-        assert re.fullmatch(r"asmo-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.log", name)
-        assert handler.get_name() == logger_module.FILE_HANDLER_NAME
-    finally:
-        handler.close()
+    monkeypatch.setattr(app_logging, "is_windows", False)
+    monkeypatch.setattr(app_logging, "logs_dir", tmp_path)
+    logger.handlers = [h for h in logger.handlers if h.get_name() != app_logging.file_handler_name]
+    setup_logging(to_file=True)
+    (handler,) = [h for h in logger.handlers if h.get_name() == app_logging.file_handler_name]
+    name = handler.baseFilename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    assert re.fullmatch(r"asmo-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.log", name)

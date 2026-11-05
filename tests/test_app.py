@@ -11,7 +11,6 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import app as app_module
-from app import _measure_latency
 from services.embedder import embedding_service
 from services.opensearch import os_client
 from services.redis_client import redis_client
@@ -78,33 +77,38 @@ class TestHealth:
 # --------------------------------------------------------------------------
 
 
-class TestMeasureLatency:
-    async def test_all_succeed(self):
+class TestLatencyMeasurement:
+    """Each latency endpoint measures its own samples (shown here with OCI)."""
+
+    def test_all_succeed(self, client, monkeypatch):
         call = AsyncMock()
-        r = await _measure_latency("oci", "ep", 3, call)
-        assert (r.target, r.endpoint, r.samples) == ("oci", "ep", 3)
-        assert len(r.samples_ms) == 3 and all(t >= 0 for t in r.samples_ms)
-        assert r.min_ms <= r.avg_ms <= r.max_ms
-        assert r.ok is True and r.error is None
+        monkeypatch.setattr(embedding_service, "encode_query", call)
+        r = client.get("/health/latency/oci", params={"samples": 3}).json()
+        assert (r["target"], r["samples"]) == ("oci", 3)
+        assert len(r["samples_ms"]) == 3 and all(t >= 0 for t in r["samples_ms"])
+        assert r["min_ms"] <= r["avg_ms"] <= r["max_ms"]
+        assert r["ok"] is True and r["error"] is None
         assert call.await_count == 3
 
-    async def test_stops_on_first_error(self):
+    def test_stops_on_first_error(self, client, monkeypatch):
         call = AsyncMock(side_effect=[None, RuntimeError("down"), None])
-        r = await _measure_latency("oci", "ep", 3, call)
-        assert len(r.samples_ms) == 1
-        assert r.ok is False and r.error == "sample 2 failed: down"
+        monkeypatch.setattr(embedding_service, "encode_query", call)
+        r = client.get("/health/latency/oci", params={"samples": 3}).json()
+        assert len(r["samples_ms"]) == 1
+        assert r["ok"] is False and r["error"] == "sample 2 failed: down"
         assert call.await_count == 2
 
-    async def test_first_call_fails(self):
-        r = await _measure_latency("redis", "ep", 2, AsyncMock(side_effect=RuntimeError("x")))
-        assert (r.samples_ms, r.min_ms, r.avg_ms, r.max_ms) == ([], 0.0, 0.0, 0.0)
+    def test_first_call_fails(self, client, monkeypatch):
+        monkeypatch.setattr(embedding_service, "encode_query", AsyncMock(side_effect=RuntimeError("x")))
+        r = client.get("/health/latency/oci", params={"samples": 2}).json()
+        assert (r["samples_ms"], r["min_ms"], r["avg_ms"], r["max_ms"]) == ([], 0.0, 0.0, 0.0)
 
 
 class TestLatencyEndpoints:
     @pytest.fixture
     def os_raw(self, monkeypatch):
         raw = AsyncMock()
-        monkeypatch.setattr(os_client, "get_client", AsyncMock(return_value=raw))
+        monkeypatch.setattr(os_client, "client", raw)
         return raw
 
     def test_opensearch(self, client, os_raw):
@@ -190,7 +194,7 @@ def startup_deps(monkeypatch):
 
 
 def _heartbeat_tasks() -> list[asyncio.Task]:
-    return [t for t in asyncio.all_tasks() if t.get_coro().__name__ == "_heartbeat"]
+    return [t for t in asyncio.all_tasks() if t.get_coro().__name__ == "keep_warm"]
 
 
 class TestLifespan:
@@ -248,18 +252,25 @@ class TestHeartbeats:
         monkeypatch.setattr(app_module.asyncio, "sleep", sleep)
         return sleep
 
-    async def test_heartbeat_survives_errors(self, fake_sleep):
-        call = AsyncMock(side_effect=[ConnectionError("blip"), True])
+    async def test_opensearch_heartbeat_survives_errors(self, fake_sleep, monkeypatch):
+        raw = AsyncMock()
+        raw.ping.side_effect = [ConnectionError("blip"), True]
+        monkeypatch.setattr(os_client, "client", raw)
         with pytest.raises(asyncio.CancelledError):
-            await app_module._heartbeat("OpenSearch", 7, call)
-        assert call.await_count == 2
+            await os_client.keep_warm(7)
+        assert raw.ping.await_count == 2
         fake_sleep.assert_awaited_with(7)
 
-    async def test_heartbeat_passes_arguments(self, fake_sleep):
-        call = AsyncMock()
+    async def test_oci_heartbeat_calls_oci_directly_not_the_cache(self, fake_sleep, monkeypatch):
+        oci = MagicMock()
+        oci.embed_text.side_effect = [RuntimeError("blip"), None]
+        monkeypatch.setattr(embedding_service, "_client", oci)
+        monkeypatch.setattr(embedding_service, "_cache", {})
         with pytest.raises(asyncio.CancelledError):
-            await app_module._heartbeat("OCI embed", 60, call, "warmup")
-        call.assert_awaited_with("warmup")
+            await embedding_service.keep_warm(60)
+        assert oci.embed_text.call_count == 2  # every tick reaches OCI, a failure doesn't stop the loop
+        assert oci.embed_text.call_args.kwargs["embed_text_details"].inputs == ["warmup"]
+        fake_sleep.assert_awaited_with(60)
 
 
 # --------------------------------------------------------------------------

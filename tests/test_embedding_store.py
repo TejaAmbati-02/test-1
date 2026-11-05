@@ -6,12 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.embedding_store import (
-    EmbeddingStore,
-    EmbeddingStoreUnavailable,
-    RequestIdNotFound,
-    SearchContext,
-)
+from models.response import ApiError
+from services.embedding_store import EmbeddingStore
 from services.redis_client import RedisClientService
 
 NEW_ID = "11111111-1111-4111-8111-111111111111"
@@ -64,7 +60,7 @@ def disabled_store(test_settings, embedder):
 async def _drain(store: EmbeddingStore) -> None:
     """Wait for the background Redis writes to finish."""
     if store._pending:
-        await asyncio.gather(*list(store._pending))
+        await asyncio.gather(*list(store._pending), return_exceptions=True)
     await asyncio.sleep(0)  # let the done-callbacks clear _pending
 
 
@@ -75,7 +71,7 @@ def _stored(fake_redis: FakeRedis, key: str) -> dict:
 class TestNewContext:
     async def test_query_is_embedded_and_stored(self, store, embedder, fake_redis):
         ctx = await store.resolve(NEW_ID, "valve", None, None)
-        assert ctx == SearchContext(NEW_ID, "valve", [0.1, 0.2], None, reused=False)
+        assert ctx == {"request_id": NEW_ID, "query": "valve", "query_vector": [0.1, 0.2], "image_vector": None, "reused": False}
         embedder.encode_query.assert_awaited_once_with("valve")
         await _drain(store)
         assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": None, "query": "valve"}
@@ -84,21 +80,21 @@ class TestNewContext:
 
     async def test_query_and_image_are_both_embedded(self, store, embedder, fake_redis):
         ctx = await store.resolve(NEW_ID, "valve", (b"img", "image/png"), None)
-        assert (ctx.query_vector, ctx.image_vector) == ([0.1, 0.2], [0.3, 0.4])
+        assert (ctx["query_vector"], ctx["image_vector"]) == ([0.1, 0.2], [0.3, 0.4])
         embedder.encode_image.assert_awaited_once_with(b"img", "image/png")
         await _drain(store)
         assert _stored(fake_redis, NEW_ID)["image_emb"] == [0.3, 0.4]
 
     async def test_disabled_store_embeds_without_saving(self, disabled_store, embedder):
         ctx = await disabled_store.resolve(NEW_ID, "valve", None, None)
-        assert ctx.query_vector == [0.1, 0.2]
+        assert ctx["query_vector"] == [0.1, 0.2]
         assert not disabled_store._pending
 
     async def test_background_write_failure_is_swallowed(self, store, fake_redis):
         fake_redis.set = AsyncMock(side_effect=ConnectionError("write failed"))
         ctx = await store.resolve(NEW_ID, "valve", None, None)
         await _drain(store)  # must not raise
-        assert ctx.query_vector == [0.1, 0.2]
+        assert ctx["query_vector"] == [0.1, 0.2]
 
 
 class TestRefine:
@@ -108,7 +104,7 @@ class TestRefine:
 
     async def test_previous_context_is_reused_as_is(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, None, None, OLD_ID)
-        assert ctx == SearchContext(OLD_ID, "Ball Valve", [0.5], [0.6], reused=True)
+        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "reused": True}
         embedder.encode_query.assert_not_awaited()
         await _drain(store)
         assert fake_redis.ttls[OLD_ID] == 60  # expiry refreshed
@@ -116,34 +112,42 @@ class TestRefine:
 
     async def test_new_query_replaces_text_and_keeps_image(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, "pump", None, OLD_ID)
-        assert ctx == SearchContext(NEW_ID, "pump", [0.1, 0.2], [0.6], reused=False)
+        assert ctx == {"request_id": NEW_ID, "query": "pump", "query_vector": [0.1, 0.2], "image_vector": [0.6], "reused": False}
         await _drain(store)
         assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": [0.6], "query": "pump"}
 
     async def test_same_query_reuses_its_vector(self, store, embedder, previous):
         ctx = await store.resolve(NEW_ID, "  ball   VALVE ", None, OLD_ID)
-        assert ctx.query_vector == [0.5]
+        assert ctx["query_vector"] == [0.5]
         embedder.encode_query.assert_not_awaited()
 
     async def test_new_image_replaces_image_and_keeps_query(self, store, embedder, previous):
         ctx = await store.resolve(NEW_ID, None, (b"img", "image/jpeg"), OLD_ID)
-        assert (ctx.query, ctx.query_vector, ctx.image_vector) == ("Ball Valve", [0.5], [0.3, 0.4])
+        assert (ctx["query"], ctx["query_vector"], ctx["image_vector"]) == ("Ball Valve", [0.5], [0.3, 0.4])
         embedder.encode_query.assert_not_awaited()
 
     @pytest.mark.parametrize("bad_id", ["nope", "AAAAAAAA-2222-4222-8222-222222222222"])  # ids are lowercase
     async def test_malformed_request_id(self, store, bad_id):
-        with pytest.raises(RequestIdNotFound, match="not a valid request_id"):
+        with pytest.raises(ApiError) as e:
             await store.resolve(NEW_ID, None, None, bad_id)
+        assert (e.value.status_code, e.value.detail["code"]) == (400, "REQUEST_ID_NOT_FOUND")
+        assert "not a valid request_id" in e.value.detail["message"]
 
     async def test_expired_request_id(self, store):
-        with pytest.raises(RequestIdNotFound, match="not found or its search has expired"):
+        with pytest.raises(ApiError) as e:
             await store.resolve(NEW_ID, None, None, OLD_ID)
+        assert (e.value.status_code, e.value.detail["code"]) == (400, "REQUEST_ID_NOT_FOUND")
+        assert "not found or its search has expired" in e.value.detail["message"]
 
     async def test_disabled_store(self, disabled_store):
-        with pytest.raises(EmbeddingStoreUnavailable, match="disabled"):
+        with pytest.raises(ApiError) as e:
             await disabled_store.resolve(NEW_ID, None, None, OLD_ID)
+        assert (e.value.status_code, e.value.detail["code"]) == (503, "EMBEDDING_STORE_UNAVAILABLE")
+        assert "disabled" in e.value.detail["message"]
 
     async def test_redis_error(self, store, fake_redis):
         fake_redis.get = AsyncMock(side_effect=ConnectionError("down"))
-        with pytest.raises(EmbeddingStoreUnavailable, match="down"):
+        with pytest.raises(ApiError) as e:
             await store.resolve(NEW_ID, None, None, OLD_ID)
+        assert (e.value.status_code, e.value.detail["code"]) == (503, "EMBEDDING_STORE_UNAVAILABLE")
+        assert "down" in e.value.detail["message"]

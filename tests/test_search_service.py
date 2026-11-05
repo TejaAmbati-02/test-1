@@ -14,7 +14,6 @@ from services.search import (
     PIPELINE_ID,
     TEXT_IMAGE_PIPELINE_ID,
     SearchService,
-    _to_search_response,
 )
 from tests.conftest import os_search_result
 
@@ -79,9 +78,9 @@ class TestTables:
         assert FACET_AGGS["seller"]["aggs"]["values"]["aggs"]["products"] == {"reverse_nested": {}}
 
 
-class TestToSearchResponse:
-    async def test_products_and_facets(self):
-        r = await _to_search_response(os_search_result([HIT], total=42, aggs=AGGS), 2, 10, "r1")
+class TestResponseMapping:
+    async def test_products_and_facets(self, service):
+        r = await _search(service, page=2, page_size=10, request_id="r1")  # the os_client fixture returns HIT + AGGS
         assert (r.request_id, r.total_results, r.page, r.page_size) == ("r1", 42, 2, 10)
         p = r.products[0]
         assert (p.sku_id, p.sku_name) == ("SKU-1", "Ball Valve")  # sku_name falls back to product_name
@@ -94,8 +93,9 @@ class TestToSearchResponse:
         assert r.facets.seller[0].model_dump() == {"id": "s1", "value": "Wholesale Warehouse", "count": 2}
         assert r.facets.sub_category == []
 
-    async def test_empty(self):
-        r = await _to_search_response(os_search_result(), 1, 10, None)
+    async def test_empty(self, service, os_client):
+        os_client.search.return_value = os_search_result()
+        r = await _search(service, request_id=None)
         assert r.products == [] and r.facets.category == []
 
 

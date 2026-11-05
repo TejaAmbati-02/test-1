@@ -35,6 +35,7 @@ _TEST_ENV = {
     "IMAGE_MIN_SCORE": "0.6",
     "TEXT_IMAGE_IMAGE_WEIGHT": "0.4",
     "MIN_QUERY_CHARS": "3",
+    "IMAGE_MIN_DETAIL": "6",
     "TEXT_REQUIRE_KEYWORD_MATCH": "true",
     "TEXT_MIN_WORDS_MATCH": "2<75%",
     # Redis off by default; tests that need it enable it explicitly.

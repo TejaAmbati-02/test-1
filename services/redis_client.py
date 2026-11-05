@@ -16,10 +16,6 @@ from config import Settings, settings as _settings
 from utils.logger import logger
 
 
-class RedisNotConnected(Exception):
-    """A Redis call was made before connect() (or after close())."""
-
-
 class RedisClientService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -35,9 +31,9 @@ class RedisClientService:
 
     @property
     def client(self) -> redis.Redis:
-        """The shared client. Raises RedisNotConnected before connect() / after close()."""
+        """The shared client. Raises RuntimeError before connect() / after close()."""
         if self._client is None:
-            raise RedisNotConnected("Redis client is not connected — call RedisClientService.connect() at startup")
+            raise RuntimeError("Redis client is not connected — call RedisClientService.connect() at startup")
         return self._client
 
     async def connect(self) -> None:
@@ -88,4 +84,5 @@ class RedisClientService:
             self._client = None
 
 
+# The one object the app uses — import it where needed:  from services.redis_client import redis_client
 redis_client = RedisClientService(_settings)

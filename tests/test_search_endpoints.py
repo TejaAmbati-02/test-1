@@ -9,8 +9,9 @@ import pytest
 from PIL import Image
 
 from routers.search import MAX_IMAGE_BYTES
-from services.embedding_store import EmbeddingStoreUnavailable, RequestIdNotFound, SearchContext, embedding_store
-from services.opensearch import IndexNotFoundError, OpenSearchQueryError, os_client
+from models.response import ApiError
+from services.embedding_store import embedding_store
+from services.opensearch import os_client
 from services.search import search_service
 from tests.conftest import GIF_BYTES, PNG_BYTES, WEBP_BYTES, make_search_response, multipart
 
@@ -20,7 +21,9 @@ PREVIOUS_ID = "22222222-2222-4222-8222-222222222222"
 
 def _real_image(fmt: str) -> bytes:
     out = BytesIO()
-    Image.new("RGB", (8, 8), "blue").save(out, format=fmt)
+    img = Image.new("RGB", (8, 8), "blue")
+    img.paste("yellow", (2, 2, 6, 6))  # some content: a plain colour counts as blank
+    img.save(out, format=fmt)
     return out.getvalue()
 
 
@@ -32,8 +35,10 @@ def mocks(monkeypatch):
     """Mock the embedding store and search service used by the router."""
     async def resolve(request_id, query, image, previous_request_id):
         if previous_request_id and not query and image is None:
-            return SearchContext(previous_request_id, "stored query", [0.5], None, reused=True)
-        return SearchContext(request_id, query, [0.1] if query else None, [0.3] if image else None, reused=False)
+            return {"request_id": previous_request_id, "query": "stored query", "query_vector": [0.5],
+                    "image_vector": None, "reused": True}
+        return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
+                "image_vector": [0.3] if image else None, "reused": False}
 
     m = {
         "resolve": AsyncMock(side_effect=resolve),
@@ -63,6 +68,22 @@ class TestSearchModes:
         assert (resp.json()["total_results"], resp.json()["products"]) == (0, [])
         mocks["resolve"].assert_not_awaited()  # no embedding call
         mocks["search"].assert_not_awaited()   # no OpenSearch call
+
+    def test_blank_image_alone_is_not_searched(self, client, mocks):
+        out = BytesIO()
+        Image.new("RGB", (499, 600), (138, 255, 46)).save(out, format="PNG")  # plain green
+        resp = _post(client, BASE, {"image": ("green.png", out.getvalue(), "image/png")})
+        assert resp.status_code == 200
+        assert (resp.json()["total_results"], resp.json()["products"]) == (0, [])
+        mocks["resolve"].assert_not_awaited()  # no embedding call
+        mocks["search"].assert_not_awaited()
+
+    def test_blank_image_with_text_searches_the_text_only(self, client, mocks):
+        out = BytesIO()
+        Image.new("RGB", (100, 100), "white").save(out, format="PNG")
+        assert _post(client, {**BASE, "search_query": "valve"}, {"image": ("w.png", out.getvalue(), "image/png")}).status_code == 200
+        _, query, image, _ = mocks["resolve"].call_args.args
+        assert (query, image) == ("valve", None)
 
     def test_short_text_with_image_searches_the_image_only(self, client, mocks):
         resp = _post(client, {**BASE, "search_query": "pu"}, {"image": ("a.png", REAL_PNG, "image/png")})
@@ -228,24 +249,24 @@ class TestSearchValidation:
 
 class TestSearchErrors:
     @pytest.mark.parametrize("error, status, code", [
-        (RequestIdNotFound("request_id 'x' was not found or its search has expired"), 400, "REQUEST_ID_NOT_FOUND"),
-        (EmbeddingStoreUnavailable("Redis is disabled"), 503, "EMBEDDING_STORE_UNAVAILABLE"),
+        (ApiError(400, "REQUEST_ID_NOT_FOUND", "request_id 'x' was not found or its search has expired"), 400, "REQUEST_ID_NOT_FOUND"),
+        (ApiError(503, "EMBEDDING_STORE_UNAVAILABLE", "Redis is disabled"), 503, "EMBEDDING_STORE_UNAVAILABLE"),
         (RuntimeError("OCI down"), 500, "INTERNAL_ERROR"),
     ])
     def test_resolve_errors(self, client, mocks, error, status, code):
         mocks["resolve"].side_effect = error
         body = _error(_post(client, {**BASE, "request_id": PREVIOUS_ID}), status, code)
-        assert str(error) in body["message"]
+        assert body["message"] == (error.detail["message"] if isinstance(error, ApiError) else str(error))
 
     @pytest.mark.parametrize("error, status, code", [
-        (IndexNotFoundError("Index 'x' not found"), 404, "INDEX_NOT_FOUND"),
-        (OpenSearchQueryError("bad query"), 400, "QUERY_ERROR"),
+        (ApiError(404, "INDEX_NOT_FOUND", "Index 'x' not found"), 404, "INDEX_NOT_FOUND"),
+        (ApiError(400, "QUERY_ERROR", "bad query"), 400, "QUERY_ERROR"),
         (RuntimeError("kaboom"), 500, "INTERNAL_ERROR"),
     ])
     def test_search_errors(self, client, mocks, error, status, code):
         mocks["search"].side_effect = error
         body = _error(_post(client, {**BASE, "search_query": "valve"}), status, code)
-        assert body["message"] == str(error)
+        assert body["message"] == (error.detail["message"] if isinstance(error, ApiError) else str(error))
 
 
 @pytest.fixture
@@ -305,8 +326,8 @@ class TestSuggestions:
         assert body["message"].startswith("query.")
 
     @pytest.mark.parametrize("error, status, code", [
-        (IndexNotFoundError("missing"), 404, "INDEX_NOT_FOUND"),
-        (OpenSearchQueryError("bad"), 400, "QUERY_ERROR"),
+        (ApiError(404, "INDEX_NOT_FOUND", "missing"), 404, "INDEX_NOT_FOUND"),
+        (ApiError(400, "QUERY_ERROR", "bad"), 400, "QUERY_ERROR"),
         (RuntimeError("boom"), 500, "INTERNAL_ERROR"),
     ])
     def test_backend_errors(self, client, suggestions_mock, error, status, code):

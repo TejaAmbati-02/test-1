@@ -7,7 +7,7 @@ import pytest
 
 from config import settings
 from services import redis_client as rc
-from services.redis_client import RedisClientService, RedisNotConnected
+from services.redis_client import RedisClientService
 
 
 def _service(**overrides) -> RedisClientService:
@@ -37,7 +37,7 @@ def test_endpoint():
 
 
 def test_client_before_connect_raises():
-    with pytest.raises(RedisNotConnected):
+    with pytest.raises(RuntimeError, match="not connected"):
         _ = _service().client
 
 
@@ -47,7 +47,7 @@ async def test_connect_disabled_does_nothing(fake_redis, overrides):
     service = _service(**overrides)
     await service.connect()
     cls.assert_not_called()
-    with pytest.raises(RedisNotConnected):
+    with pytest.raises(RuntimeError, match="not connected"):
         _ = service.client
 
 
@@ -90,7 +90,7 @@ async def test_connect_failure_propagates(monkeypatch):
     service = _service()
     with pytest.raises(RuntimeError, match="bad config"):
         await service.connect()
-    with pytest.raises(RedisNotConnected):
+    with pytest.raises(RuntimeError, match="not connected"):
         _ = service.client
 
 
@@ -121,7 +121,7 @@ async def test_close_releases_client(fake_redis):
     await service.connect()
     await service.close()
     instance.aclose.assert_awaited_once()
-    with pytest.raises(RedisNotConnected):
+    with pytest.raises(RuntimeError, match="not connected"):
         _ = service.client
 
 
@@ -144,7 +144,7 @@ async def test_close_error_is_swallowed_and_client_cleared(fake_redis):
     service = _service()
     await service.connect()
     await service.close()
-    with pytest.raises(RedisNotConnected):
+    with pytest.raises(RuntimeError, match="not connected"):
         _ = service.client
 
 

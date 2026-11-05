@@ -1,17 +1,14 @@
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from opensearchpy import NotFoundError, RequestError
 
 from services import opensearch as os_module
-from services.opensearch import (
-    IndexNotFoundError,
-    OpenSearchClientService,
-    OpenSearchQueryError,
-    _redact_vectors,
-)
+from models.response import ApiError
+from services.opensearch import OpenSearchClientService
 from tests.conftest import os_search_result
 
 
@@ -23,17 +20,15 @@ def raw_client():
 @pytest.fixture
 def service(test_settings, raw_client):
     svc = OpenSearchClientService(test_settings)
-    svc._client = raw_client
+    svc.client = raw_client
     return svc
 
 
-class TestGetClient:
-    async def test_creates_client_once(self, monkeypatch, test_settings):
+class TestClient:
+    def test_client_is_built_from_settings(self, monkeypatch, test_settings):
         ctor = MagicMock(return_value="client")
         monkeypatch.setattr(os_module, "AsyncOpenSearch", ctor)
-        svc = OpenSearchClientService(test_settings)
-        assert await svc.get_client() == "client"
-        assert await svc.get_client() == "client"
+        assert OpenSearchClientService(test_settings).client == "client"
         ctor.assert_called_once()
         kwargs = ctor.call_args.kwargs
         assert kwargs["hosts"] == [{"host": "opensearch.test", "port": 9200}]
@@ -43,25 +38,15 @@ class TestGetClient:
         assert kwargs["verify_certs"] is False
         assert kwargs["http_compress"] is True
 
-    async def test_creation_failure_propagates(self, monkeypatch, test_settings):
-        monkeypatch.setattr(os_module, "AsyncOpenSearch", MagicMock(side_effect=ValueError("bad host")))
-        with pytest.raises(ValueError):
-            await OpenSearchClientService(test_settings).get_client()
-
 
 class TestClose:
-    async def test_close_without_client(self, test_settings):
-        await OpenSearchClientService(test_settings).close()
-
-    async def test_close_resets_client(self, service, raw_client):
+    async def test_close(self, service, raw_client):
         await service.close()
         raw_client.close.assert_awaited_once()
-        assert service._client is None
 
-    async def test_close_error_is_swallowed(self, service, raw_client):
+    async def test_close_error_is_logged_not_raised(self, service, raw_client):
         raw_client.close.side_effect = RuntimeError("boom")
         await service.close()
-        assert service._client is raw_client
 
 
 class TestPingAndInfo:
@@ -161,13 +146,16 @@ class TestSearch:
 
     async def test_missing_index(self, service, raw_client):
         raw_client.search.side_effect = NotFoundError(404, "index_not_found_exception", {})
-        with pytest.raises(IndexNotFoundError, match="Index 'products' not found"):
+        with pytest.raises(ApiError) as e:
             await service.search("products", {})
+        assert (e.value.status_code, e.value.detail) == (404, {"code": "INDEX_NOT_FOUND", "message": "Index 'products' not found"})
 
     async def test_bad_query(self, service, raw_client):
         raw_client.search.side_effect = RequestError(400, "parsing_exception", {"error": "bad"})
-        with pytest.raises(OpenSearchQueryError, match="OpenSearch query error"):
+        with pytest.raises(ApiError) as e:
             await service.search("products", {})
+        assert (e.value.status_code, e.value.detail["code"]) == (400, "QUERY_ERROR")
+        assert "OpenSearch query error" in e.value.detail["message"]
 
     async def test_unexpected_error_propagates(self, service, raw_client):
         raw_client.search.side_effect = ConnectionError("down")
@@ -181,58 +169,31 @@ class TestSearch:
         await service.search("products", body)
         assert raw_client.search.call_args.kwargs["body"]["query"]["knn"]["content_vector"]["vector"] == vector
 
-    async def test_get_client_failure_propagates_from_search(self, monkeypatch, test_settings):
-        monkeypatch.setattr(os_module, "AsyncOpenSearch", MagicMock(side_effect=ValueError("bad host")))
-        with pytest.raises(ValueError):
-            await OpenSearchClientService(test_settings).search("products", {})
+class TestLoggedBody:
+    """The search logs its body with embedding vectors shortened to "<vector dim=N>"."""
 
-
-class TestRedactVectors:
-    async def test_long_numeric_list_is_summarised(self):
-        assert await _redact_vectors([0.1] * 17) == "<vector dim=17>"
-        assert await _redact_vectors(list(range(20))) == "<vector dim=20>"
-
-    async def test_short_or_mixed_lists_are_kept(self):
-        assert await _redact_vectors([0.1] * 16) == [0.1] * 16
-        mixed = [0.1] * 20 + ["x"]
-        assert await _redact_vectors(mixed) == mixed
-
-    async def test_nested_structures(self):
-        body = {
-            "size": 10,
-            "query": {"hybrid": {"queries": [
-                {"multi_match": {"query": "valve", "fields": ["a", "b"]}},
-                {"knn": {"content_vector": {"vector": [1.0] * 1024, "k": 100}}},
-            ]}},
-        }
-        redacted = await _redact_vectors(body)
-        assert redacted["size"] == 10
-        assert redacted["query"]["hybrid"]["queries"][0] == {"multi_match": {"query": "valve", "fields": ["a", "b"]}}
-        assert redacted["query"]["hybrid"]["queries"][1]["knn"]["content_vector"] == {
-            "vector": "<vector dim=1024>", "k": 100,
-        }
-        # The original body is not modified.
-        assert body["query"]["hybrid"]["queries"][1]["knn"]["content_vector"]["vector"] == [1.0] * 1024
-
-    @pytest.mark.parametrize("value", [None, 5, "text", 1.5])
-    async def test_scalars_pass_through(self, value):
-        assert await _redact_vectors(value) == value
-
-    async def test_error_propagates(self):
-        class Exploding(dict):
-            def items(self):
-                raise RuntimeError("boom")
-
-        with pytest.raises(RuntimeError, match="boom"):
-            await _redact_vectors(Exploding(a=1))
-
-    async def test_search_logs_redacted_body(self, monkeypatch, test_settings):
-        raw = AsyncMock()
-        raw.search.return_value = {"took": 1, "hits": {"total": {"value": 0}, "hits": []}}
-        service = OpenSearchClientService(test_settings)
-        monkeypatch.setattr(service, "get_client", AsyncMock(return_value=raw))
+    async def _logged(self, service, raw_client, monkeypatch, body) -> dict:
+        raw_client.search.return_value = os_search_result()
         info = MagicMock()
         monkeypatch.setattr(os_module.logger, "info", info)
-        await service.search("products", {"knn": {"v": {"vector": [0.5] * 32}}})
-        logged = info.call_args_list[0].kwargs["extra"]["input_data"]["body"]
-        assert logged == {"knn": {"v": {"vector": "<vector dim=32>"}}}
+        await service.search("products", body)
+        return json.loads(info.call_args_list[0].kwargs["extra"]["input_data"]["body"])
+
+    async def test_vectors_are_shortened(self, service, raw_client, monkeypatch):
+        body = {"size": 10, "query": {"hybrid": {"queries": [
+            {"multi_match": {"query": "valve", "fields": ["a", "b"]}},
+            {"knn": {"content_vector": {"vector": [1.0] * 1024, "k": 100}}},
+        ]}}}
+        logged = await self._logged(service, raw_client, monkeypatch, body)
+        assert logged["size"] == 10
+        assert logged["query"]["hybrid"]["queries"][0] == {"multi_match": {"query": "valve", "fields": ["a", "b"]}}
+        assert logged["query"]["hybrid"]["queries"][1]["knn"]["content_vector"] == {"vector": "<vector dim=1024>", "k": 100}
+        # The body sent to OpenSearch is not modified.
+        assert raw_client.search.call_args.kwargs["body"]["query"]["hybrid"]["queries"][1]["knn"]["content_vector"]["vector"] == [1.0] * 1024
+
+    async def test_short_and_mixed_lists_are_kept(self, service, raw_client, monkeypatch):
+        body = {"short": [0.1] * 16, "mixed": [0.1] * 20 + ["x"], "neg": [-0.5, 1e-3] * 9}
+        logged = await self._logged(service, raw_client, monkeypatch, body)
+        assert logged["short"] == [0.1] * 16
+        assert logged["mixed"] == [0.1] * 20 + ["x"]
+        assert logged["neg"] == "<vector dim=18>"

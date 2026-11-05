@@ -107,7 +107,7 @@ class TestEncodeQuery:
         assert oci_client.embed_text.call_count == 1
 
     async def test_lru_cache_evicts_oldest(self, service, oci_client, monkeypatch):
-        monkeypatch.setattr(embedder_module, "QUERY_CACHE_SIZE", 2)
+        monkeypatch.setattr(service, "cache_size", 2)
         await service.encode_query("a")
         await service.encode_query("b")
         await service.encode_query("a")  # refresh "a"; "b" is now the oldest
@@ -175,7 +175,7 @@ class TestEncodeQuery:
         assert await service.encode_query("q") == pytest.approx([0.0, 1.0, 0.0, 0.0])
 
     def test_default_cache_size(self):
-        assert embedder_module.QUERY_CACHE_SIZE == 2048
+        assert EmbeddingService(embedder_module.settings).cache_size == 2048
 
     async def test_service_error_is_logged_with_oci_fields(self, service, oci_client, monkeypatch):
         error = MagicMock()

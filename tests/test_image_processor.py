@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from io import BytesIO
 
 import pytest
@@ -7,15 +5,18 @@ from PIL import Image
 from starlette.datastructures import Headers, UploadFile
 
 from models.response import ApiError
-from services import image_processor as ip
-from services.image_processor import MAX_IMAGE_BYTES, process_image
+from services.image_processor import image_processor
+
+MAX_IMAGE_BYTES = image_processor.max_bytes
 
 MIME = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp"}
 
 
 def _image_bytes(fmt: str, size=(40, 20), mode="RGB") -> bytes:
     out = BytesIO()
-    Image.new(mode, size, "red").save(out, format=fmt)
+    img = Image.new("RGB", size, "red")
+    img.paste("blue", (0, 0, size[0] // 2, size[1]))  # some content: a plain colour counts as blank
+    img.convert(mode).save(out, format=fmt)
     return out.getvalue()
 
 
@@ -28,38 +29,38 @@ def _open(data: bytes) -> Image.Image:
 
 
 def test_png_stays_png():
-    data, mime = process_image(_part(_image_bytes("PNG"), "image/png"))
-    assert mime == "image/png"
+    (data, mime), blank = image_processor.process(_part(_image_bytes("PNG"), "image/png"))
+    assert (mime, blank) == ("image/png", False)
     assert _open(data).format == "PNG"
 
 
 @pytest.mark.parametrize("fmt, mode", [("JPEG", "RGB"), ("WEBP", "RGBA")])
 def test_other_formats_become_rgb_jpeg(fmt, mode):
-    data, mime = process_image(_part(_image_bytes(fmt, mode=mode), MIME[fmt]))
+    (data, mime), _ = image_processor.process(_part(_image_bytes(fmt, mode=mode), MIME[fmt]))
     assert mime == "image/jpeg"
     img = _open(data)
     assert (img.format, img.mode) == ("JPEG", "RGB")
 
 
 def test_large_images_are_scaled_down_keeping_aspect_ratio(monkeypatch):
-    monkeypatch.setattr(ip.settings, "image_max_pixels", 200)
-    data, _ = process_image(_part(_image_bytes("PNG", size=(40, 20)), "image/png"))  # 800 px -> scale 0.5
+    monkeypatch.setattr(image_processor, "max_pixels", 200)
+    (data, _), _ = image_processor.process(_part(_image_bytes("PNG", size=(40, 20)), "image/png"))  # 800 px -> scale 0.5
     assert _open(data).size == (20, 10)
 
 
 def test_small_images_keep_their_size():
-    data, _ = process_image(_part(_image_bytes("JPEG", size=(40, 20)), "image/jpeg"))
+    (data, _), _ = image_processor.process(_part(_image_bytes("JPEG", size=(40, 20)), "image/jpeg"))
     assert _open(data).size == (40, 20)
 
 
 def test_the_bytes_decide_the_format():
-    data, mime = process_image(_part(_image_bytes("PNG"), "image/jpeg"))
+    (data, mime), _ = image_processor.process(_part(_image_bytes("PNG"), "image/jpeg"))
     assert mime == "image/png"
 
 
 @pytest.mark.parametrize("part", [None, "", _part(b"", "image/png")])
 def test_no_image(part):
-    assert process_image(part) is None
+    assert image_processor.process(part) == (None, False)
 
 
 @pytest.mark.parametrize("part, status, code", [
@@ -72,6 +73,20 @@ def test_no_image(part):
 ])
 def test_rejected(part, status, code):
     with pytest.raises(ApiError) as exc:
-        process_image(part)
+        image_processor.process(part)
     assert exc.value.status_code == status
     assert exc.value.detail["code"] == code
+
+
+def test_blank_single_colour_image_is_flagged():
+    out = BytesIO()
+    Image.new("RGB", (499, 600), (138, 255, 46)).save(out, format="PNG")
+    assert image_processor.process(_part(out.getvalue(), "image/png")) == (None, True)
+
+
+def test_blank_check_can_be_switched_off(monkeypatch):
+    monkeypatch.setattr(image_processor, "min_detail", 0.0)
+    out = BytesIO()
+    Image.new("RGB", (40, 20), "white").save(out, format="PNG")
+    image, blank = image_processor.process(_part(out.getvalue(), "image/png"))
+    assert image is not None and blank is False

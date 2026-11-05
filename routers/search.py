@@ -29,9 +29,9 @@ from models.response import (
     SearchFacets,
     SuggestionsResponse,
 )
-from services.embedding_store import EmbeddingStoreUnavailable, RequestIdNotFound, embedding_store
-from services.image_processor import MAX_IMAGE_BYTES, process_image
-from services.opensearch import IndexNotFoundError, OpenSearchQueryError, os_client
+from services.embedding_store import embedding_store
+from services.image_processor import image_processor
+from services.opensearch import os_client
 from services.search import ALLOWED_FILTER_KEYS, FILTER_ALT_FIELDS, FILTER_KEY_MAP, NESTED_FILTER_PATHS, search_service
 from utils.keycloak_auth import keycloak_auth
 from utils.logger import logger
@@ -51,6 +51,7 @@ NUMERIC_FILTER_KEYS = frozenset({"price", "moq", "supplier_count", "lead_time"})
 BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator", "temporary_unavailable", "under_agreement"})
 RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
 
+MAX_IMAGE_BYTES = image_processor.max_bytes
 # Multipart parts may be up to this size (above MAX_IMAGE_BYTES so an oversized
 # image reaches our 413 check rather than failing in the parser).
 MAX_PART_BYTES = 2 * MAX_IMAGE_BYTES
@@ -62,7 +63,7 @@ class _InMemorySpool(SpooledTemporaryFile):
     Starlette's max_part_size only limits text fields, not file uploads: a bigger upload would
     be spilled to a temp file on disk, which fails with 500 "No usable temporary directory" on a
     read-only container. Instead, a part that grows past MAX_PART_BYTES is rejected while it is
-    being received; _read_search_form turns that into 413 IMAGE_TOO_LARGE.
+    being received; v1_search turns that into 413 IMAGE_TOO_LARGE.
     """
 
     def __init__(self, max_size: int = 0, *args: Any, **kwargs: Any) -> None:
@@ -131,104 +132,6 @@ _SEARCH_REQUEST_BODY = {
 }
 
 
-# Request validation
-
-
-async def _check_allowed(value: str, allowed: frozenset[str], field: str, code: str) -> None:
-    """400 ``code`` unless ``value`` is one of ``allowed``."""
-    if value not in allowed:
-        logger.warning(f"Rejected unsupported {field}: '{value}'")
-        raise ApiError(400, code, f"Unsupported {field} '{value}'. Allowed: {', '.join(sorted(allowed))}")
-
-
-async def _read_search_form(request: Request) -> tuple[SearchForm, tuple[bytes, str] | None]:
-    """Parse and validate the multipart search body.
-
-    Returns ``(form, image)``; ``image`` is the preprocessed ``(bytes, mime)`` or
-    None when no (or an empty) image was sent.
-    """
-    content_type = request.headers.get("content-type", "")
-    if content_type.split(";")[0].strip().lower() != "multipart/form-data":
-        logger.warning(f"POST /v1/search — rejected Content-Type '{content_type or 'none'}'")
-        raise ApiError(400, "INVALID_CONTENT_TYPE", "The request must be sent as multipart/form-data.")
-    try:
-        multipart = await request.form(max_part_size=MAX_PART_BYTES)
-    except StarletteHTTPException as exc:
-        if "maximum size" in str(exc.detail):
-            raise ApiError(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
-        raise ApiError(400, "VALIDATION_ERROR", f"Malformed multipart body: {exc.detail}")
-
-    # 1. Text fields. Empty fields count as absent, as with FastAPI's own form handling.
-    fields = {k: v for k, v in multipart.multi_items() if k != "image" and isinstance(v, str) and v != ""}
-    logger.info(f"POST /v1/search — form fields: {fields}, image part present={multipart.get('image') is not None}",
-                extra={"input_data": fields})
-    try:
-        form = SearchForm(**fields)
-    except ValidationError as exc:
-        raise RequestValidationError([{**e, "loc": ("body", *e["loc"])} for e in exc.errors()])
-
-    await _check_allowed(form.channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
-    await _check_allowed(form.language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
-    if form.sort_by is not None:
-        await _check_allowed(form.sort_by, SUPPORTED_SORT_BY, "sort_by", "INVALID_SORT_BY")
-    await _check_allowed(form.sort_order, SUPPORTED_SORT_ORDER, "sort_order", "INVALID_SORT_ORDER")
-
-    # 2. The image: validate + EXIF fix + downscale + re-encode, in one step (see services/image_processor.py).
-    #    Pillow is CPU-heavy, so it runs in a worker thread to keep the event loop free.
-    image = await asyncio.to_thread(process_image, multipart.get("image"))
-    return form, image
-
-
-async def _build_filters(raw: str | None) -> list[dict]:
-    """Turn the ``filters`` form field (a JSON object string, 2.1) into OpenSearch filter clauses.
-
-    Numeric keys accept a number, a non-empty list of numbers, or a range such as
-    {"gte": 50, "lte": 150}; boolean keys accept true/false; every other key accepts
-    a non-empty string or a non-empty list of them. A list matches any of its values.
-    """
-    if not raw or not raw.strip():
-        return []
-    try:
-        filters = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise ApiError(400, "INVALID_FILTER", f"filters must be a valid JSON object: {exc.msg}")
-    if not isinstance(filters, dict):
-        raise ApiError(400, "INVALID_FILTER", "filters must be a JSON object")
-
-    clauses: list[dict] = []
-    for key, value in filters.items():
-        if key not in ALLOWED_FILTER_KEYS:
-            logger.warning(f"POST /v1/search — rejected unknown filter key '{key}'")
-            raise ApiError(400, "INVALID_FILTER_KEY", f"The filter key '{key}' is not supported.")
-
-        # Check the value's shape and the type of every scalar in it.
-        is_range = isinstance(value, dict)
-        scalars = list(value.values()) if is_range else value if isinstance(value, list) else [value]
-        if key in NUMERIC_FILTER_KEYS:
-            types_ok = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in scalars)
-        elif key in BOOLEAN_FILTER_KEYS:
-            types_ok = all(isinstance(v, bool) for v in scalars)
-        else:
-            types_ok = all(isinstance(v, str) and v != "" for v in scalars)
-        range_ok = not is_range or (key in NUMERIC_FILTER_KEYS and set(value) <= RANGE_OPERATORS)
-        if not (scalars and types_ok and range_ok):
-            logger.warning(f"POST /v1/search — rejected invalid value for filter '{key}': {value!r}")
-            raise ApiError(400, "INVALID_FILTER_VALUE", f"Invalid value for filter '{key}': {json.dumps(value)}")
-
-        # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
-        kind = "range" if is_range else "terms" if isinstance(value, list) else "term"
-        fields = FILTER_ALT_FIELDS.get(key, (FILTER_KEY_MAP[key],))
-        if len(fields) == 1:
-            clause: dict = {kind: {fields[0]: value}}
-        else:
-            clause = {"bool": {"should": [{kind: {f: value}} for f in fields], "minimum_should_match": 1}}
-        if key in NESTED_FILTER_PATHS:
-            clause = {"nested": {"path": NESTED_FILTER_PATHS[key], "query": clause}}
-        clauses.append(clause)
-        logger.info(f"POST /v1/search — filter '{key}'={value!r} -> {clause}")
-    return clauses
-
-
 # Endpoints
 
 
@@ -259,19 +162,100 @@ async def v1_search(request: Request) -> SearchApiResponse:
     request_id: str = getattr(request.state, "request_id", "") or str(uuid.uuid4())
     start = time.perf_counter()
     try:
-        form, image = await _read_search_form(request)
-        filters = await _build_filters(form.filters)
+        # 1. The body must be multipart/form-data. A part bigger than MAX_PART_BYTES is refused
+        #    while it is being received (see _InMemorySpool) -> 413.
+        content_type = request.headers.get("content-type", "")
+        if content_type.split(";")[0].strip().lower() != "multipart/form-data":
+            logger.warning(f"POST /v1/search — rejected Content-Type '{content_type or 'none'}'")
+            raise ApiError(400, "INVALID_CONTENT_TYPE", "The request must be sent as multipart/form-data.")
+        try:
+            multipart = await request.form(max_part_size=MAX_PART_BYTES)
+        except StarletteHTTPException as exc:
+            if "maximum size" in str(exc.detail):
+                raise ApiError(413, "IMAGE_TOO_LARGE", f"Image exceeds the maximum size of {MAX_IMAGE_BYTES} bytes.")
+            raise ApiError(400, "VALIDATION_ERROR", f"Malformed multipart body: {exc.detail}")
+
+        # 2. Text fields. Empty fields count as absent, as with FastAPI's own form handling.
+        fields = {k: v for k, v in multipart.multi_items() if k != "image" and isinstance(v, str) and v != ""}
+        logger.info(f"POST /v1/search — form fields: {fields}, image part present={multipart.get('image') is not None}",
+                    extra={"input_data": fields})
+        try:
+            form = SearchForm(**fields)
+        except ValidationError as exc:
+            raise RequestValidationError([{**e, "loc": ("body", *e["loc"])} for e in exc.errors()])
+
+        # 3. Allowed values (400 with the allowed list otherwise).
+        for field, value, allowed, code in (
+            ("channel", form.channel, SUPPORTED_CHANNELS, "UNSUPPORTED_CHANNEL"),
+            ("language", form.language, SUPPORTED_LANGUAGES, "UNSUPPORTED_LANGUAGE"),
+            ("sort_by", form.sort_by, SUPPORTED_SORT_BY, "INVALID_SORT_BY"),
+            ("sort_order", form.sort_order, SUPPORTED_SORT_ORDER, "INVALID_SORT_ORDER"),
+        ):
+            if value is not None and value not in allowed:
+                logger.warning(f"Rejected unsupported {field}: '{value}'")
+                raise ApiError(400, code, f"Unsupported {field} '{value}'. Allowed: {', '.join(sorted(allowed))}")
+
+        # 4. The image: validate + EXIF fix + blank check + downscale + re-encode (services/image_processor.py).
+        #    Pillow is CPU-heavy, so it runs in a worker thread to keep the event loop free.
+        #    A blank / single-colour image has nothing to search for: it is ignored (image_ignored=True).
+        image, image_ignored = await asyncio.to_thread(image_processor.process, multipart.get("image"))
+
+        # 5. Filters: the `filters` field is a JSON object string (2.1) -> OpenSearch filter clauses.
+        #    Numeric keys take a number, a non-empty list of numbers, or a range such as {"gte": 50, "lte": 150};
+        #    boolean keys take true/false; every other key takes a non-empty string or a non-empty list of
+        #    them. A list matches any of its values.
+        filters: list[dict] = []
+        if form.filters and form.filters.strip():
+            try:
+                raw_filters = json.loads(form.filters)
+            except json.JSONDecodeError as exc:
+                raise ApiError(400, "INVALID_FILTER", f"filters must be a valid JSON object: {exc.msg}")
+            if not isinstance(raw_filters, dict):
+                raise ApiError(400, "INVALID_FILTER", "filters must be a JSON object")
+            for key, value in raw_filters.items():
+                if key not in ALLOWED_FILTER_KEYS:
+                    logger.warning(f"POST /v1/search — rejected unknown filter key '{key}'")
+                    raise ApiError(400, "INVALID_FILTER_KEY", f"The filter key '{key}' is not supported.")
+                # Check the value's shape and the type of every scalar in it.
+                is_range = isinstance(value, dict)
+                scalars = list(value.values()) if is_range else value if isinstance(value, list) else [value]
+                if key in NUMERIC_FILTER_KEYS:
+                    types_ok = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in scalars)
+                elif key in BOOLEAN_FILTER_KEYS:
+                    types_ok = all(isinstance(v, bool) for v in scalars)
+                else:
+                    types_ok = all(isinstance(v, str) and v != "" for v in scalars)
+                range_ok = not is_range or (key in NUMERIC_FILTER_KEYS and set(value) <= RANGE_OPERATORS)
+                if not (scalars and types_ok and range_ok):
+                    logger.warning(f"POST /v1/search — rejected invalid value for filter '{key}': {value!r}")
+                    raise ApiError(400, "INVALID_FILTER_VALUE", f"Invalid value for filter '{key}': {json.dumps(value)}")
+                # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
+                kind = "range" if is_range else "terms" if isinstance(value, list) else "term"
+                index_fields = FILTER_ALT_FIELDS.get(key, (FILTER_KEY_MAP[key],))
+                if len(index_fields) == 1:
+                    clause: dict = {kind: {index_fields[0]: value}}
+                else:
+                    clause = {"bool": {"should": [{kind: {f: value}} for f in index_fields], "minimum_should_match": 1}}
+                if key in NESTED_FILTER_PATHS:
+                    clause = {"nested": {"path": NESTED_FILTER_PATHS[key], "query": clause}}
+                filters.append(clause)
+                logger.info(f"POST /v1/search — filter '{key}'={value!r} -> {clause}")
+
+        # 6. The query text.
         query = form.search_query.strip() if form.search_query and form.search_query.strip() else None
         # Text shorter than MIN_QUERY_CHARS (e.g. "pu") is not searched.
-        if query and len(query) < settings.min_query_chars:
-            if image is None and not form.request_id and not filters:
-                logger.info(f"POST /v1/search — search_query {query!r} is shorter than {settings.min_query_chars} "
-                            f"characters -> no search, 0 results", extra={"search_query": query, "status": "no_results"})
-                return SearchApiResponse(request_id=None, total_results=0, page=form.page, page_size=form.page_size,
-                                         products=[], facets=SearchFacets())
+        text_ignored = bool(query) and len(query) < settings.min_query_chars
+        if text_ignored:
             logger.info(f"POST /v1/search — search_query {query!r} is shorter than {settings.min_query_chars} "
-                        f"characters -> ignored; searching by the image / filters / request_id only")
+                        f"characters -> ignored")
             query = None
+        if image_ignored:
+            logger.info("POST /v1/search — image is blank / a single colour -> ignored")
+        # Nothing usable left to search with -> no search, 0 results.
+        if (text_ignored or image_ignored) and not query and image is None and not form.request_id and not filters:
+            logger.info("POST /v1/search — nothing left to search -> 0 results", extra={"status": "no_results"})
+            return SearchApiResponse(request_id=None, total_results=0, page=form.page, page_size=form.page_size,
+                                     products=[], facets=SearchFacets())
         if not query and image is None and not form.request_id and not filters:
             raise ApiError(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or request_id must be provided")
         logger.info(
@@ -289,35 +273,25 @@ async def v1_search(request: Request) -> SearchApiResponse:
         ctx = await embedding_store.resolve(request_id, query, image, form.request_id)
         embed_ms = (time.perf_counter() - embed_start) * 1000
         logger.info(
-            f"POST /v1/search — embeddings ready in {embed_ms:.1f}ms: context={ctx.request_id}, query={ctx.query!r}, "
-            f"text_vector={'yes' if ctx.query_vector else 'no'}, image_vector={'yes' if ctx.image_vector else 'no'}, "
-            f"reused_previous={ctx.reused}",
+            f"POST /v1/search — embeddings ready in {embed_ms:.1f}ms: context={ctx["request_id"]}, query={ctx["query"]!r}, "
+            f"text_vector={'yes' if ctx["query_vector"] else 'no'}, image_vector={'yes' if ctx["image_vector"] else 'no'}, "
+            f"reused_previous={ctx["reused"]}",
         )
 
         result = await search_service.search(
-            query=ctx.query,
-            query_vector=ctx.query_vector,
-            image_vector=ctx.image_vector,
+            query=ctx["query"],
+            query_vector=ctx["query_vector"],
+            image_vector=ctx["image_vector"],
             filters=filters,
             sort_by=form.sort_by,
             sort_order=form.sort_order,
             page=form.page,
             page_size=form.page_size,
-            request_id=ctx.request_id,
+            request_id=ctx["request_id"],
             language=form.language,
         )
     except (HTTPException, RequestValidationError):
         raise  # already in the error contract
-    except RequestIdNotFound as exc:
-        logger.warning(f"POST /v1/search — request_id not found: {exc}", extra={"status": "error"})
-        raise ApiError(400, "REQUEST_ID_NOT_FOUND", str(exc))
-    except EmbeddingStoreUnavailable as exc:
-        logger.warning(f"POST /v1/search — Redis unavailable while resolving a request_id: {exc}", extra={"status": "error"})
-        raise ApiError(503, "EMBEDDING_STORE_UNAVAILABLE", f"request_id cannot be resolved ({exc}); send search_query / image instead.")
-    except IndexNotFoundError as exc:
-        raise ApiError(404, "INDEX_NOT_FOUND", str(exc))
-    except OpenSearchQueryError as exc:
-        raise ApiError(400, "QUERY_ERROR", str(exc))
     except Exception as exc:
         logger.exception(f"POST /v1/search — failed ({type(exc).__name__}): {exc}",
                          extra={"function_name": "v1_search", "status": "error", "error_details": str(exc)})
@@ -351,8 +325,13 @@ async def v1_suggestions(
     product_limit: Annotated[int, Query(ge=1, le=50, description="Max product suggestions to return")] = 5,
 ) -> SuggestionsResponse:
     start = time.perf_counter()
-    await _check_allowed(channel, SUPPORTED_CHANNELS, "channel", "UNSUPPORTED_CHANNEL")
-    await _check_allowed(language, SUPPORTED_LANGUAGES, "language", "UNSUPPORTED_LANGUAGE")
+    for field, value, allowed, code in (
+        ("channel", channel, SUPPORTED_CHANNELS, "UNSUPPORTED_CHANNEL"),
+        ("language", language, SUPPORTED_LANGUAGES, "UNSUPPORTED_LANGUAGE"),
+    ):
+        if value not in allowed:
+            logger.warning(f"Rejected unsupported {field}: '{value}'")
+            raise ApiError(400, code, f"Unsupported {field} '{value}'. Allowed: {', '.join(sorted(allowed))}")
     # Text shorter than MIN_QUERY_CHARS (e.g. "pu") is not searched.
     if len(q.strip()) < settings.min_query_chars:
         logger.info(f"GET /v1/search/suggestions — q {q!r} is shorter than {settings.min_query_chars} characters "
@@ -362,10 +341,8 @@ async def v1_suggestions(
         result = await search_service.get_suggestions(
             query=q, query_limit=query_limit, product_limit=product_limit, language=language,
         )
-    except IndexNotFoundError as exc:
-        raise ApiError(404, "INDEX_NOT_FOUND", str(exc))
-    except OpenSearchQueryError as exc:
-        raise ApiError(400, "QUERY_ERROR", str(exc))
+    except HTTPException:
+        raise  # already in the error contract (404 INDEX_NOT_FOUND, 400 QUERY_ERROR, ...)
     except Exception as exc:
         logger.exception(f"GET /v1/search/suggestions — failed ({type(exc).__name__}): {exc}",
                          extra={"function_name": "v1_suggestions", "status": "error", "error_details": str(exc)})
