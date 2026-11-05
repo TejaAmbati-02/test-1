@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.util
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -65,59 +67,65 @@ def test_unknown_env_keys_are_ignored(monkeypatch):
 
 
 # --------------------------------------------------------------------------
-# _load_settings
+# Module import: settings are built (and validated) once, at import time
 # --------------------------------------------------------------------------
 
 
 @pytest.fixture
-def no_env_file(monkeypatch):
-    """Make _load_settings build Settings without reading a local .env."""
-    real = Settings
-    monkeypatch.setattr(config, "Settings", lambda: real(_env_file=None))
+def fresh_config(monkeypatch, tmp_path):
+    """Import a private copy of config.py, so the shared ``config.settings`` is untouched.
+
+    Runs from an empty directory so a local .env can't supply values, and spies on
+    the shared "app" logger that config.py logs to.
+    """
+    monkeypatch.chdir(tmp_path)
+    log_error = MagicMock()
+    monkeypatch.setattr(logging.getLogger("app"), "error", log_error)
+
+    def load():
+        spec = importlib.util.spec_from_file_location("config_under_test", config.__file__)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    load.log_error = log_error
+    return load
 
 
-@pytest.fixture
-def config_logger(monkeypatch):
-    log = MagicMock()
-    monkeypatch.setattr(config, "logger", log)
-    return log
+def test_module_builds_settings_on_import(fresh_config):
+    module = fresh_config()
+    assert isinstance(module.settings, module.Settings)
+    assert module.settings.opensearch_host == "opensearch.test"
+    fresh_config.log_error.assert_not_called()
 
 
-def test_load_settings_returns_settings(no_env_file, config_logger):
-    loaded = config._load_settings()
-    assert isinstance(loaded, Settings)
-    assert loaded.opensearch_host == "opensearch.test"
-    config_logger.error.assert_not_called()
-    config_logger.exception.assert_not_called()
+def test_module_logger_is_the_shared_app_logger():
+    assert config.logger is logging.getLogger("app")
 
 
-def test_load_settings_does_not_log_secrets(no_env_file, config_logger):
-    config._load_settings()
-    logged = " ".join(str(c) for c in config_logger.debug.call_args_list)
-    assert "secret" not in logged  # OPENSEARCH_PASSWORD / KEYCLOAK_CLIENT_SECRET values
-    assert "ocid1.compartment.test" not in logged
-
-
-def test_load_settings_logs_field_names_not_values_on_validation_error(monkeypatch, no_env_file, config_logger):
+def test_invalid_settings_log_field_names_not_values_and_reraise(monkeypatch, fresh_config):
     monkeypatch.delenv("OPENSEARCH_HOST")
     monkeypatch.setenv("OPENSEARCH_PORT", "not-a-port-hunter2")
     with pytest.raises(ValidationError):
-        config._load_settings()
-    config_logger.error.assert_called_once()
-    message = config_logger.error.call_args.args[0]
+        fresh_config()
+    fresh_config.log_error.assert_called_once()
+    message = fresh_config.log_error.call_args.args[0]
     assert "(2)" in message  # error count
     assert "opensearch_host: missing" in message
     assert "opensearch_port: int_parsing" in message
     assert "hunter2" not in message
-    details = config_logger.error.call_args.kwargs["extra"]["error_details"]
-    assert "hunter2" not in details
-    assert config_logger.error.call_args.kwargs["extra"]["status"] == "error"
+    extra = fresh_config.log_error.call_args.kwargs["extra"]
+    assert "hunter2" not in extra["error_details"]
+    assert extra["status"] == "error"
+    assert extra["function_name"] == "config"
 
 
-def test_load_settings_reraises_unexpected_errors(monkeypatch, config_logger):
-    monkeypatch.setattr(config, "Settings", MagicMock(side_effect=OSError("cannot read .env")))
-    with pytest.raises(OSError, match="cannot read .env"):
-        config._load_settings()
-    config_logger.exception.assert_called_once()
-    config_logger.error.assert_not_called()
-    assert "OSError" in config_logger.exception.call_args.args[0]
+def test_secrets_are_never_logged_on_validation_error(monkeypatch, fresh_config):
+    monkeypatch.setenv("OPENSEARCH_PASSWORD", "s3cr3t-value")
+    monkeypatch.delenv("OCI_PROFILE")
+    with pytest.raises(ValidationError):
+        fresh_config()
+    logged = str(fresh_config.log_error.call_args)
+    assert "s3cr3t-value" not in logged
+    assert "ocid1.compartment.test" not in logged
+    assert "oci_profile: missing" in logged

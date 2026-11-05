@@ -173,9 +173,25 @@ def _request(headers: dict[str, str] | None = None) -> Request:
     return Request(scope)
 
 
+def _auth_recording_tokens() -> tuple[KeycloakAuth, list[str]]:
+    auth, _ = _make_auth(_active)
+    seen: list[str] = []
+
+    async def _introspect(token: str) -> dict:
+        seen.append(token)
+        return {"active": True, "sub": "user-1"}
+
+    auth.introspect = _introspect  # type: ignore[method-assign]
+    return auth, seen
+
+
 @pytest.mark.parametrize("value", ["Bearer tok", "bearer tok", "BEARER tok", "Bearer   tok  "])
-def test_extract_token_accepts_bearer_scheme_case_insensitively(value: str) -> None:
-    assert KeycloakAuth.extract_token(_request({"Authorization": value})) == "tok"
+async def test_authenticate_accepts_bearer_scheme_case_insensitively(value: str) -> None:
+    auth, seen = _auth_recording_tokens()
+    request = _request({"Authorization": value})
+    claims = await auth.authenticate(request)
+    assert seen == ["tok"]
+    assert request.state.user is claims
 
 
 @pytest.mark.parametrize(
@@ -187,9 +203,11 @@ def test_extract_token_accepts_bearer_scheme_case_insensitively(value: str) -> N
         ({"Authorization": "Bearer    "}, "Authorization header must be 'Bearer <access_token>'"),
     ],
 )
-def test_extract_token_rejects_missing_or_malformed(headers: dict, message: str) -> None:
+async def test_authenticate_rejects_missing_or_malformed(headers: dict, message: str) -> None:
+    auth, seen = _auth_recording_tokens()
     with pytest.raises(HTTPException) as exc_info:
-        KeycloakAuth.extract_token(_request(headers))
+        await auth.authenticate(_request(headers))
+    assert seen == []  # Keycloak is never called
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == {"code": "UNAUTHORIZED", "message": message}
     assert exc_info.value.headers == {"WWW-Authenticate": 'Bearer realm="api"'}
@@ -288,17 +306,21 @@ def test_different_tokens_are_introspected_separately() -> None:
     assert len(calls) == 2
 
 
-def test_cache_ttl_is_capped_by_token_expiry() -> None:
-    auth, _ = _make_auth(_active, cache_ttl=60)
-    auth._cache_put("k", {"active": True, "exp": time.time() + 5})
-    _claims, expires_at = auth._cache["k"]
+def _cache_key(token: str = "good-token") -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def test_cache_ttl_is_capped_by_token_expiry() -> None:
+    auth, _ = _make_auth(lambda _r: httpx.Response(200, json={"active": True, "exp": time.time() + 5}), cache_ttl=60)
+    await auth.introspect("good-token")
+    _claims, expires_at = auth._cache[_cache_key()]
     assert expires_at - time.monotonic() <= 5
 
 
-def test_cache_uses_ttl_when_token_has_no_exp() -> None:
-    auth, _ = _make_auth(_active, cache_ttl=60)
-    auth._cache_put("k", {"active": True})
-    _claims, expires_at = auth._cache["k"]
+async def test_cache_uses_ttl_when_token_has_no_exp() -> None:
+    auth, _ = _make_auth(lambda _r: httpx.Response(200, json={"active": True}), cache_ttl=60)
+    await auth.introspect("good-token")
+    _claims, expires_at = auth._cache[_cache_key()]
     assert 55 < expires_at - time.monotonic() <= 60
 
 
@@ -311,29 +333,41 @@ def test_token_already_expired_is_not_cached() -> None:
     assert auth._cache == {}
 
 
-def test_cache_get_evicts_expired_entry() -> None:
-    auth, _ = _make_auth(_active)
-    auth._cache["k"] = ({"active": True}, time.monotonic() - 1)
-    assert auth._cache_get("k") is None
-    assert "k" not in auth._cache
+async def test_expired_cache_entry_is_replaced_with_fresh_claims() -> None:
+    auth, calls = _make_auth(_active)
+    stale = ({"active": True, "sub": "stale"}, time.monotonic() - 1)
+    auth._cache[_cache_key()] = stale
+    claims = await auth.introspect("good-token")
+    assert claims["sub"] == "user-1"
+    assert len(calls) == 1
+    assert auth._cache[_cache_key()] != stale
 
 
-def test_full_cache_prunes_expired_entries(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_full_cache_prunes_expired_entries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(keycloak_module, "_MAX_CACHE_ENTRIES", 2)
     auth, _ = _make_auth(_active)
     live = ({"active": True}, time.monotonic() + 60)
     auth._cache = {"old": ({"active": True}, time.monotonic() - 1), "live": live}
-    auth._cache_put("new", {"active": True})
-    assert set(auth._cache) == {"live", "new"}
+    await auth.introspect("good-token")
+    assert set(auth._cache) == {"live", _cache_key()}
 
 
-def test_full_cache_of_live_entries_is_cleared(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_full_cache_of_live_entries_is_cleared(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(keycloak_module, "_MAX_CACHE_ENTRIES", 2)
     auth, _ = _make_auth(_active)
     live = ({"active": True}, time.monotonic() + 60)
     auth._cache = {"a": live, "b": live}
-    auth._cache_put("new", {"active": True})
-    assert set(auth._cache) == {"new"}
+    await auth.introspect("good-token")
+    assert set(auth._cache) == {_cache_key()}
+
+
+async def test_non_json_introspection_body_is_502() -> None:
+    auth, _ = _make_auth(lambda _r: httpx.Response(200, text="<html>oops</html>"))
+    with pytest.raises(HTTPException) as exc_info:
+        await auth.introspect("good-token")
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == {"code": "AUTH_SERVER_ERROR",
+                                     "message": "Authentication server returned an invalid response"}
 
 
 # Logging never leaks credentials
@@ -453,19 +487,24 @@ async def test_disabled_auth_does_not_set_user() -> None:
 # HTTP client lifecycle
 
 
-async def test_get_client_creates_one_shared_client(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_introspect_creates_one_shared_client(monkeypatch: pytest.MonkeyPatch) -> None:
     created: list[dict] = []
 
     class _FakeClient:
         def __init__(self, **kwargs: Any) -> None:
             created.append(kwargs)
 
+        async def post(self, *_args: Any, **_kwargs: Any) -> httpx.Response:
+            return httpx.Response(200, json={"active": True})
+
     monkeypatch.setattr(keycloak_module.httpx, "AsyncClient", _FakeClient)
     monkeypatch.setattr(keycloak_module.truststore, "SSLContext", lambda protocol: ("ssl-context", protocol))
-    auth = KeycloakAuth("https://keycloak.test", "asmo", "ai-app", "test-secret", timeout=2.5)
+    auth = KeycloakAuth("https://keycloak.test", "asmo", "ai-app", "test-secret", timeout=2.5, cache_ttl=0)
 
-    first, second = await asyncio.gather(auth._get_client(), auth._get_client())
-    assert first is second
+    await auth.introspect("token-a")
+    first = auth._client
+    await auth.introspect("token-b")
+    assert auth._client is first
     assert len(created) == 1
     assert created[0]["timeout"] == 2.5
     assert created[0]["verify"] == ("ssl-context", ssl.PROTOCOL_TLS_CLIENT)
@@ -523,15 +562,14 @@ def test_from_env_invalid_number_raises(monkeypatch: pytest.MonkeyPatch, name: s
     [("1", True), ("true", True), (" TRUE ", True), ("yes", True), ("on", True),
      ("0", False), ("false", False), ("no", False), ("off", False), ("", False), ("maybe", False)],
 )
-def test_env_bool(monkeypatch: pytest.MonkeyPatch, value: str, expected: bool) -> None:
-    monkeypatch.setenv("KC_TEST_FLAG", value)
-    assert keycloak_module._env_bool("KC_TEST_FLAG", True) is expected
+def test_from_env_auth_enabled_values(monkeypatch: pytest.MonkeyPatch, value: str, expected: bool) -> None:
+    monkeypatch.setenv("KEYCLOAK_AUTH_ENABLED", value)
+    assert KeycloakAuth.from_env().enabled is expected
 
 
-@pytest.mark.parametrize("default", [True, False])
-def test_env_bool_default_when_unset(monkeypatch: pytest.MonkeyPatch, default: bool) -> None:
-    monkeypatch.delenv("KC_TEST_FLAG", raising=False)
-    assert keycloak_module._env_bool("KC_TEST_FLAG", default) is default
+def test_from_env_auth_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("KEYCLOAK_AUTH_ENABLED", raising=False)
+    assert KeycloakAuth.from_env().enabled is True
 
 
 def test_module_singleton_follows_env() -> None:

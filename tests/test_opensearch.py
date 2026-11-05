@@ -101,15 +101,6 @@ class TestIndices:
         with pytest.raises(ConnectionError):
             await service.list_indices()
 
-    @pytest.mark.parametrize("exists", [True, False])
-    async def test_index_exists(self, service, raw_client, exists):
-        raw_client.indices.exists.return_value = exists
-        assert await service.index_exists("products") is exists
-
-    async def test_index_exists_error_returns_false(self, service, raw_client):
-        raw_client.indices.exists.side_effect = ConnectionError("down")
-        assert await service.index_exists("products") is False
-
 
 class TestPipelines:
     async def test_pipeline_exists(self, service, raw_client):
@@ -197,16 +188,16 @@ class TestSearch:
 
 
 class TestRedactVectors:
-    def test_long_numeric_list_is_summarised(self):
-        assert _redact_vectors([0.1] * 17) == "<vector dim=17>"
-        assert _redact_vectors(list(range(20))) == "<vector dim=20>"
+    async def test_long_numeric_list_is_summarised(self):
+        assert await _redact_vectors([0.1] * 17) == "<vector dim=17>"
+        assert await _redact_vectors(list(range(20))) == "<vector dim=20>"
 
-    def test_short_or_mixed_lists_are_kept(self):
-        assert _redact_vectors([0.1] * 16) == [0.1] * 16
+    async def test_short_or_mixed_lists_are_kept(self):
+        assert await _redact_vectors([0.1] * 16) == [0.1] * 16
         mixed = [0.1] * 20 + ["x"]
-        assert _redact_vectors(mixed) == mixed
+        assert await _redact_vectors(mixed) == mixed
 
-    def test_nested_structures(self):
+    async def test_nested_structures(self):
         body = {
             "size": 10,
             "query": {"hybrid": {"queries": [
@@ -214,7 +205,7 @@ class TestRedactVectors:
                 {"knn": {"content_vector": {"vector": [1.0] * 1024, "k": 100}}},
             ]}},
         }
-        redacted = _redact_vectors(body)
+        redacted = await _redact_vectors(body)
         assert redacted["size"] == 10
         assert redacted["query"]["hybrid"]["queries"][0] == {"multi_match": {"query": "valve", "fields": ["a", "b"]}}
         assert redacted["query"]["hybrid"]["queries"][1]["knn"]["content_vector"] == {
@@ -224,12 +215,24 @@ class TestRedactVectors:
         assert body["query"]["hybrid"]["queries"][1]["knn"]["content_vector"]["vector"] == [1.0] * 1024
 
     @pytest.mark.parametrize("value", [None, 5, "text", 1.5])
-    def test_scalars_pass_through(self, value):
-        assert _redact_vectors(value) == value
+    async def test_scalars_pass_through(self, value):
+        assert await _redact_vectors(value) == value
 
-    def test_error_returns_placeholder(self):
+    async def test_error_propagates(self):
         class Exploding(dict):
             def items(self):
                 raise RuntimeError("boom")
 
-        assert _redact_vectors(Exploding(a=1)) == "<unloggable body>"
+        with pytest.raises(RuntimeError, match="boom"):
+            await _redact_vectors(Exploding(a=1))
+
+    async def test_search_logs_redacted_body(self, monkeypatch, test_settings):
+        raw = AsyncMock()
+        raw.search.return_value = {"took": 1, "hits": {"total": {"value": 0}, "hits": []}}
+        service = OpenSearchClientService(test_settings)
+        monkeypatch.setattr(service, "get_client", AsyncMock(return_value=raw))
+        info = MagicMock()
+        monkeypatch.setattr(os_module.logger, "info", info)
+        await service.search("products", {"knn": {"v": {"vector": [0.5] * 32}}})
+        logged = info.call_args_list[0].kwargs["extra"]["input_data"]["body"]
+        assert logged == {"knn": {"v": {"vector": "<vector dim=32>"}}}

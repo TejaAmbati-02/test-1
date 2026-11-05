@@ -1,132 +1,77 @@
-"""Tests for services/image_processor.py (EXIF fix, downscale, re-encode)."""
 from __future__ import annotations
 
 from io import BytesIO
-from types import SimpleNamespace
 
 import pytest
 from PIL import Image
+from starlette.datastructures import Headers, UploadFile
 
-from services.image_processor import ImageProcessor, InvalidImageError, image_processor
+from models.response import ApiError
+from services import image_processor as ip
+from services.image_processor import MAX_IMAGE_BYTES, process_image
+
+MIME = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp"}
 
 
-def _encode(fmt: str, size=(10, 10), mode="RGB", exif_orientation: int | None = None) -> bytes:
-    image = Image.new(mode, size, color=0)
+def _image_bytes(fmt: str, size=(40, 20), mode="RGB") -> bytes:
     out = BytesIO()
-    kwargs = {}
-    if exif_orientation is not None:
-        exif = Image.Exif()
-        exif[0x0112] = exif_orientation
-        kwargs["exif"] = exif
-    image.save(out, format=fmt, **kwargs)
+    Image.new(mode, size, "red").save(out, format=fmt)
     return out.getvalue()
+
+
+def _part(data: bytes, content_type: str) -> UploadFile:
+    return UploadFile(BytesIO(data), filename="photo", headers=Headers({"content-type": content_type}))
 
 
 def _open(data: bytes) -> Image.Image:
     return Image.open(BytesIO(data))
 
 
-@pytest.fixture
-def processor() -> ImageProcessor:
-    return ImageProcessor(max_pixels=10_000, jpeg_quality=85)
-
-
-def test_from_settings_uses_config_values():
-    cfg = SimpleNamespace(image_max_pixels=123, image_jpeg_quality=77)
-    p = ImageProcessor.from_settings(cfg)
-    assert (p.max_pixels, p.jpeg_quality) == (123, 77)
-
-
-def test_from_settings_propagates_errors():
-    with pytest.raises(AttributeError):
-        ImageProcessor.from_settings(SimpleNamespace())
-
-
-def test_module_instance_is_built():
-    assert isinstance(image_processor, ImageProcessor)
-
-
-def test_png_stays_png(processor):
-    data, mime = processor.process(_encode("PNG", mode="RGBA"))
+def test_png_stays_png():
+    data, mime = process_image(_part(_image_bytes("PNG"), "image/png"))
     assert mime == "image/png"
-    img = _open(data)
-    assert img.format == "PNG"
-    assert img.mode == "RGBA"
+    assert _open(data).format == "PNG"
 
 
-def test_jpeg_stays_jpeg(processor):
-    data, mime = processor.process(_encode("JPEG"))
-    assert mime == "image/jpeg"
-    assert _open(data).format == "JPEG"
-
-
-@pytest.mark.parametrize("fmt,mode", [("GIF", "P"), ("WEBP", "RGBA"), ("BMP", "L")])
-def test_other_formats_become_rgb_jpeg(processor, fmt, mode):
-    data, mime = processor.process(_encode(fmt, mode=mode))
+@pytest.mark.parametrize("fmt, mode", [("JPEG", "RGB"), ("WEBP", "RGBA")])
+def test_other_formats_become_rgb_jpeg(fmt, mode):
+    data, mime = process_image(_part(_image_bytes(fmt, mode=mode), MIME[fmt]))
     assert mime == "image/jpeg"
     img = _open(data)
-    assert img.format == "JPEG"
-    assert img.mode == "RGB"
+    assert (img.format, img.mode) == ("JPEG", "RGB")
 
 
-def test_small_image_is_not_resized(processor):
-    data, _ = processor.process(_encode("PNG", size=(50, 40)))
-    assert _open(data).size == (50, 40)
+def test_large_images_are_scaled_down_keeping_aspect_ratio(monkeypatch):
+    monkeypatch.setattr(ip.settings, "image_max_pixels", 200)
+    data, _ = process_image(_part(_image_bytes("PNG", size=(40, 20)), "image/png"))  # 800 px -> scale 0.5
+    assert _open(data).size == (20, 10)
 
 
-def test_large_image_is_downscaled_keeping_aspect_ratio(processor):
-    data, _ = processor.process(_encode("PNG", size=(400, 100)))
-    w, h = _open(data).size
-    assert w * h <= processor.max_pixels
-    assert (w, h) == (200, 50)
+def test_small_images_keep_their_size():
+    data, _ = process_image(_part(_image_bytes("JPEG", size=(40, 20)), "image/jpeg"))
+    assert _open(data).size == (40, 20)
 
 
-def test_extreme_aspect_ratio_keeps_min_dimension_of_one():
-    p = ImageProcessor(max_pixels=4, jpeg_quality=85)
-    data, _ = p.process(_encode("PNG", size=(1000, 1)))
-    w, h = _open(data).size
-    assert h == 1 and w >= 1
+def test_the_bytes_decide_the_format():
+    data, mime = process_image(_part(_image_bytes("PNG"), "image/jpeg"))
+    assert mime == "image/png"
 
 
-def test_exif_orientation_is_applied(processor):
-    # Orientation 6 = rotate 90° clockwise on display, so width/height swap.
-    data, _ = processor.process(_encode("JPEG", size=(40, 20), exif_orientation=6))
-    assert _open(data).size == (20, 40)
+@pytest.mark.parametrize("part", [None, "", _part(b"", "image/png")])
+def test_no_image(part):
+    assert process_image(part) is None
 
 
-def test_jpeg_quality_affects_output_size():
-    src = Image.effect_noise((80, 80), 64).convert("RGB")
-    raw = BytesIO()
-    src.save(raw, format="BMP")
-    low, _ = ImageProcessor(max_pixels=1_000_000, jpeg_quality=10).process(raw.getvalue())
-    high, _ = ImageProcessor(max_pixels=1_000_000, jpeg_quality=95).process(raw.getvalue())
-    assert len(low) < len(high)
-
-
-@pytest.mark.parametrize("data", [b"", b"not an image", b"\x89PNG\r\n\x1a\n" + b"\x00" * 32])
-def test_undecodable_bytes_raise_invalid_image(processor, data):
-    with pytest.raises(InvalidImageError):
-        processor.process(data)
-
-
-def test_invalid_image_error_is_value_error():
-    assert issubclass(InvalidImageError, ValueError)
-
-
-def test_decompression_bomb_raises_invalid_image(processor, monkeypatch):
-    def boom(*_a, **_k):
-        raise Image.DecompressionBombError("too big")
-
-    monkeypatch.setattr("services.image_processor.Image.open", boom)
-    with pytest.raises(InvalidImageError, match="too big"):
-        processor.process(b"x")
-
-
-def test_unexpected_error_during_encode_is_reraised(processor, monkeypatch):
-    def fail_save(self, *_a, **_k):
-        raise RuntimeError("disk full")
-
-    data = _encode("PNG")
-    monkeypatch.setattr(Image.Image, "save", fail_save)
-    with pytest.raises(RuntimeError, match="disk full"):
-        processor.process(data)
+@pytest.mark.parametrize("part, status, code", [
+    ("aGVsbG8=", 400, "UNSUPPORTED_IMAGE_TYPE"),                                   # Base64 text field
+    (_part(_image_bytes("PNG"), "application/octet-stream"), 400, "UNSUPPORTED_IMAGE_TYPE"),
+    (_part(_image_bytes("GIF"), "image/gif"), 400, "UNSUPPORTED_IMAGE_TYPE"),
+    (_part(_image_bytes("GIF"), "image/png"), 400, "UNSUPPORTED_IMAGE_TYPE"),     # GIF bytes, PNG label
+    (_part(b"\x89PNG not really a png", "image/png"), 400, "UNSUPPORTED_IMAGE_TYPE"),  # undecodable
+    (_part(b"\x89PNG" + b"\x00" * MAX_IMAGE_BYTES, "image/png"), 413, "IMAGE_TOO_LARGE"),
+])
+def test_rejected(part, status, code):
+    with pytest.raises(ApiError) as exc:
+        process_image(part)
+    assert exc.value.status_code == status
+    assert exc.value.detail["code"] == code

@@ -44,7 +44,6 @@ _TEST_ENV = {
     "REDIS_SSL": "true",
     "REDIS_SSL_CERT_REQS": "none",
     "REDIS_TIMEOUT": "10",
-    "REDIS_COLLECTION": "asmo:embeddings",
     "REDIS_TTL_SECONDS": "3600",
     "LOG_LEVEL": "WARNING",
     "LOG_TO_FILE": "false",
@@ -91,26 +90,11 @@ def client() -> TestClient:
 
 @pytest.fixture
 def enable_redis(monkeypatch):
-    """Turn Redis on for the shared ``redis_client`` (and so for ``embedding_store``).
-
-    ``redis_client.enabled`` needs a host, which the tests leave empty, so one is
-    set on the client's config; ``settings.redis_host`` is patched to match (the
-    latency endpoint reports it). A fake connected client (``AsyncMock``) is
-    attached as ``redis_client._client`` — tests can configure or replace it.
-    Returns the ``embedding_store``.
-    """
-    import dataclasses
-    from unittest.mock import AsyncMock
-
-    from services.embedding_store import embedding_store
+    """Turn Redis on for the shared ``redis_client`` (it is off in the test env: REDIS_HOST is empty)."""
     from services.redis_client import redis_client
 
-    monkeypatch.setattr(
-        redis_client, "_config", dataclasses.replace(redis_client._config, host="redis.test", enabled=True)
-    )
-    monkeypatch.setattr(redis_client, "_client", AsyncMock())
-    monkeypatch.setattr(settings, "redis_host", "redis.test")
-    return embedding_store
+    monkeypatch.setattr(redis_client, "_settings", settings.model_copy(update={"redis_host": "redis.test"}))
+    return redis_client
 
 
 def make_search_response(**overrides: Any) -> SearchApiResponse:
@@ -125,6 +109,11 @@ def make_search_response(**overrides: Any) -> SearchApiResponse:
     return SearchApiResponse(**data)
 
 
+def multipart(data: dict[str, str] | None = None, files: dict[str, tuple] | None = None) -> list:
+    """Every form field as its own multipart part (httpx url-encodes a body that only has ``data``)."""
+    return [(k, (None, v)) for k, v in (data or {}).items()] + list((files or {}).items())
+
+
 def os_search_result(hits: list[dict] | None = None, total: int | None = None, aggs: dict | None = None) -> dict:
     """A raw OpenSearch search response."""
     hits = hits or []
@@ -135,8 +124,3 @@ def os_search_result(hits: list[dict] | None = None, total: int | None = None, a
     if aggs is not None:
         result["aggregations"] = aggs
     return result
-
-
-# utils.logger exports to Azure Monitor when APP_INSIGHTS_CONNECTION_STRING is set.
-# Blank it before any test module imports utils.logger so nothing is ever sent.
-os.environ["APP_INSIGHTS_CONNECTION_STRING"] = ""

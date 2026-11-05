@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 
-# Search API — response contract (ASMO AI Search API Specification v2.1, §2.4)
+# Search API — response contract (ASMO AI Search API Specification v2.1, 2.4)
 
 
 class SellerDetail(BaseModel):
@@ -42,7 +43,7 @@ class FacetTermValue(BaseModel):
 
 
 class SearchFacets(BaseModel):
-    """Facets keyed by field, computed over the full matching population (§2.4 facet rule)."""
+    """Facets keyed by field, computed over the full matching population (2.4 facet rule)."""
 
     category: list[FacetTermValue] = Field(default_factory=list, description="Categories (id = category id; filter key category)")
     sub_category: list[FacetTermValue] = Field(default_factory=list, description="Sub-categories (id = sub-category id; filter key sub_category)")
@@ -60,7 +61,7 @@ class SearchApiResponse(BaseModel):
 
 
 
-# Suggestions API — response contract (§3.2)
+# Suggestions API — response contract (3.2)
 
 
 
@@ -118,10 +119,17 @@ class LatencyResponse(BaseModel):
 
 
 
-# Error contract (§5.1) — flat {code, message}
+# Error contract (5.1) — flat {code, message}
 
 
 
 class ErrorResponse(BaseModel):
     code: str = Field(description="Stable, machine-readable backend error identifier, e.g. INVALID_FILTER_KEY")
     message: str = Field(description="Human-readable description suitable for frontend handling or display")
+
+
+class ApiError(HTTPException):
+    """Raise this to return the error contract: HTTP ``status`` with body ``{"code", "message"}``."""
+
+    def __init__(self, status: int, code: str, message: str, headers: dict[str, str] | None = None) -> None:
+        super().__init__(status_code=status, detail={"code": code, "message": message}, headers=headers)

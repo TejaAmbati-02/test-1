@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     hybrid_semantic_weight: float = 0.5
     hybrid_keyword_weight: float = 0.5
     hybrid_retrieval_k: int = 100
+    # Text search: return only products that contain the query words (BM25 match); the vector
+    # search just re-ranks them instead of padding the results with "similar" but unrelated
+    # products (e.g. fans for "pump"). No product contains the words -> 0 results.
+    # false = old behaviour: always mix in vector-only matches.
+    text_require_keyword_match: bool = True
     # HNSW candidate list size per kNN query. The Lucene engine ignores the index
     # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
     # exact image matches at k=100; 500 found every known-answer test image.
@@ -69,7 +74,7 @@ class Settings(BaseSettings):
     redis_ttl_seconds: int = 3600
 
     # Logging — every log line always prints to the console; LOG_TO_FILE=true
-    # also writes JSON lines to logs/asmo-<timestamp>.log.
+    # also writes JSON lines to logs/asmo-<YYYY-MM-DD-HH-MM-SS>.log (a new file for every app start).
     log_level: str = "INFO"
     log_to_file: bool = False
 
@@ -78,32 +83,14 @@ class Settings(BaseSettings):
     api_description: str = "Frontend contract v2.1 — text/image/filter search with hybrid BM25 + kNN (RRF) and suggestions"
  
  
-def _load_settings() -> Settings:
-    """Build Settings from the environment / .env, logging what failed if it can't."""
-    logger.debug("[config._load_settings] start — reading settings from environment / .env")
-    try:
-        loaded = Settings()
-        # Connection targets only — never passwords, usernames or OCI identifiers.
-        logger.debug(
-            f"[config._load_settings] loaded — opensearch={loaded.opensearch_host}:{loaded.opensearch_port} "
-            f"index={loaded.opensearch_index_name} redis_enabled={loaded.redis_enabled} "
-            f"embedding_model={loaded.embedding_model_name} log_level={loaded.log_level}"
-        )
-        return loaded
-    except ValidationError as exc:
-        # Field names + error types only; input values could be secrets.
-        problems = ", ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}" for e in exc.errors())
-        logger.error(
-            f"[config._load_settings] invalid/missing settings ({exc.error_count()}): {problems}",
-            extra={"function_name": "config._load_settings", "status": "error", "error_details": problems},
-        )
-        raise
-    except Exception as exc:
-        logger.exception(
-            f"[config._load_settings] failed to load settings ({type(exc).__name__}): {exc}",
-            extra={"function_name": "config._load_settings", "status": "error", "error_details": str(exc)},
-        )
-        raise
-
-
-settings = _load_settings()
+# Settings are read once, when this module is first imported.
+try:
+    settings = Settings()
+except ValidationError as exc:
+    # Log field names + error types only: pydantic's own message includes the input values, which may be secrets.
+    problems = ", ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}" for e in exc.errors())
+    logger.error(
+        f"[config] invalid/missing settings ({exc.error_count()}): {problems}",
+        extra={"function_name": "config", "status": "error", "error_details": problems},
+    )
+    raise
