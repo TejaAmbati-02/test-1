@@ -93,6 +93,9 @@ def test_setup_logging_unknown_level_falls_back_to_info(restore_logger):
 def test_setup_logging_adds_one_file_handler(restore_logger, monkeypatch, tmp_path):
     monkeypatch.setattr(logger_module, "IS_WINDOWS", False)
     monkeypatch.setattr(logger_module, "LOGS_DIR", tmp_path / "logs")
+    # On Windows the module attaches its file handler at import; start without it
+    # (restore_logger puts it back) so setup_logging adds one under tmp_path.
+    logger.handlers = [h for h in logger.handlers if h.get_name() != logger_module.FILE_HANDLER_NAME]
     setup_logging(to_file=True)
     setup_logging(to_file=True)  # idempotent
     file_handlers = [h for h in logger.handlers if h.get_name() == logger_module.FILE_HANDLER_NAME]

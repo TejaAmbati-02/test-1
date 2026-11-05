@@ -131,6 +131,70 @@ class TestEncodeQuery:
         oci_client.embed_text.return_value = SimpleNamespace(data=SimpleNamespace(embeddings=None, embeddings_by_type=None))
         with pytest.raises(ValueError, match="no embeddings"):
             await service.encode_query("q")
+        assert service._cache == {}
+
+    async def test_cache_key_is_normalised_query_dimension_and_normalize(self, service):
+        await service.encode_query("  Ball Valve ")
+        assert list(service._cache) == [("ball valve", 4, True)]
+
+    async def test_oci_receives_the_original_query_text(self, service, oci_client):
+        await service.encode_query("  Ball Valve ")
+        details = oci_client.embed_text.call_args.kwargs["embed_text_details"]
+        assert details.inputs == ["  Ball Valve "]
+        assert details.truncate == "END"
+        assert details.is_echo is False
+        assert details.serving_mode.serving_type == "ON_DEMAND"
+
+    async def test_cache_hit_does_not_need_a_client(self, service, oci_sdk):
+        await service.encode_query("valve")
+        service._client = None
+        assert await service.encode_query("VALVE") == pytest.approx([0.6, 0.8, 0.0, 0.0])
+        oci_sdk.client_cls.assert_not_called()
+        assert service.is_loaded is False
+
+    async def test_client_built_once_across_calls(self, test_settings, oci_sdk, oci_client):
+        svc = EmbeddingService(test_settings)
+        await svc.encode_query("a")
+        await svc.encode_query("b")
+        oci_sdk.client_cls.assert_called_once()
+        oci_sdk.from_file.assert_called_once()
+        assert oci_client.embed_text.call_count == 2
+
+    async def test_lazy_load_failure_propagates(self, test_settings, oci_sdk):
+        oci_sdk.client_cls.side_effect = RuntimeError("no config")
+        svc = EmbeddingService(test_settings)
+        with pytest.raises(RuntimeError, match="no config"):
+            await svc.encode_query("q")
+        assert svc._cache == {}
+        assert svc.is_loaded is False
+
+    async def test_vectors_from_embeddings_by_type(self, service, oci_client):
+        oci_client.embed_text.return_value = SimpleNamespace(
+            data=SimpleNamespace(embeddings=None, embeddings_by_type={"float": [[0.0, 2.0, 0.0, 0.0]]})
+        )
+        assert await service.encode_query("q") == pytest.approx([0.0, 1.0, 0.0, 0.0])
+
+    def test_default_cache_size(self):
+        assert embedder_module.QUERY_CACHE_SIZE == 2048
+
+    async def test_service_error_is_logged_with_oci_fields(self, service, oci_client, monkeypatch):
+        error = MagicMock()
+        monkeypatch.setattr(embedder_module.logger, "error", error)
+        oci_client.embed_text.side_effect = oci.exceptions.ServiceError(
+            429, "TooManyRequests", {"opc-request-id": "req-9"}, "slow down")
+        with pytest.raises(oci.exceptions.ServiceError):
+            await service.encode_query("q")
+        extra = error.call_args.kwargs["extra"]
+        assert (extra["oci_status"], extra["oci_code"], extra["oci_message"]) == (429, "TooManyRequests", "slow down")
+        assert extra["status"] == "error"
+
+    async def test_non_oci_error_is_logged_without_oci_fields(self, service, oci_client, monkeypatch):
+        error = MagicMock()
+        monkeypatch.setattr(embedder_module.logger, "error", error)
+        oci_client.embed_text.side_effect = TimeoutError("slow")
+        with pytest.raises(TimeoutError):
+            await service.encode_query("q")
+        assert "oci_status" not in error.call_args.kwargs["extra"]
 
 
 class TestEncodeImage:
@@ -156,4 +220,34 @@ class TestEncodeImage:
     async def test_errors_propagate(self, service, oci_client):
         oci_client.embed_text.side_effect = RuntimeError("boom")
         with pytest.raises(RuntimeError):
+            await service.encode_image(b"x", "image/png")
+
+    async def test_oci_service_error_propagates(self, service, oci_client):
+        oci_client.embed_text.side_effect = oci.exceptions.ServiceError(429, "TooManyRequests", {}, "slow down")
+        with pytest.raises(oci.exceptions.ServiceError):
+            await service.encode_image(b"x", "image/png")
+
+    async def test_request_details(self, service, oci_client):
+        await service.encode_image(b"x", "image/webp")
+        details = oci_client.embed_text.call_args.kwargs["embed_text_details"]
+        assert details.output_dimensions == 4
+        assert details.compartment_id == "ocid1.compartment.test"
+        assert details.serving_mode.model_id == "cohere.embed-v4.0"
+        assert details.is_echo is False
+        assert details.embed_contents[0].image_url.url.startswith("data:image/webp;base64,")
+
+    async def test_without_normalisation(self, test_settings, oci_client):
+        svc = EmbeddingService(test_settings.model_copy(update={"embedding_normalize": False}))
+        svc._client = oci_client
+        assert await svc.encode_image(b"x", "image/png") == [3.0, 4.0, 0.0, 0.0]
+
+    async def test_vectors_from_embeddings_by_type(self, service, oci_client):
+        oci_client.embed_text.return_value = SimpleNamespace(
+            data=SimpleNamespace(embeddings=None, embeddings_by_type={"float": [[0.0, 0.0, 5.0, 0.0]]})
+        )
+        assert await service.encode_image(b"x", "image/png") == pytest.approx([0.0, 0.0, 1.0, 0.0])
+
+    async def test_no_embeddings_raises(self, service, oci_client):
+        oci_client.embed_text.return_value = SimpleNamespace(data=SimpleNamespace(embeddings=[], embeddings_by_type=None))
+        with pytest.raises(ValueError, match="no embeddings"):
             await service.encode_image(b"x", "image/png")

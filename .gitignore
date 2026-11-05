@@ -14,3 +14,11 @@ logs
 /pushing_data_to_index/out_transformed
 pushing_data_to_index
 out_transformed
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+test-results/
