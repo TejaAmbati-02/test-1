@@ -3,9 +3,9 @@
 Search modes (2.2):
   * text          -> hybrid BM25 multi_match + kNN on the text vector, fused with RRF
   * image         -> plain nested kNN on images.image_vector (each SKU scores by its best image)
-  * text + image  -> hybrid BM25 + text kNN + image kNN fused with weighted RRF (image weighted
-                     highest). If the cluster has no weighted RRF, the text instead filters
-                     (every word must appear) and the image kNN ranks.
+  * text + image  -> hybrid BM25 + text kNN + image kNN fused with weighted RRF. A product is
+                     returned if it contains the query words OR its image matches (>= image_min_score).
+                     If the cluster has no weighted RRF: BM25 + image kNN with plain RRF.
   * filter-browse -> no query and no image: just the filters (or match_all)
 
 Language: ``en`` runs BM25 on the English fields; ``de`` on the ``*_de`` fields + ``content``.
@@ -276,49 +276,55 @@ class SearchService:
                 }}}
                 logger.info(f"Search — step: text kNN on '{_cfg.opensearch_vector_field}' "
                             f"(vector dim={len(query_vector or [])}, k={_cfg.hybrid_retrieval_k})")
-                # Keyword check (text, and text + image): only products that contain the query words
-                # may be returned — the vectors (text and image) then just rank them. Without it the text
-                # vector search would add its 100 nearest products, related or not. (The text-as-filter
-                # mode below already requires every word, so it skips this.)
-                keyword_only = False
-                if _cfg.text_require_keyword_match and (not has_image or self._text_image_fusion):
-                    # Does any product (within the filters) contain the query words? A cheap
-                    # size-0 search that stops at the first match.
-                    check = await self._os.search(_cfg.opensearch_index_name, {
-                        "size": 0, "track_total_hits": 1, "terminate_after": 1,
-                        "query": {"bool": {"filter": [bm25, *filters]}},
-                    })
-                    if check["hits"]["total"]["value"] == 0:
-                        logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
-                                    extra={"search_query": query, "status": "no_results"})
-                        return SearchApiResponse(request_id=request_id, total_results=0, page=page,
-                                                 page_size=page_size, products=[], facets=SearchFacets())
-                    filters.append(bm25)
-                    keyword_only = True
-                    logger.info("Search — step: products contain the query words -> results limited to "
-                                "keyword matches; the vector search only re-ranks them")
+                # Which products may be returned at all. Without a gate the text vector search would
+                # add its 100 nearest products, related or not (e.g. fans for "pump"). The vectors
+                # then only rank what passes the gate.
+                #   text         -> the product contains the query words
+                #   text + image -> the product contains the query words OR its image matches the
+                #                   uploaded one (score >= image_min_score), so a photo still finds
+                #                   look-alikes that the text doesn't describe
+                gated = False
+                if _cfg.text_require_keyword_match:
+                    if has_image:
+                        gate: dict[str, Any] = {"bool": {"should": [bm25, image_clause], "minimum_should_match": 1}}
+                        logger.info("Search — step: results limited to keyword matches OR image matches")
+                    else:
+                        gate = bm25
+                        # Does any product (within the filters) contain the query words? A cheap
+                        # size-0 search that stops at the first match.
+                        check = await self._os.search(_cfg.opensearch_index_name, {
+                            "size": 0, "track_total_hits": 1, "terminate_after": 1,
+                            "query": {"bool": {"filter": [bm25, *filters]}},
+                        })
+                        if check["hits"]["total"]["value"] == 0:
+                            logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
+                                        extra={"search_query": query, "status": "no_results"})
+                            return SearchApiResponse(request_id=request_id, total_results=0, page=page,
+                                                     page_size=page_size, products=[], facets=SearchFacets())
+                        logger.info("Search — step: products contain the query words -> results limited to "
+                                    "keyword matches; the vector search only re-ranks them")
+                    filters.append(gate)
+                    gated = True
 
                 if not has_image:
-                    mode = "text (keyword matches only)" if keyword_only else "text"
+                    mode = "text (keyword matches only)" if gated else "text"
                     subqueries = [bm25, text_knn]
                     pipeline_id = PIPELINE_ID
                     logger.info(f"Search — step: text only -> hybrid [BM25, text kNN] fused by '{pipeline_id}'")
                 elif self._text_image_fusion:
-                    mode = "text+image (keyword matches only)" if keyword_only else "text+image"
+                    mode = "text+image (keyword or image matches)" if gated else "text+image"
                     subqueries = [bm25, text_knn, image_clause]  # order matches the pipeline weights
                     pipeline_id = TEXT_IMAGE_PIPELINE_ID
                     logger.info(f"Search — step: text + image -> hybrid [BM25, text kNN, image kNN] "
                                 f"fused by weighted '{pipeline_id}'")
                 else:
-                    mode = "text+image (text as filter)"
-                    # The text only filters here: every word must appear.
-                    product_match["multi_match"]["operator"] = "and"
-                    seller_match["multi_match"]["operator"] = "and"
-                    filters.append(bm25)
-                    subqueries = [image_clause]
+                    mode = "text+image (keyword or image matches, plain RRF)" if gated else "text+image (plain RRF)"
+                    # No weighted RRF: fuse BM25 and image kNN equally (leaving out the text kNN so
+                    # text doesn't get 2 of 3 votes).
+                    subqueries = [bm25, image_clause]
                     pipeline_id = PIPELINE_ID
-                    logger.info("Search — step: text + image, weighted RRF unavailable -> text is a filter "
-                                "(every word must appear), image kNN ranks")
+                    logger.info("Search — step: text + image, weighted RRF unavailable -> hybrid [BM25, image kNN] "
+                                f"fused by '{pipeline_id}'")
                 # A hybrid query must be the top-level query, so filters go in its own `filter`
                 # (applied to every sub-query) rather than an outer bool.
                 hybrid: dict[str, Any] = {"queries": subqueries, "pagination_depth": depth}
