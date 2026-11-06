@@ -274,8 +274,9 @@ class TestSearch:
         user_filters = [{"term": {"currency": "SAR"}}]
         await _search(service, query="valve", query_vector=[0.1], image_vector=[0.3], filters=user_filters)
         hybrid = _body(os_client)["query"]["hybrid"]
-        bm25, image = hybrid["queries"]  # BM25 + image kNN, no text kNN
+        bm25, text_knn, image = hybrid["queries"]  # same 3 lists, plain RRF
         assert "multi_match" in bm25["bool"]["should"][0] and "function_score" in image
+        assert text_knn["knn"]["content_vector"]["filter"] == bm25  # text kNN ranks keyword matches only
         assert "operator" not in bm25["bool"]["should"][0]["multi_match"]
         assert hybrid["filter"]["bool"]["filter"] == [
             {"term": {"currency": "SAR"}},

@@ -5,7 +5,8 @@ Search modes (2.2):
   * image         -> plain nested kNN on images.image_vector (each SKU scores by its best image)
   * text + image  -> hybrid BM25 + text kNN + image kNN fused with weighted RRF. A product is
                      returned if it contains the query words OR its image matches (>= image_min_score).
-                     If the cluster has no weighted RRF: BM25 + image kNN with plain RRF.
+                     The text kNN only ranks keyword matches, so keyword matches outrank image-only
+                     look-alikes. If the cluster has no weighted RRF: the same 3 lists with plain RRF.
   * filter-browse -> no query and no image: just the filters (or match_all)
 
 Language: ``en`` runs BM25 on the English fields; ``de`` on the ``*_de`` fields + ``content``.
@@ -324,12 +325,14 @@ class SearchService:
                                 f"fused by weighted '{pipeline_id}'")
                 else:
                     mode = "text+image (keyword or image matches, plain RRF)" if gated else "text+image (plain RRF)"
-                    # No weighted RRF: fuse BM25 and image kNN equally (leaving out the text kNN so
-                    # text doesn't get 2 of 3 votes).
-                    subqueries = [bm25, image_clause]
+                    # No weighted RRF: plain RRF over the same 3 lists. The text kNN only ranks keyword
+                    # matches (see the gate above), so a keyword match gets 2 votes, an image-only
+                    # look-alike 1, and a product matching both 3. With only [BM25, image] the top
+                    # keyword match and the top image match would tie (e.g. a stapler for "battery").
+                    subqueries = [bm25, text_knn, image_clause]
                     pipeline_id = PIPELINE_ID
-                    logger.info("Search — step: text + image, weighted RRF unavailable -> hybrid [BM25, image kNN] "
-                                f"fused by '{pipeline_id}'")
+                    logger.info("Search — step: text + image, weighted RRF unavailable -> hybrid "
+                                f"[BM25, text kNN, image kNN] fused by plain '{pipeline_id}'")
                 # A hybrid query must be the top-level query, so filters go in its own `filter`
                 # (applied to every sub-query) rather than an outer bool.
                 hybrid: dict[str, Any] = {"queries": subqueries, "pagination_depth": depth}
