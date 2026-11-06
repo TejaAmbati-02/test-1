@@ -287,7 +287,12 @@ class SearchService:
                 if _cfg.text_require_keyword_match:
                     if has_image:
                         gate: dict[str, Any] = {"bool": {"should": [bm25, image_clause], "minimum_should_match": 1}}
-                        logger.info("Search — step: results limited to keyword matches OR image matches")
+                        # The text kNN may only rank keyword matches: otherwise it also votes for the
+                        # image-only look-alikes (e.g. a stapler for "battery" + a scissors photo), which
+                        # then get two votes (image + text kNN) and outrank the real keyword matches.
+                        text_knn["knn"][_cfg.opensearch_vector_field]["filter"] = bm25
+                        logger.info("Search — step: results limited to keyword matches OR image matches; "
+                                    "text kNN ranks keyword matches only")
                     else:
                         gate = bm25
                         # Does any product (within the filters) contain the query words? A cheap

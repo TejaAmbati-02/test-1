@@ -235,16 +235,26 @@ class TestSearch:
         assert "operator" not in main["multi_match"]
         assert "operator" not in seller["nested"]["query"]["multi_match"]
         assert text_knn["knn"]["content_vector"]["vector"] == [0.1]
+        # The text kNN only ranks keyword matches, so image-only look-alikes get just the image vote.
+        assert text_knn["knn"]["content_vector"]["filter"] == bm25
         assert image["function_score"]["query"]["nested"]["query"]["knn"][IMAGE_VECTOR_FIELD]["vector"] == [0.3]
-        assert hybrid["filter"] == {"bool": {"filter": [bm25]}}  # only products containing the words
+        # Products containing the words OR matching the image (not only keyword matches).
+        assert hybrid["filter"] == {"bool": {"filter": [
+            {"bool": {"should": [bm25, image], "minimum_should_match": 1}},
+        ]}}
         assert _pipeline(os_client) == TEXT_IMAGE_PIPELINE_ID
 
-    async def test_text_plus_image_returns_nothing_when_no_product_has_the_words(self, service, os_client):
+    async def test_text_only_knn_is_not_filtered(self, service, os_client):
+        await _search(service, query="valve", query_vector=[0.1])
+        knn = _body(os_client)["query"]["hybrid"]["queries"][1]
+        assert "filter" not in knn["knn"]["content_vector"]
+
+    async def test_text_plus_image_still_searches_when_no_product_has_the_words(self, service, os_client):
+        # e.g. a scissors photo + "battery": the image matches must still come back.
         service._text_image_fusion = True
-        os_client.search.return_value = os_search_result([], total=0)
-        r = await _search(service, query="zzqxvw", query_vector=[0.1], image_vector=[0.3])
-        assert os_client.search.await_count == 1  # only the keyword check
-        assert (r.total_results, r.products) == (0, [])
+        await _search(service, query="zzqxvw", query_vector=[0.1], image_vector=[0.3])
+        assert os_client.search.await_count == 1  # no keyword pre-check: straight to the search
+        assert "hybrid" in _body(os_client)["query"]
 
     async def test_minimum_words_match(self, service, os_client):
         await _search(service, query="busbar system 3.3kv", query_vector=[0.1])
@@ -260,16 +270,17 @@ class TestSearch:
         main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
         assert "minimum_should_match" not in main["multi_match"]
 
-    async def test_text_plus_image_falls_back_to_text_filter(self, service, os_client):
+    async def test_text_plus_image_without_weighted_rrf_uses_plain_rrf(self, service, os_client):
         user_filters = [{"term": {"currency": "SAR"}}]
         await _search(service, query="valve", query_vector=[0.1], image_vector=[0.3], filters=user_filters)
         hybrid = _body(os_client)["query"]["hybrid"]
-        assert len(hybrid["queries"]) == 1 and "function_score" in hybrid["queries"][0]
-        applied = hybrid["filter"]["bool"]["filter"]
-        assert applied[0] == {"term": {"currency": "SAR"}}
-        main, seller = applied[1]["bool"]["should"]
-        assert main["multi_match"]["operator"] == "and"
-        assert seller["nested"]["query"]["multi_match"]["operator"] == "and"
+        bm25, image = hybrid["queries"]  # BM25 + image kNN, no text kNN
+        assert "multi_match" in bm25["bool"]["should"][0] and "function_score" in image
+        assert "operator" not in bm25["bool"]["should"][0]["multi_match"]
+        assert hybrid["filter"]["bool"]["filter"] == [
+            {"term": {"currency": "SAR"}},
+            {"bool": {"should": [bm25, image], "minimum_should_match": 1}},
+        ]
         assert _pipeline(os_client) == PIPELINE_ID
         assert user_filters == [{"term": {"currency": "SAR"}}]  # caller's list not modified
 
