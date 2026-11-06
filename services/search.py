@@ -266,10 +266,13 @@ class SearchService:
                     product_match["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
                     seller_match["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
                     logger.info(f"Search — step: a product must match {_cfg.text_min_words_match} of the query words")
+                # minimum_should_match=1 is required, not cosmetic: OpenSearch merges the hybrid `filter`
+                # into each sub-query (and into the text kNN's own filter), and a bool with a filter clause
+                # makes its should clauses optional — the keyword condition would silently disappear.
                 bm25 = {"bool": {"should": [
                     product_match,
                     {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
-                ]}}
+                ], "minimum_should_match": 1}}
                 logger.info(f"Search — step: BM25 on language={language} fields={fields} "
                             f"+ nested seller fields={SELLER_FIELDS}")
                 text_knn = {"knn": {_cfg.opensearch_vector_field: {

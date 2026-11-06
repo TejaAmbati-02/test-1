@@ -158,6 +158,8 @@ class TestSearch:
         hybrid = _body(os_client)["query"]["hybrid"]
         bm25, knn = hybrid["queries"]
         main, seller = bm25["bool"]["should"]
+        # Must stay required when OpenSearch merges filters into this bool (else should becomes optional).
+        assert bm25["bool"]["minimum_should_match"] == 1
         assert main["multi_match"]["query"] == "valve"
         assert main["multi_match"]["fields"] == KEYWORD_FIELDS == [
             "aramco_material_number^8", "asmo_material_number^8", "sku_name^7", "product_name^7",
