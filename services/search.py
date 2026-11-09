@@ -227,9 +227,15 @@ class SearchService:
         else:
             # Per-query HNSW candidate count (Lucene ignores the index-level ef_search setting).
             knn_params = {"method_parameters": {"ef_search": _cfg.knn_ef_search}} if _cfg.knn_ef_search else {}
-            depth = max(_cfg.hybrid_retrieval_k, page * page_size)  # deep enough to reach the requested page
-            logger.info(f"Search — step: kNN ef_search={_cfg.knn_ef_search or 'index default'}, "
-                        f"depth={depth} (max of retrieval_k={_cfg.hybrid_retrieval_k} and page*page_size={page * page_size})")
+            # How many candidates each part of the search collects before results are merged and paged.
+            # FIXED for every page of a search (OpenSearch requires the same pagination_depth on every page):
+            # if it grew with the page, each page would be a different search — a different total and a
+            # different order, so products could repeat or be skipped between pages.
+            depth = _cfg.search_depth
+            logger.info(f"Search — step: kNN ef_search={_cfg.knn_ef_search or 'index default'}, depth={depth} "
+                        f"(fixed for every page; results beyond it are not reachable)")
+            if page * page_size > depth:
+                logger.info(f"Search — page {page} x {page_size} is beyond SEARCH_DEPTH={depth} -> this page is empty")
 
             image_clause: dict[str, Any] = {}
             image_knn: dict[str, Any] = {}

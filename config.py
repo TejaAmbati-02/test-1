@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     hybrid_semantic_weight: float = 0.5
     hybrid_keyword_weight: float = 0.5
     hybrid_retrieval_k: int = 100
+    # How many candidates a search collects before merging and paging — the same for every page, so
+    # totals and order stay consistent across pages. Results beyond it can't be paged to.
+    search_depth: int = 1000
     # Text search: return only products that contain the query words (BM25 match); the vector
     # search just re-ranks them instead of padding the results with "similar" but unrelated
     # products (e.g. fans for "pump"). No product contains the words -> 0 results.

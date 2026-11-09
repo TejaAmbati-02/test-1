@@ -212,7 +212,7 @@ class TestSearch:
         assert fs["min_score"] == 0.6
         nested = fs["query"]["nested"]
         assert (nested["path"], nested["score_mode"]) == ("images", "max")
-        assert nested["query"]["knn"][IMAGE_VECTOR_FIELD] == {"vector": [0.3], "k": 100, "method_parameters": {"ef_search": 500}}
+        assert nested["query"]["knn"][IMAGE_VECTOR_FIELD] == {"vector": [0.3], "k": 1000, "method_parameters": {"ef_search": 500}}
         assert _pipeline(os_client) is None  # one kNN list needs no RRF
 
     async def test_image_without_min_score(self, service, os_client, monkeypatch):
@@ -226,7 +226,7 @@ class TestSearch:
         await _search(service, image_vector=[0.3], filters=filters, page=3, page_size=50)
         knn = _body(os_client)["query"]["function_score"]["query"]["nested"]["query"]["knn"][IMAGE_VECTOR_FIELD]
         assert knn["filter"] == {"bool": {"filter": filters}}
-        assert knn["k"] == 150  # max(retrieval_k=100, 3*50)
+        assert knn["k"] == 1000  # SEARCH_DEPTH: the same on every page
 
     async def test_text_plus_image_weighted_fusion(self, service, os_client):
         service._text_image_fusion = True
@@ -293,7 +293,7 @@ class TestSearch:
         body = _body(os_client)
         assert (body["from"], body["size"]) == (120, 30)
         assert body["sort"] == [{"price": {"order": "asc"}}]
-        assert body["query"]["hybrid"]["pagination_depth"] == 150  # max(100, 5*30)
+        assert body["query"]["hybrid"]["pagination_depth"] == 1000  # SEARCH_DEPTH: the same on every page
         applied = body["query"]["hybrid"]["filter"]["bool"]["filter"]
         assert applied[0] == {"term": {"moq": 1}}  # the user's filter (+ the keyword-match filter after it)
 
@@ -384,3 +384,17 @@ class TestSuggestions:
         os_client.search.side_effect = RuntimeError("boom")
         with pytest.raises(RuntimeError):
             await service.get_suggestions("x")
+
+
+class TestPaginationConsistency:
+    @pytest.mark.parametrize("query, image", [("valve", None), ("valve", [0.3]), (None, [0.3])])
+    async def test_every_page_sends_the_same_search(self, service, os_client, query, image):
+        """Only from/size change between pages, so the total and the order are the same on every page."""
+        bodies = []
+        for page in (1, 2, 3, 10):
+            await _search(service, query=query, query_vector=[0.1] if query else None, image_vector=image,
+                          page=page, page_size=60)
+            body = dict(_body(os_client))
+            assert (body.pop("from"), body.pop("size")) == ((page - 1) * 60, 60)
+            bodies.append(body)
+        assert all(b == bodies[0] for b in bodies)
