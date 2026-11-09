@@ -92,9 +92,12 @@ class EmbeddingStore:
                     "query_vector": stored.get("text_emb"), "image_vector": stored.get("image_emb"), "reused": True}
             logger.info(f"EmbeddingStore — loaded context {previous_request_id}", extra={"status": "success"})
 
-        # 2. Refining (no new query / image): reuse the previous context as-is and refresh its expiry
-        #    in the background. A failed refresh is only logged.
-        if prev and not query and image is None:
+        # 2. Refining: no new image, and no query or the SAME query as before (ignoring case and extra
+        #    spaces) -> it is the same search: reuse the previous context as-is (same request_id) and
+        #    refresh its expiry in the background. A failed refresh is only logged.
+        same_query_as_before = bool(prev and query and prev["query"]
+                                    and " ".join(prev["query"].split()).lower() == " ".join(query.split()).lower())
+        if prev and image is None and (not query or same_query_as_before):
             try:
                 task = asyncio.create_task(self._redis_svc.client.expire(prev["request_id"], ttl))
                 self._pending.add(task)

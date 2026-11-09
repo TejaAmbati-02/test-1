@@ -116,10 +116,17 @@ class TestRefine:
         await _drain(store)
         assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": [0.6], "query": "pump"}
 
-    async def test_same_query_reuses_its_vector(self, store, embedder, previous):
+    async def test_same_query_is_the_same_search(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, "  ball   VALVE ", None, OLD_ID)
-        assert ctx["query_vector"] == [0.5]
+        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "reused": True}
         embedder.encode_query.assert_not_awaited()
+        await _drain(store)
+        assert NEW_ID not in fake_redis.data  # no new context
+
+    async def test_same_query_with_a_new_image_is_a_new_search(self, store, embedder, previous):
+        ctx = await store.resolve(NEW_ID, "Ball Valve", (b"img", "image/jpeg"), OLD_ID)
+        assert (ctx["request_id"], ctx["query_vector"], ctx["image_vector"]) == (NEW_ID, [0.5], [0.3, 0.4])
+        embedder.encode_query.assert_not_awaited()  # the unchanged query keeps its stored vector
 
     async def test_new_image_replaces_image_and_keeps_query(self, store, embedder, previous):
         ctx = await store.resolve(NEW_ID, None, (b"img", "image/jpeg"), OLD_ID)
