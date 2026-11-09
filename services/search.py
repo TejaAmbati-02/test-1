@@ -18,6 +18,7 @@ from typing import Any
 
 from config import settings as _cfg
 from models.response import (
+    ApiError,
     FacetTermValue,
     ProductItem,
     ProductSuggestion,
@@ -370,7 +371,20 @@ class SearchService:
         )
 
         start = time.perf_counter()
-        raw = await self._os.search(_cfg.opensearch_index_name, body, pipeline_id=pipeline_id)
+        try:
+            raw = await self._os.search(_cfg.opensearch_index_name, body, pipeline_id=pipeline_id)
+        except ApiError as exc:
+            # A hybrid (text / text+image) search asked for a page after its last result: OpenSearch
+            # answers "Reached end of search result" (400) instead of an empty page. That is not an
+            # error for the client — return an empty page. The same search from the first page gives
+            # the real total and facets, so total_results stays the same on every page.
+            if "Reached end of search result" not in str(exc.detail):
+                raise
+            logger.info(f"Search — page {page} is after the last result -> empty page "
+                        f"(re-reading the total and facets from page 1)")
+            raw = await self._os.search(_cfg.opensearch_index_name, {**body, "from": 0},
+                                        pipeline_id=pipeline_id)
+            raw["hits"]["hits"] = []
         wall_ms = (time.perf_counter() - start) * 1000
         took_ms = raw.get("took", 0)
         hits = raw["hits"]["hits"]

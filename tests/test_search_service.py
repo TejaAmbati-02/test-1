@@ -398,3 +398,23 @@ class TestPaginationConsistency:
             assert (body.pop("from"), body.pop("size")) == ((page - 1) * 60, 60)
             bodies.append(body)
         assert all(b == bodies[0] for b in bodies)
+
+    async def test_page_after_the_last_result_is_empty_not_an_error(self, service, os_client):
+        """OpenSearch answers 400 "Reached end of search result" for a hybrid page past the end:
+        the API returns an empty page with the same total and facets as page 1."""
+        from models.response import ApiError
+        end = ApiError(400, "QUERY_ERROR", "OpenSearch query error: {'reason': 'Reached end of search result, "
+                                           "increase pagination_depth value to see more results'}")
+        check = os_search_result([HIT], total=1)
+        page1 = os_search_result([HIT], total=42, aggs=AGGS)
+        os_client.search.side_effect = [check, end, page1]
+        response = await _search(service, query="valve", query_vector=[0.1], page=9, page_size=60)
+        assert (response.products, response.total_results, response.page) == ([], 42, 9)
+        assert response.facets.category[0].value == "Valves"
+        assert os_client.search.call_args.args[1]["from"] == 0  # the re-read is the same search from page 1
+
+    async def test_other_query_errors_still_fail(self, service, os_client):
+        from models.response import ApiError
+        os_client.search.side_effect = [os_search_result([HIT], total=1), ApiError(400, "QUERY_ERROR", "bad query")]
+        with pytest.raises(ApiError):
+            await _search(service, query="valve", query_vector=[0.1])

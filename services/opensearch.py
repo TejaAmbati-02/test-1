@@ -143,6 +143,10 @@ class OpenSearchClientService:
             logger.error(f"OpenSearch — index '{index}' not found", extra={"status": "error", "error_details": str(exc)})
             raise ApiError(404, "INDEX_NOT_FOUND", f"Index '{index}' not found") from exc
         except RequestError as exc:
+            if "Reached end of search result" in str(exc.info):
+                # A page after the last result — not a failure; the search service returns an empty page.
+                logger.info(f"OpenSearch — '{index}': the requested page is after the last result")
+                raise ApiError(400, "QUERY_ERROR", f"OpenSearch query error: {exc.info}") from exc
             logger.error(f"OpenSearch — query error on '{index}'", extra={"status": "error", "error_details": str(exc.info)})
             raise ApiError(400, "QUERY_ERROR", f"OpenSearch query error: {exc.info}") from exc
 
