@@ -71,10 +71,10 @@ def _stored(fake_redis: FakeRedis, key: str) -> dict:
 class TestNewContext:
     async def test_query_is_embedded_and_stored(self, store, embedder, fake_redis):
         ctx = await store.resolve(NEW_ID, "valve", None, None)
-        assert ctx == {"request_id": NEW_ID, "query": "valve", "query_vector": [0.1, 0.2], "image_vector": None, "reused": False}
+        assert ctx == {"request_id": NEW_ID, "query": "valve", "query_vector": [0.1, 0.2], "image_vector": None, "image_blank": False, "reused": False}
         embedder.encode_query.assert_awaited_once_with("valve")
         await _drain(store)
-        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": None, "query": "valve"}
+        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": None, "query": "valve", "image_blank": False}
         assert fake_redis.ttls[NEW_ID] == 60
         assert not store._pending
 
@@ -84,6 +84,12 @@ class TestNewContext:
         embedder.encode_image.assert_awaited_once_with(b"img", "image/png")
         await _drain(store)
         assert _stored(fake_redis, NEW_ID)["image_emb"] == [0.3, 0.4]
+
+    async def test_blank_image_is_embedded_and_stored_with_its_flag(self, store, embedder, fake_redis):
+        ctx = await store.resolve(NEW_ID, None, (b"img", "image/png"), None, image_blank=True)
+        assert (ctx["request_id"], ctx["image_vector"], ctx["image_blank"]) == (NEW_ID, [0.3, 0.4], True)
+        await _drain(store)
+        assert _stored(fake_redis, NEW_ID) == {"text_emb": None, "image_emb": [0.3, 0.4], "query": None, "image_blank": True}
 
     async def test_disabled_store_embeds_without_saving(self, disabled_store, embedder):
         ctx = await disabled_store.resolve(NEW_ID, "valve", None, None)
@@ -104,7 +110,7 @@ class TestRefine:
 
     async def test_previous_context_is_reused_as_is(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, None, None, OLD_ID)
-        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "reused": True}
+        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "image_blank": False, "reused": True}
         embedder.encode_query.assert_not_awaited()
         await _drain(store)
         assert fake_redis.ttls[OLD_ID] == 60  # expiry refreshed
@@ -112,13 +118,13 @@ class TestRefine:
 
     async def test_new_query_replaces_text_and_keeps_image(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, "pump", None, OLD_ID)
-        assert ctx == {"request_id": NEW_ID, "query": "pump", "query_vector": [0.1, 0.2], "image_vector": [0.6], "reused": False}
+        assert ctx == {"request_id": NEW_ID, "query": "pump", "query_vector": [0.1, 0.2], "image_vector": [0.6], "image_blank": False, "reused": False}
         await _drain(store)
-        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": [0.6], "query": "pump"}
+        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": [0.6], "query": "pump", "image_blank": False}
 
     async def test_same_query_is_the_same_search(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, "  ball   VALVE ", None, OLD_ID)
-        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "reused": True}
+        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "image_blank": False, "reused": True}
         embedder.encode_query.assert_not_awaited()
         await _drain(store)
         assert NEW_ID not in fake_redis.data  # no new context

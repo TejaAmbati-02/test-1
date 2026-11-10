@@ -197,8 +197,9 @@ async def v1_search(request: Request) -> SearchApiResponse:
 
         # 4. The image: validate + EXIF fix + blank check + downscale + re-encode (services/image_processor.py).
         #    Pillow is CPU-heavy, so it runs in a worker thread to keep the event loop free.
-        #    A blank / single-colour image has nothing to search for: it is ignored (image_ignored=True).
-        image, image_ignored = await asyncio.to_thread(image_processor.process, multipart.get("image"))
+        #    A blank / single-colour image (image_blank=True) is still embedded and stored in Redis, so the
+        #    response gets a request_id, but it is not searched with.
+        image, image_blank = await asyncio.to_thread(image_processor.process, multipart.get("image"))
 
         # 5. Filters: the `filters` field is a JSON object string (2.1) -> OpenSearch filter clauses.
         #    Numeric keys take a number, a non-empty list of numbers, or a range such as {"gte": 50, "lte": 150};
@@ -241,21 +242,9 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 filters.append(clause)
                 logger.info(f"POST /v1/search — filter '{key}'={value!r} -> {clause}")
 
-        # 6. The query text.
+        # 6. The query text. Text shorter than MIN_QUERY_CHARS (e.g. "pu") is embedded and stored like any
+        #    other query, but not searched with (step 8).
         query = form.search_query.strip() if form.search_query and form.search_query.strip() else None
-        # Text shorter than MIN_QUERY_CHARS (e.g. "pu") is not searched.
-        text_ignored = bool(query) and len(query) < settings.min_query_chars
-        if text_ignored:
-            logger.info(f"POST /v1/search — search_query {query!r} is shorter than {settings.min_query_chars} "
-                        f"characters -> ignored")
-            query = None
-        if image_ignored:
-            logger.info("POST /v1/search — image is blank / a single colour -> ignored")
-        # Nothing usable left to search with -> no search, 0 results.
-        if (text_ignored or image_ignored) and not query and image is None and not form.request_id and not filters:
-            logger.info("POST /v1/search — nothing left to search -> 0 results", extra={"status": "no_results"})
-            return SearchApiResponse(request_id=None, total_results=0, page=form.page, page_size=form.page_size,
-                                     products=[], facets=SearchFacets())
         if not query and image is None and not form.request_id and not filters:
             raise ApiError(400, "EMPTY_REQUEST", "At least one of search_query, image, filters or request_id must be provided")
         logger.info(
@@ -267,10 +256,11 @@ async def v1_search(request: Request) -> SearchApiResponse:
                                   "previous_request_id": form.request_id}},
         )
 
-        # One Redis entry per search holds its query/image embeddings under its request_id.
-        # Sending a previous request_id refines that search.
+        # 7. One Redis entry per search holds its query/image embeddings under its request_id — for every
+        #    query / image sent, whether or not it is searched with or finds results.
+        #    Sending a previous request_id refines that search.
         embed_start = time.perf_counter()
-        ctx = await embedding_store.resolve(request_id, query, image, form.request_id)
+        ctx = await embedding_store.resolve(request_id, query, image, form.request_id, image_blank)
         embed_ms = (time.perf_counter() - embed_start) * 1000
         logger.info(
             f"POST /v1/search — embeddings ready in {embed_ms:.1f}ms: context={ctx["request_id"]}, query={ctx["query"]!r}, "
@@ -278,18 +268,34 @@ async def v1_search(request: Request) -> SearchApiResponse:
             f"reused_previous={ctx["reused"]}",
         )
 
-        result = await search_service.search(
-            query=ctx["query"],
-            query_vector=ctx["query_vector"],
-            image_vector=ctx["image_vector"],
-            filters=filters,
-            sort_by=form.sort_by,
-            sort_order=form.sort_order,
-            page=form.page,
-            page_size=form.page_size,
-            request_id=ctx["request_id"],
-            language=form.language,
-        )
+        # 8. Search only with the usable parts: a too-short query and a blank image are left out
+        #    (also when they come from a refined request_id's stored context).
+        search_query = ctx["query"] if ctx["query"] and len(ctx["query"]) >= settings.min_query_chars else None
+        search_image_vector = None if ctx["image_blank"] else ctx["image_vector"]
+        if ctx["query"] and not search_query:
+            logger.info(f"POST /v1/search — search_query {ctx['query']!r} is shorter than "
+                        f"{settings.min_query_chars} characters -> stored, not searched")
+        if ctx["image_vector"] and search_image_vector is None:
+            logger.info("POST /v1/search — image is blank / a single colour -> stored, not searched")
+        if (ctx["query"] or ctx["image_vector"]) and not search_query and search_image_vector is None and not filters:
+            # Nothing usable left to search with -> no search, 0 results (the context is still stored).
+            logger.info(f"POST /v1/search — nothing left to search -> 0 results (request_id={ctx['request_id']})",
+                        extra={"status": "no_results"})
+            result = SearchApiResponse(request_id=ctx["request_id"], total_results=0, page=form.page,
+                                       page_size=form.page_size, products=[], facets=SearchFacets())
+        else:
+            result = await search_service.search(
+                query=search_query,
+                query_vector=ctx["query_vector"] if search_query else None,
+                image_vector=search_image_vector,
+                filters=filters,
+                sort_by=form.sort_by,
+                sort_order=form.sort_order,
+                page=form.page,
+                page_size=form.page_size,
+                request_id=ctx["request_id"],
+                language=form.language,
+            )
     except (HTTPException, RequestValidationError):
         raise  # already in the error contract
     except Exception as exc:

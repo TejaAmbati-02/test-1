@@ -33,8 +33,9 @@ class ImageProcessor:
 
         Returns ``(image, blank)``:
           * ``((processed_bytes, mime_type), False)`` — a usable image, ready for the embedder
+          * ``((processed_bytes, mime_type), True)``  — the image is blank / a single colour: it is still
+            embedded and stored (so the response gets a request_id) but not searched with
           * ``(None, False)`` — no (or an empty) image was sent
-          * ``(None, True)``  — the image is blank / a single colour: nothing to search for
 
         Raises ApiError 400 UNSUPPORTED_IMAGE_TYPE or 413 IMAGE_TOO_LARGE for an image that breaks the rules.
         """
@@ -92,10 +93,12 @@ class ImageProcessor:
         # 6. Blank / single-colour image? Measure how much the pixels vary (standard deviation per
         #    colour channel, 0-255): a plain colour is ~0, a real product photo is far higher.
         detail = max(ImageStat.Stat(image.convert("RGB")).stddev)
-        if detail < self.min_detail:
-            logger.info(f"Image — blank / single colour (detail={detail:.1f} < {self.min_detail}) -> not searched")
-            return None, True
-        logger.info(f"Image — detail={detail:.1f} (minimum {self.min_detail})")
+        blank = detail < self.min_detail
+        if blank:
+            logger.info(f"Image — blank / single colour (detail={detail:.1f} < {self.min_detail}) -> "
+                        f"embedded and stored, but not searched")
+        else:
+            logger.info(f"Image — detail={detail:.1f} (minimum {self.min_detail})")
 
         # 7. Scale large images down (aspect ratio kept).
         if width * height > self.max_pixels:
@@ -115,7 +118,7 @@ class ImageProcessor:
 
         logger.info(f"Image — processed {len(data)} -> {len(processed)} bytes ({mime}) "
                     f"in {(time.perf_counter() - start) * 1000:.1f}ms")
-        return (processed, mime), False
+        return (processed, mime), blank
 
 
 # The one object the app uses — import it where needed:  from services.image_processor import image_processor

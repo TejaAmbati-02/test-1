@@ -33,12 +33,12 @@ REAL_PNG, REAL_JPEG = _real_image("PNG"), _real_image("JPEG")
 @pytest.fixture
 def mocks(monkeypatch):
     """Mock the embedding store and search service used by the router."""
-    async def resolve(request_id, query, image, previous_request_id):
+    async def resolve(request_id, query, image, previous_request_id, image_blank=False):
         if previous_request_id and not query and image is None:
             return {"request_id": previous_request_id, "query": "stored query", "query_vector": [0.5],
-                    "image_vector": None, "reused": True}
+                    "image_vector": None, "image_blank": False, "reused": True}
         return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
-                "image_vector": [0.3] if image else None, "reused": False}
+                "image_vector": [0.3] if image else None, "image_blank": image_blank, "reused": False}
 
     m = {
         "resolve": AsyncMock(side_effect=resolve),
@@ -62,34 +62,43 @@ def _error(resp, status: int, code: str) -> dict:
 
 class TestSearchModes:
     @pytest.mark.parametrize("text", ["p", "pu", " pu "])
-    def test_text_under_3_characters_is_not_searched(self, client, mocks, text):
+    def test_text_under_3_characters_is_stored_but_not_searched(self, client, mocks, text):
         resp = _post(client, {**BASE, "search_query": text})
         assert resp.status_code == 200
-        assert (resp.json()["total_results"], resp.json()["products"]) == (0, [])
-        mocks["resolve"].assert_not_awaited()  # no embedding call
+        body = resp.json()
+        assert (body["total_results"], body["products"]) == (0, [])
+        assert body["request_id"]  # the context is stored, so a request_id is returned
+        assert mocks["resolve"].call_args.args[1] == text.strip()  # embedded + stored
         mocks["search"].assert_not_awaited()   # no OpenSearch call
 
-    def test_blank_image_alone_is_not_searched(self, client, mocks):
+    def test_blank_image_alone_is_stored_but_not_searched(self, client, mocks):
         out = BytesIO()
         Image.new("RGB", (499, 600), (138, 255, 46)).save(out, format="PNG")  # plain green
         resp = _post(client, BASE, {"image": ("green.png", out.getvalue(), "image/png")})
         assert resp.status_code == 200
-        assert (resp.json()["total_results"], resp.json()["products"]) == (0, [])
-        mocks["resolve"].assert_not_awaited()  # no embedding call
+        body = resp.json()
+        assert (body["total_results"], body["products"]) == (0, [])
+        assert body["request_id"]  # the context is stored, so a request_id is returned
+        _, query, image, _, image_blank = mocks["resolve"].call_args.args
+        assert query is None and image is not None and image_blank is True  # embedded + stored
         mocks["search"].assert_not_awaited()
 
     def test_blank_image_with_text_searches_the_text_only(self, client, mocks):
         out = BytesIO()
         Image.new("RGB", (100, 100), "white").save(out, format="PNG")
         assert _post(client, {**BASE, "search_query": "valve"}, {"image": ("w.png", out.getvalue(), "image/png")}).status_code == 200
-        _, query, image, _ = mocks["resolve"].call_args.args
-        assert (query, image) == ("valve", None)
+        _, query, image, _, image_blank = mocks["resolve"].call_args.args
+        assert query == "valve" and image is not None and image_blank is True  # both stored
+        kw = mocks["search"].call_args.kwargs
+        assert (kw["query"], kw["image_vector"]) == ("valve", None)  # only the text is searched
 
     def test_short_text_with_image_searches_the_image_only(self, client, mocks):
         resp = _post(client, {**BASE, "search_query": "pu"}, {"image": ("a.png", REAL_PNG, "image/png")})
         assert resp.status_code == 200
-        _, query, image, _ = mocks["resolve"].call_args.args
-        assert query is None and image is not None
+        _, query, image, _, _ = mocks["resolve"].call_args.args
+        assert query == "pu" and image is not None  # both stored
+        kw = mocks["search"].call_args.kwargs
+        assert kw["query"] is None and kw["query_vector"] is None and kw["image_vector"] == [0.3]
 
     def test_short_text_with_filters_browses_the_filters(self, client, mocks):
         assert _post(client, {**BASE, "search_query": "pu", "filters": '{"currency": "SAR"}'}).status_code == 200
@@ -103,8 +112,8 @@ class TestSearchModes:
         assert body["products"][0]["sku_id"] == "SKU-1"
         assert body["request_id"]  # set by the request-logging middleware
 
-        request_id, query, image, previous = mocks["resolve"].call_args.args
-        assert (request_id, query, image, previous) == (body["request_id"], "ball valve", None, None)
+        request_id, query, image, previous, image_blank = mocks["resolve"].call_args.args
+        assert (request_id, query, image, previous, image_blank) == (body["request_id"], "ball valve", None, None, False)
         assert mocks["search"].call_args.kwargs == {
             "query": "ball valve", "query_vector": [0.1], "image_vector": None, "filters": [],
             "sort_by": None, "sort_order": "desc", "page": 1, "page_size": 60, "request_id": body["request_id"],

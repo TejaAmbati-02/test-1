@@ -81,7 +81,8 @@ def test_rejected(part, status, code):
 def test_blank_single_colour_image_is_flagged():
     out = BytesIO()
     Image.new("RGB", (499, 600), (138, 255, 46)).save(out, format="PNG")
-    assert image_processor.process(_part(out.getvalue(), "image/png")) == (None, True)
+    image, blank = image_processor.process(_part(out.getvalue(), "image/png"))
+    assert image is not None and image[1] == "image/png" and blank is True  # still returned, to be stored
 
 
 def test_blank_check_can_be_switched_off(monkeypatch):

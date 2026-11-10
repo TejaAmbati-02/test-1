@@ -2,7 +2,11 @@
 
 Each search stores ONE Redis key — its request_id (a UUID) — holding JSON:
 
-    {"text_emb": [...] | null, "image_emb": [...] | null, "query": "..." | null}
+    {"text_emb": [...] | null, "image_emb": [...] | null, "query": "..." | null, "image_blank": bool}
+
+Every query / image that is sent is embedded and stored — also a too-short query or a blank image
+that the search itself ignores — so every such search gets a request_id. ``image_blank`` marks a
+stored image vector that must not be searched with.
 
 The frontend sends that request_id back (with only filters / sort / page) to refine the same
 search without re-sending the query or re-uploading the image. The query text is kept next to
@@ -48,10 +52,12 @@ class EmbeddingStore:
         query: str | None,
         image: tuple[bytes, str] | None,
         previous_request_id: str | None,
+        image_blank: bool = False,
     ) -> dict[str, Any]:
         """Work out the query / image embeddings for this search.
 
-        Returns ``{"request_id", "query", "query_vector", "image_vector", "reused"}``:
+        Returns ``{"request_id", "query", "query_vector", "image_vector", "image_blank", "reused"}``
+        (``image_blank``: the image vector belongs to a blank image — stored, but not to be searched with):
         * ``previous_request_id`` and no new query / image: refine that search — its stored context
           is reused as-is (same request_id, expiry refreshed, reused=True).
         * Otherwise a new context stored under ``request_id``. A new query or image replaces that part
@@ -89,7 +95,8 @@ class EmbeddingStore:
                 raise ApiError(400, "REQUEST_ID_NOT_FOUND",
                                f"request_id '{previous_request_id}' was not found or its search has expired")
             prev = {"request_id": previous_request_id, "query": stored.get("query"),
-                    "query_vector": stored.get("text_emb"), "image_vector": stored.get("image_emb"), "reused": True}
+                    "query_vector": stored.get("text_emb"), "image_vector": stored.get("image_emb"),
+                    "image_blank": bool(stored.get("image_blank", False)), "reused": True}
             logger.info(f"EmbeddingStore — loaded context {previous_request_id}", extra={"status": "success"})
 
         # 2. Refining: no new image, and no query or the SAME query as before (ignoring case and extra
@@ -126,11 +133,12 @@ class EmbeddingStore:
         )
         q_vec = new_q_vec if embed_query else (prev["query_vector"] if q and prev else None)
         i_vec = new_i_vec if image is not None else (prev["image_vector"] if prev else None)
+        i_blank = image_blank if image is not None else bool(prev and prev["image_blank"])
 
         # 4. Store it under this request_id in the background, so the search doesn't wait. A failed
         #    write is only logged: a later lookup by that request_id is then a plain miss.
         if self.enabled:
-            value = json.dumps({"text_emb": q_vec, "image_emb": i_vec, "query": q})
+            value = json.dumps({"text_emb": q_vec, "image_emb": i_vec, "query": q, "image_blank": i_blank})
             try:
                 task = asyncio.create_task(self._redis_svc.client.set(request_id, value, ex=ttl))
                 self._pending.add(task)
@@ -148,7 +156,8 @@ class EmbeddingStore:
         logger.info(f"EmbeddingStore — new context {request_id} (text_emb_dim={len(q_vec or [])}, "
                     f"image_emb_dim={len(i_vec or [])}) in {(time.perf_counter() - start) * 1000:.1f}ms",
                     extra={"status": "success"})
-        return {"request_id": request_id, "query": q, "query_vector": q_vec, "image_vector": i_vec, "reused": False}
+        return {"request_id": request_id, "query": q, "query_vector": q_vec, "image_vector": i_vec,
+                "image_blank": i_blank, "reused": False}
 
 
 # The one object the app uses — import it where needed:  from services.embedding_store import embedding_store
