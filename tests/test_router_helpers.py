@@ -15,9 +15,9 @@ from tests.conftest import make_search_response, multipart
 
 @pytest.fixture
 def search_mock(monkeypatch):
-    async def resolve(request_id, query, image, previous_request_id):
+    async def resolve(request_id, query, image, previous_request_id, image_blank=False):
         return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
-                "image_vector": None, "reused": False}
+                "image_vector": None, "image_blank": image_blank, "reused": False}
 
     monkeypatch.setattr(embedding_store, "resolve", AsyncMock(side_effect=resolve))
     mock = AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"]))
