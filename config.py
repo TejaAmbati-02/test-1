@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     # How many of the query words a product must contain (OpenSearch minimum_should_match).
     # "2<75%": 1-2 words -> all of them; 3+ words -> 75% (e.g. 2 of 3). "" = any one word is enough.
     text_min_words_match: str = "2<75%"
+    # Typo tolerance for the text fields (not the material numbers, which must match exactly), so
+    # "valvs" still finds "valve". OpenSearch fuzziness: "AUTO:4,7" = words of 1-3 letters exact,
+    # 4-6 letters 1 typo, 7+ letters 2 typos. "" = off (exact words only).
+    text_fuzziness: str = "AUTO:4,7"
+    # Text search where no product contains the query words as typed (e.g. "i want steel valves"):
+    # look at this many products closest in meaning (text vector), keep only the query words they
+    # contain ("steel", "valves") and search again. 0 = off (such searches return 0 results).
+    text_relax_neighbors: int = 20
     # HNSW candidate list size per kNN query. The Lucene engine ignores the index
     # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
     # exact image matches at k=100; 500 found every known-answer test image.

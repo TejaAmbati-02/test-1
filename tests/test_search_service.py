@@ -157,7 +157,7 @@ class TestSearch:
         await _search(service, query="valve", query_vector=[0.1, 0.2])
         hybrid = _body(os_client)["query"]["hybrid"]
         bm25, knn = hybrid["queries"]
-        main, seller = bm25["bool"]["should"]
+        main, seller, fuzzy = bm25["bool"]["should"]
         # Must stay required when OpenSearch merges filters into this bool (else should becomes optional).
         assert bm25["bool"]["minimum_should_match"] == 1
         assert main["multi_match"]["query"] == "valve"
@@ -233,7 +233,7 @@ class TestSearch:
         await _search(service, query="valve", query_vector=[0.1], image_vector=[0.3])
         hybrid = _body(os_client)["query"]["hybrid"]
         bm25, text_knn, image = hybrid["queries"]  # order matches the pipeline weights
-        main, seller = bm25["bool"]["should"]
+        main, seller, fuzzy = bm25["bool"]["should"]
         assert "operator" not in main["multi_match"]
         assert "operator" not in seller["nested"]["query"]["multi_match"]
         assert text_knn["knn"]["content_vector"]["vector"] == [0.1]
@@ -261,9 +261,74 @@ class TestSearch:
     async def test_minimum_words_match(self, service, os_client):
         await _search(service, query="busbar system 3.3kv", query_vector=[0.1])
         bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
-        main, seller = bm25["bool"]["should"]
+        main, seller, fuzzy = bm25["bool"]["should"]
         assert main["multi_match"]["minimum_should_match"] == "2<75%"
         assert seller["nested"]["query"]["multi_match"]["minimum_should_match"] == "2<75%"
+        assert fuzzy["multi_match"]["minimum_should_match"] == "2<75%"
+
+    async def test_words_no_close_product_has_are_dropped_when_nothing_matches(self, service, os_client):
+        # "i want steel valvs": no product has "i" / "want" -> keep the words the closest products contain.
+        neighbours = os_search_result([], total=0, aggs={
+            "word_0": {"doc_count": 0}, "word_1": {"doc_count": 0},
+            "word_2": {"doc_count": 12}, "word_3": {"doc_count": 9},
+        })
+        os_client.search.side_effect = [
+            os_search_result([], total=0),           # strict keyword check: nothing
+            neighbours,                              # which words do the closest products contain?
+            os_search_result([], total=1),           # relaxed keyword check: found
+            os_search_result([HIT], total=1, aggs=AGGS),  # the search
+        ]
+        user_filters = [{"term": {"currency": "SAR"}}]
+        r = await _search(service, query="I want steel valvs", query_vector=[0.1], filters=user_filters)
+        calls = [c.args[1] for c in os_client.search.await_args_list]
+        assert calls[0]["query"]["bool"]["filter"][0]["bool"]["should"][0]["multi_match"]["query"] == "I want steel valvs"
+        knn = calls[1]["query"]["knn"]["content_vector"]
+        assert (calls[1]["size"], knn["vector"], knn["k"]) == (0, [0.1], 20)
+        assert knn["filter"] == {"bool": {"filter": user_filters}}
+        assert sorted(calls[1]["aggs"]) == ["word_0", "word_1", "word_2", "word_3"]
+        bm25 = calls[3]["query"]["hybrid"]["queries"][0]
+        main, seller, fuzzy = bm25["bool"]["should"]
+        assert main["multi_match"]["query"] == "steel valvs"
+        assert seller["nested"]["query"]["multi_match"]["query"] == "steel valvs"
+        assert fuzzy["multi_match"]["query"] == "steel valvs"
+        assert calls[2]["query"]["bool"]["filter"][0] == bm25
+        assert r.total_results == 1 and len(r.products) == 1
+
+    async def test_no_relaxing_when_the_closest_products_have_none_or_all_of_the_words(self, service, os_client):
+        for counts in ({"word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}},
+                       {"word_0": {"doc_count": 3}, "word_1": {"doc_count": 3}}):
+            os_client.search.reset_mock()
+            os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0, aggs=counts)]
+            r = await _search(service, query="zzq xvw", query_vector=[0.1])
+            assert os_client.search.await_count == 2 and r.total_results == 0
+
+    async def test_no_relaxing_for_one_word_or_when_off(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        os_client.search.return_value = os_search_result([], total=0)
+        await _search(service, query="zzqxvw", query_vector=[0.1])
+        assert os_client.search.await_count == 1
+        monkeypatch.setattr(search_module._cfg, "text_relax_neighbors", 0)
+        os_client.search.reset_mock()
+        await _search(service, query="zzq xvw", query_vector=[0.1])
+        assert os_client.search.await_count == 1
+
+    async def test_typo_tolerant_match_on_text_fields_only(self, service, os_client):
+        await _search(service, query="steel valvs", query_vector=[0.1])
+        fuzzy = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][2]["multi_match"]
+        assert (fuzzy["fuzziness"], fuzzy["prefix_length"]) == ("AUTO:4,7", 1)
+        assert fuzzy["fields"] == [f for f in KEYWORD_FIELDS if "material_number" not in f]
+
+    async def test_german_typo_match_uses_de_fields(self, service, os_client):
+        await _search(service, query="Ventil", query_vector=[0.1], language="de")
+        fuzzy = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][2]["multi_match"]
+        assert fuzzy["fields"] == [f for f in KEYWORD_FIELDS_DE if "material_number" not in f]
+
+    async def test_typo_tolerance_can_be_off(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_fuzziness", "")
+        await _search(service, query="steel valvs", query_vector=[0.1])
+        should = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"]
+        assert len(should) == 2 and all("fuzziness" not in str(c) for c in should)
 
     async def test_minimum_words_match_can_be_off(self, service, os_client, monkeypatch):
         from services import search as search_module

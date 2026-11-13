@@ -143,6 +143,12 @@ KEYWORD_FIELDS_DE = [
     "content^1",
 ]
 KEYWORD_FIELDS_BY_LANGUAGE: dict[str, list[str]] = {"en": KEYWORD_FIELDS, "de": KEYWORD_FIELDS_DE}
+# Fields the typo-tolerant (fuzzy) match searches: the text fields only. Material numbers are
+# left out so a mistyped number never returns a different, near-identical number.
+FUZZY_FIELDS_BY_LANGUAGE: dict[str, list[str]] = {
+    lang: [f for f in fields if not f.startswith(("aramco_material_number", "asmo_material_number"))]
+    for lang, fields in KEYWORD_FIELDS_BY_LANGUAGE.items()
+}
 # Seller fields live inside the nested ``seller_details`` objects, so they are searched by a
 # separate nested query (a normal multi_match can't reach nested fields).
 SELLER_FIELDS = [
@@ -266,22 +272,85 @@ class SearchService:
             else:
                 # BM25: match the weighted product fields OR any seller's name / id.
                 fields = KEYWORD_FIELDS_BY_LANGUAGE.get(language, KEYWORD_FIELDS)
-                product_match = {"multi_match": {"query": query, "fields": fields, "type": "best_fields", "lenient": True}}
-                seller_match = {"multi_match": {"query": query, "fields": SELLER_FIELDS, "type": "best_fields", "lenient": True}}
-                if _cfg.text_min_words_match:
-                    # e.g. "2<75%": queries of 1-2 words need every word; longer ones 75% of the words.
-                    product_match["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
-                    seller_match["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
-                    logger.info(f"Search — step: a product must match {_cfg.text_min_words_match} of the query words")
-                # minimum_should_match=1 is required, not cosmetic: OpenSearch merges the hybrid `filter`
-                # into each sub-query (and into the text kNN's own filter), and a bool with a filter clause
-                # makes its should clauses optional — the keyword condition would silently disappear.
-                bm25 = {"bool": {"should": [
-                    product_match,
-                    {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
-                ], "minimum_should_match": 1}}
-                logger.info(f"Search — step: BM25 on language={language} fields={fields} "
-                            f"+ nested seller fields={SELLER_FIELDS}")
+                fuzzy_fields = FUZZY_FIELDS_BY_LANGUAGE.get(language, FUZZY_FIELDS_BY_LANGUAGE["en"])
+                words = query.split()
+                keyword_query = query
+                # Text only: first the query words as typed. If no product contains them, a 2nd try
+                # with only the words the products closest in meaning contain (see below).
+                for attempt in ("strict", "relaxed"):
+                    product_match = {"multi_match": {"query": keyword_query, "fields": fields, "type": "best_fields", "lenient": True}}
+                    seller_match = {"multi_match": {"query": keyword_query, "fields": SELLER_FIELDS, "type": "best_fields", "lenient": True}}
+                    # Typo-tolerant copy of the product match on the text fields only ("valvs" -> "valve").
+                    # Exact matches still score higher, so they rank above the typo matches.
+                    fuzzy_match: dict[str, Any] | None = None
+                    if _cfg.text_fuzziness:
+                        fuzzy_match = {"multi_match": {
+                            "query": keyword_query, "fields": fuzzy_fields, "type": "best_fields", "lenient": True,
+                            "fuzziness": _cfg.text_fuzziness, "prefix_length": 1,
+                        }}
+                        logger.info(f"Search — step: typo-tolerant match on the text fields (fuzziness={_cfg.text_fuzziness})")
+                    if _cfg.text_min_words_match:
+                        # e.g. "2<75%": queries of 1-2 words need every word; longer ones 75% of the words.
+                        for clause in (product_match, seller_match, fuzzy_match):
+                            if clause:
+                                clause["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
+                        logger.info(f"Search — step: a product must match {_cfg.text_min_words_match} of the query words")
+                    # minimum_should_match=1 is required, not cosmetic: OpenSearch merges the hybrid `filter`
+                    # into each sub-query (and into the text kNN's own filter), and a bool with a filter clause
+                    # makes its should clauses optional — the keyword condition would silently disappear.
+                    bm25 = {"bool": {"should": [
+                        product_match,
+                        {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
+                        *([fuzzy_match] if fuzzy_match else []),
+                    ], "minimum_should_match": 1}}
+                    logger.info(f"Search — step: BM25 ({attempt}) for {keyword_query!r} on language={language} "
+                                f"fields={fields} + nested seller fields={SELLER_FIELDS}")
+                    if not _cfg.text_require_keyword_match or has_image:
+                        break  # no keyword check: text + image must still return the image matches
+                    # Does any product (within the filters) contain the query words? A cheap
+                    # size-0 search that stops at the first match.
+                    check = await self._os.search(_cfg.opensearch_index_name, {
+                        "size": 0, "track_total_hits": 1, "terminate_after": 1,
+                        "query": {"bool": {"filter": [bm25, *filters]}},
+                    })
+                    if check["hits"]["total"]["value"] > 0:
+                        logger.info("Search — step: products contain the query words -> results limited to "
+                                    "keyword matches; the vector search only re-ranks them")
+                        break
+                    if attempt == "strict" and len(words) > 1 and query_vector is not None and _cfg.text_relax_neighbors > 0:
+                        # No product has the words as typed — usually because some of them describe no
+                        # product ("i want steel valvs": "i", "want"). Which query words do the products
+                        # closest in meaning (text vector) contain? Keep those, drop the rest. Decided by
+                        # the data, not a word list. Each word counts if it matches exactly or with a typo.
+                        neighbours = await self._os.search(_cfg.opensearch_index_name, {
+                            "size": 0,
+                            "query": {"knn": {_cfg.opensearch_vector_field: {
+                                "vector": query_vector, "k": _cfg.text_relax_neighbors, **knn_params,
+                                **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
+                            }}},
+                            "aggs": {f"word_{i}": {"filter": {"bool": {"should": [
+                                {"multi_match": {"query": word, "fields": fields, "lenient": True}},
+                                {"nested": {"path": "seller_details", "ignore_unmapped": True, "query": {
+                                    "multi_match": {"query": word, "fields": SELLER_FIELDS, "lenient": True}}}},
+                                *([{"multi_match": {"query": word, "fields": fuzzy_fields, "lenient": True,
+                                                    "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
+                                  if _cfg.text_fuzziness else []),
+                            ], "minimum_should_match": 1}}} for i, word in enumerate(words)},
+                        })
+                        word_counts = {word: neighbours.get("aggregations", {}).get(f"word_{i}", {}).get("doc_count", 0)
+                                       for i, word in enumerate(words)}
+                        kept = [word for word in words if word_counts[word] > 0]
+                        logger.info(f"Search — step: no product has all the words {query!r}; words found in the "
+                                    f"{_cfg.text_relax_neighbors} closest products: {word_counts}")
+                        if kept and len(kept) < len(words):
+                            keyword_query = " ".join(kept)
+                            logger.info(f"Search — step: retrying the keyword match with {keyword_query!r} "
+                                        f"(the text vector still uses the full query)")
+                            continue
+                    logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
+                                extra={"search_query": query, "status": "no_results"})
+                    return SearchApiResponse(request_id=request_id, total_results=0, page=page,
+                                             page_size=page_size, products=[], facets=SearchFacets())
                 text_knn = {"knn": {_cfg.opensearch_vector_field: {
                     "vector": query_vector, "k": _cfg.hybrid_retrieval_k, **knn_params,
                 }}}
@@ -290,7 +359,7 @@ class SearchService:
                 # Which products may be returned at all. Without a gate the text vector search would
                 # add its 100 nearest products, related or not (e.g. fans for "pump"). The vectors
                 # then only rank what passes the gate.
-                #   text         -> the product contains the query words
+                #   text         -> the product contains the query words (checked above)
                 #   text + image -> the product contains the query words OR its image matches the
                 #                   uploaded one (score >= image_min_score), so a photo still finds
                 #                   look-alikes that the text doesn't describe
@@ -306,19 +375,6 @@ class SearchService:
                                     "text kNN ranks keyword matches only")
                     else:
                         gate = bm25
-                        # Does any product (within the filters) contain the query words? A cheap
-                        # size-0 search that stops at the first match.
-                        check = await self._os.search(_cfg.opensearch_index_name, {
-                            "size": 0, "track_total_hits": 1, "terminate_after": 1,
-                            "query": {"bool": {"filter": [bm25, *filters]}},
-                        })
-                        if check["hits"]["total"]["value"] == 0:
-                            logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
-                                        extra={"search_query": query, "status": "no_results"})
-                            return SearchApiResponse(request_id=request_id, total_results=0, page=page,
-                                                     page_size=page_size, products=[], facets=SearchFacets())
-                        logger.info("Search — step: products contain the query words -> results limited to "
-                                    "keyword matches; the vector search only re-ranks them")
                     filters.append(gate)
                     gated = True
 
