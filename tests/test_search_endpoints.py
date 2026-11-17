@@ -39,10 +39,10 @@ def mocks(monkeypatch):
             stored = {"raw": {"brand": "Acme"}, "clauses": [{"term": {"brand": "Acme"}}], "multi_select": {}}
             return {"request_id": previous_request_id, "query": "stored query", "query_vector": [0.5],
                     "image_vector": None, "image_blank": False, "filters": filters or stored,
-                    "facets": SAVED_FACETS, "reused": True}
+                    "facets": SAVED_FACETS, "facets_filters": {"currency": "SAR"}, "reused": True}
         return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
                 "image_vector": [0.3] if image else None, "image_blank": image_blank,
-                "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}}, "facets": None, "reused": False}
+                "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}}, "facets": None, "facets_filters": None, "reused": False}
 
     m = {
         "resolve": AsyncMock(side_effect=resolve),
@@ -176,6 +176,7 @@ class TestSearchModes:
         mocks["search"].side_effect = lambda **kw: make_search_response(request_id=kw["request_id"], total_results=0, products=[])
         body = _post(client, {**BASE, "request_id": PREVIOUS_ID, "filters": '{"currency": "XYZ"}'}).json()
         assert (body["total_results"], body["facets"]) == (0, SAVED_FACETS)
+        assert body["previous_filters"] == {"currency": "SAR"}  # the filters those facets came from
         save.assert_not_awaited()  # nothing found -> the saved facets are kept
 
     def test_continued_search_with_results_saves_its_facets(self, client, mocks, monkeypatch):
@@ -184,11 +185,13 @@ class TestSearchModes:
         body = _post(client, {**BASE, "request_id": PREVIOUS_ID}).json()
         ctx, facets = save.call_args.args
         assert ctx["request_id"] == PREVIOUS_ID and facets == body["facets"]
+        assert body["previous_filters"] is None  # only set when falling back
 
     def test_new_search_with_no_results_has_empty_facets(self, client, mocks):
         mocks["search"].side_effect = lambda **kw: make_search_response(request_id=kw["request_id"], total_results=0, products=[])
         body = _post(client, {**BASE, "search_query": "nothing like this"}).json()
         assert body["facets"] == {"category": [], "sub_category": [], "product_type": [], "seller": []}
+        assert body["previous_filters"] is None
 
     def test_refine_with_request_id(self, client, mocks):
         resp = _post(client, {**BASE, "request_id": PREVIOUS_ID, "filters": '{"currency": "SAR"}'})

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
@@ -57,7 +59,8 @@ class SearchApiResponse(BaseModel):
     page: int = Field(description="Current 1-based page number")
     page_size: int = Field(description="Number of products returned per page")
     products: list[ProductItem] = Field(description="Products for the requested page")
-    facets: SearchFacets = Field(default_factory=SearchFacets, description="Facets computed across the full result set")
+    facets: SearchFacets = Field(default_factory=SearchFacets, description="Facets computed across the full result set. When a continued search (request_id sent) finds nothing, these are the facets of the last search under that request_id that found products")
+    previous_filters: dict[str, Any] | None = Field(default=None, description="Only when a continued search finds nothing: the filters (as sent) of the last search under that request_id that found products — the ones the returned facets were counted with. Otherwise null")
 
 
 

@@ -3,7 +3,8 @@
 Each search stores ONE Redis key — its request_id (a UUID) — holding JSON:
 
     {"text_emb": [...] | null, "image_emb": [...] | null, "query": "..." | null, "image_blank": bool,
-     "filters": {...}, "filter_clauses": [...], "multi_select_filters": {...}, "facets": {...} | null}
+     "filters": {...}, "filter_clauses": [...], "multi_select_filters": {...}, "facets": {...} | null,
+     "facets_filters": {...} | null}
 
 Every query / image that is sent is embedded and stored — also a too-short query or a blank image
 that the search itself ignores — so every such search gets a request_id. ``image_blank`` marks a
@@ -16,8 +17,9 @@ OpenSearch clauses built from it. A refine call that omits `filters` reuses the 
 that sends `filters` replaces them under the same request_id (``{}`` clears them).
 
 ``facets`` are the facets of the last search under this request_id that found products (saved by
-``save_facets`` after the search). When a refine call finds nothing, the router returns these
-instead of empty facets, so the user can still pick a filter that gives results. A new query or
+``save_facets`` after the search), ``facets_filters`` the filters (as sent) that search had. When a
+refine call finds nothing, the router returns these facets instead of empty ones, plus those
+filters as ``previous_filters``, so the user can go back to a selection that gives results. A new query or
 image starts without saved facets. The query text is kept next to
 text_emb because the BM25 half of a text search needs it. Only the image's embedding is stored,
 never the image. Each key expires REDIS_TTL_SECONDS after it was last used.
@@ -70,10 +72,12 @@ class EmbeddingStore:
         ``filters``: ``{"raw": <the filters JSON as sent>, "clauses": [...], "multi_select": {...}}``,
         or None when the request sent no `filters` (then the previous search's filters are used, if any).
 
-        Returns ``{"request_id", "query", "query_vector", "image_vector", "image_blank", "filters", "facets", "reused"}``
+        Returns ``{"request_id", "query", "query_vector", "image_vector", "image_blank", "filters", "facets",
+        "facets_filters", "reused"}``
         (``image_blank``: the image vector belongs to a blank image — stored, but not to be searched with;
         ``filters``: the filters to search with, same shape as the argument; ``facets``: the saved facets
-        of the last search under this request_id that found products, None for a new search):
+        of the last search under this request_id that found products and ``facets_filters`` the filters
+        it had, both None for a new search):
         * ``previous_request_id`` and no new query / image: refine that search — same request_id,
           reused=True. Unchanged filters: its stored context is reused as-is (expiry refreshed).
           New filters: they replace the stored ones under that same request_id.
@@ -117,7 +121,7 @@ class EmbeddingStore:
                     "image_blank": bool(stored.get("image_blank", False)),
                     "filters": {"raw": stored.get("filters") or {}, "clauses": stored.get("filter_clauses") or [],
                                 "multi_select": stored.get("multi_select_filters") or {}},
-                    "facets": stored.get("facets"), "reused": True}
+                    "facets": stored.get("facets"), "facets_filters": stored.get("facets_filters"), "reused": True}
             logger.info(f"EmbeddingStore — loaded context {previous_request_id}", extra={"status": "success"})
 
         # 2. Refining: no new image, and no query or the SAME query as before (ignoring case and extra
@@ -166,6 +170,7 @@ class EmbeddingStore:
         f = filters if filters is not None else (prev["filters"] if prev else {"raw": {}, "clauses": [], "multi_select": {}})
         # Saved facets: kept when it is the same search (only its filters changed), dropped for a new one.
         facets = prev["facets"] if reused else None
+        facets_filters = prev["facets_filters"] if reused else None
 
         # 4. Store it under this request_id and WAIT for Redis to confirm, so a returned request_id is
         #    always in Redis. If Redis is disabled or the write fails, the search still runs, but the
@@ -174,7 +179,8 @@ class EmbeddingStore:
         if self.enabled:
             value = json.dumps({"text_emb": q_vec, "image_emb": i_vec, "query": q, "image_blank": i_blank,
                                 "filters": f["raw"], "filter_clauses": f["clauses"],
-                                "multi_select_filters": f["multi_select"], "facets": facets})
+                                "multi_select_filters": f["multi_select"], "facets": facets,
+                                "facets_filters": facets_filters})
             try:
                 if await self._redis_svc.client.set(request_id, value, ex=ttl):
                     saved_request_id = request_id
@@ -191,10 +197,11 @@ class EmbeddingStore:
                     f"in {(time.perf_counter() - start) * 1000:.1f}ms",
                     extra={"status": "success"})
         return {"request_id": saved_request_id, "query": q, "query_vector": q_vec, "image_vector": i_vec,
-                "image_blank": i_blank, "filters": f, "facets": facets, "reused": reused}
+                "image_blank": i_blank, "filters": f, "facets": facets, "facets_filters": facets_filters,
+                "reused": reused}
 
     async def save_facets(self, ctx: dict[str, Any], facets: dict[str, Any]) -> None:
-        """Save the facets of a search that found products into its Redis context.
+        """Save the facets of a search that found products, and the filters it had, into its Redis context.
 
         ``ctx`` is what ``resolve`` returned for that search. The whole context is re-written with
         the new facets (one SET, expiry reset). Does nothing if Redis is disabled or the search has
@@ -208,7 +215,8 @@ class EmbeddingStore:
         value = json.dumps({"text_emb": ctx["query_vector"], "image_emb": ctx["image_vector"], "query": ctx["query"],
                             "image_blank": ctx["image_blank"], "filters": ctx["filters"]["raw"],
                             "filter_clauses": ctx["filters"]["clauses"],
-                            "multi_select_filters": ctx["filters"]["multi_select"], "facets": facets})
+                            "multi_select_filters": ctx["filters"]["multi_select"], "facets": facets,
+                            "facets_filters": ctx["filters"]["raw"]})
         try:
             await self._redis_svc.client.set(ctx["request_id"], value, ex=self._settings.redis_ttl_seconds)
             logger.info(f"EmbeddingStore — saved facets of {ctx['request_id']}")

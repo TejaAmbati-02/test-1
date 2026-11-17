@@ -324,12 +324,14 @@ async def v1_search(request: Request) -> SearchApiResponse:
 
         # 9. Facets of a continued search: when it finds products, save its facets with the search;
         #    when it finds nothing, return the saved facets of the last search under this request_id
-        #    that did find products, so the user can still pick a filter that gives results.
+        #    that did find products, plus the filters that search had (previous_filters), so the user
+        #    can go back to a selection that gives results.
         if result.total_results > 0:
             await embedding_store.save_facets(ctx, result.facets.model_dump())
         elif ctx["reused"] and ctx["facets"]:
             logger.info(f"POST /v1/search — 0 results -> returning the saved facets of {ctx['request_id']}")
             result.facets = SearchFacets(**ctx["facets"])
+            result.previous_filters = ctx["facets_filters"]
     except (HTTPException, RequestValidationError):
         raise  # already in the error contract
     except Exception as exc:
