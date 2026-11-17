@@ -117,7 +117,7 @@ class TestSearchModes:
         assert mocks["search"].call_args.kwargs == {
             "query": "ball valve", "query_vector": [0.1], "image_vector": None, "filters": [],
             "sort_by": None, "sort_order": "desc", "page": 1, "page_size": 60, "request_id": body["request_id"],
-            "language": "en",
+            "language": "en", "multi_select_filters": {},
         }
 
     @pytest.mark.parametrize("data, declared, mime", [

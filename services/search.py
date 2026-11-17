@@ -13,6 +13,7 @@ Language: ``en`` runs BM25 on the English fields; ``de`` on the ``*_de`` fields 
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -207,15 +208,35 @@ class SearchService:
         page_size: int,
         request_id: str | None = None,
         language: str = "en",
+        multi_select_filters: dict[str, list[dict]] | None = None,
     ) -> SearchApiResponse:
         """Run a text / image / text + image / filter-browse search (mode picked from the inputs).
 
         ``filters`` are ready-made OpenSearch clauses. ``sort_by="price"`` sorts by price;
         anything else keeps relevance order. ``language`` picks the BM25 text fields
         (``de`` -> the ``*_de`` fields + ``content``).
+        ``multi_select_filters`` maps a multi-select facet (sub_category, product_type) to its own
+        clauses in ``filters``: that facet is counted by the same search without those clauses, so
+        it still lists the values the user can add (the other facets are counted with every filter).
         """
         has_image = image_vector is not None
         filters = list(filters)  # never modify the caller's list
+        # Multi-select facets (sub_category, product_type) with a selection: each is counted by the same
+        # search without its own filter (its other filters still apply). Started now so they run
+        # alongside the main search; awaited where the response is built.
+        recount = {key: clauses for key, clauses in (multi_select_filters or {}).items() if key in FACETS and clauses}
+        recount_task: asyncio.Future | None = None
+        if recount:
+            logger.info(f"Search — step: counting multi-select facets without their own filter: {sorted(recount)}")
+            recount_task = asyncio.gather(*(
+                self.search(
+                    query=query, query_vector=query_vector, image_vector=image_vector,
+                    filters=[f for f in filters if not any(f is c for c in clauses)],
+                    sort_by=None, sort_order=sort_order, page=1, page_size=1,
+                    request_id=request_id, language=language,
+                )
+                for clauses in recount.values()
+            ))
         pipeline_id: str | None = None
         logger.info(
             f"Search — start: query={query!r}, language={language}, has_text_vector={query_vector is not None}, "
@@ -349,8 +370,11 @@ class SearchService:
                             continue
                     logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
                                 extra={"search_query": query, "status": "no_results"})
+                    # The multi-select facets may still have values to pick (without their own filter).
+                    recounted = await recount_task if recount_task else []
                     return SearchApiResponse(request_id=request_id, total_results=0, page=page,
-                                             page_size=page_size, products=[], facets=SearchFacets())
+                                             page_size=page_size, products=[], facets=SearchFacets(**{
+                                                 key: getattr(other.facets, key) for key, other in zip(recount, recounted)}))
                 text_knn = {"knn": {_cfg.opensearch_vector_field: {
                     "vector": query_vector, "k": _cfg.hybrid_retrieval_k, **knn_params,
                 }}}
@@ -532,6 +556,13 @@ class SearchService:
                 count = bucket["products"]["doc_count"] if nested_path else bucket["doc_count"]
                 facets[key].append(FacetTermValue(id=bucket["key"], value=str(label), count=count))
             logger.info(f"Search — facet '{key}': {[(f.value, f.count) for f in facets[key]]}")
+
+        # Multi-select facets: replace with the counts made without their own filter (started above).
+        if recount_task:
+            for key, other in zip(recount, await recount_task):
+                facets[key] = getattr(other.facets, key)
+                logger.info(f"Search — facet '{key}' (without its own filter): "
+                            f"{[(f.value, f.count) for f in facets[key]]}")
 
         response = SearchApiResponse(
             request_id=request_id,

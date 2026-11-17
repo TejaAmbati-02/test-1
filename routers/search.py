@@ -50,6 +50,14 @@ SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
 NUMERIC_FILTER_KEYS = frozenset({"price", "moq", "supplier_count", "lead_time"})
 BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator", "temporary_unavailable", "under_agreement"})
 RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
+# Single-select filter keys: one value only (a string, or a list holding exactly one value).
+# Category is single-select; sub_category and product_type stay multi-select (a list matches any).
+SINGLE_VALUE_FILTER_KEYS = frozenset({"category", "category_name"})
+# Multi-select facets: filter key -> the facet it selects in. That facet is counted WITHOUT its own
+# filter (but with every other filter), so the user can still see and tick more of its values.
+MULTI_SELECT_FACET_KEYS: dict[str, str] = {
+    "sub_category": "sub_category", "sub_category_name": "sub_category", "product_type": "product_type",
+}
 
 MAX_IMAGE_BYTES = image_processor.max_bytes
 # Multipart parts may be up to this size (above MAX_IMAGE_BYTES so an oversized
@@ -104,7 +112,8 @@ class SearchForm(BaseModel):
         "(category_name, sub_category_name and sellername are still accepted). Also: seller_id, seller_name (match any of a product's sellers), price, moq, lead_time (number or range), "
         "material_type, availability, category_ids, currency, contract_indicator, "
         "temporary_unavailable, under_agreement, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, "
-        "asmo_material_number, aramco_material_number. A value may be a list (match any); numeric keys also take "
+        "asmo_material_number, aramco_material_number. A value may be a list (match any), except category / category_name, "
+        "which are single-select (one id, or a one-item list); numeric keys also take "
         "{gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
     ))
     page: int = Field(default=1, ge=1, description="1-based page number")
@@ -204,8 +213,10 @@ async def v1_search(request: Request) -> SearchApiResponse:
         # 5. Filters: the `filters` field is a JSON object string (2.1) -> OpenSearch filter clauses.
         #    Numeric keys take a number, a non-empty list of numbers, or a range such as {"gte": 50, "lte": 150};
         #    boolean keys take true/false; every other key takes a non-empty string or a non-empty list of
-        #    them. A list matches any of its values.
+        #    them. A list matches any of its values. Category is single-select: exactly one value
+        #    (sub_category and product_type are multi-select).
         filters: list[dict] = []
+        multi_select_filters: dict[str, list[dict]] = {}  # facet key -> its own filter clauses
         if form.filters and form.filters.strip():
             try:
                 raw_filters = json.loads(form.filters)
@@ -227,7 +238,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 else:
                     types_ok = all(isinstance(v, str) and v != "" for v in scalars)
                 range_ok = not is_range or (key in NUMERIC_FILTER_KEYS and set(value) <= RANGE_OPERATORS)
-                if not (scalars and types_ok and range_ok):
+                single_ok = key not in SINGLE_VALUE_FILTER_KEYS or len(scalars) == 1
+                if not (scalars and types_ok and range_ok and single_ok):
                     logger.warning(f"POST /v1/search — rejected invalid value for filter '{key}': {value!r}")
                     raise ApiError(400, "INVALID_FILTER_VALUE", f"Invalid value for filter '{key}': {json.dumps(value)}")
                 # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
@@ -240,6 +252,8 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 if key in NESTED_FILTER_PATHS:
                     clause = {"nested": {"path": NESTED_FILTER_PATHS[key], "query": clause}}
                 filters.append(clause)
+                if key in MULTI_SELECT_FACET_KEYS:
+                    multi_select_filters.setdefault(MULTI_SELECT_FACET_KEYS[key], []).append(clause)
                 logger.info(f"POST /v1/search — filter '{key}'={value!r} -> {clause}")
 
         # 6. The query text. Text shorter than MIN_QUERY_CHARS (e.g. "pu") is embedded and stored like any
@@ -295,6 +309,7 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 page_size=form.page_size,
                 request_id=ctx["request_id"],
                 language=form.language,
+                multi_select_filters=multi_select_filters,
             )
     except (HTTPException, RequestValidationError):
         raise  # already in the error contract

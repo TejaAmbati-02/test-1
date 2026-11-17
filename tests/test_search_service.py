@@ -93,6 +93,31 @@ class TestResponseMapping:
         assert r.facets.seller[0].model_dump() == {"id": "s1", "value": "Wholesale Warehouse", "count": 2}
         assert r.facets.sub_category == []
 
+    async def test_multi_select_facet_counted_without_its_own_filter(self, service, os_client):
+        category = {"term": {"category_ids": "c1"}}
+        sub = {"terms": {"sub_category_id": ["s1"]}}
+        unfiltered = {**AGGS, "sub_category": {"buckets": [
+            {"key": "s1", "doc_count": 2, "label": {"buckets": []}},
+            {"key": "s2", "doc_count": 5, "label": {"buckets": []}},
+        ]}}
+
+        async def fake_search(index, body, pipeline_id=None):
+            has_sub = sub in body["query"]["bool"]["filter"]
+            return os_search_result([HIT], total=2 if has_sub else 7, aggs=AGGS if has_sub else unfiltered)
+
+        os_client.search.side_effect = fake_search
+        r = await _search(service, filters=[category, sub], multi_select_filters={"sub_category": [sub]})
+        assert r.total_results == 2  # the results still use every filter
+        assert [(f.id, f.count) for f in r.facets.sub_category] == [("s1", 2), ("s2", 5)]
+        assert r.facets.category[0].id == "c1"  # the other facets use every filter
+        recount_body = next(c.args[1] for c in os_client.search.call_args_list
+                            if sub not in c.args[1]["query"]["bool"]["filter"])
+        assert recount_body["query"]["bool"]["filter"] == [category]  # its other filters still apply
+
+    async def test_no_recount_without_multi_select_filters(self, service, os_client):
+        await _search(service, filters=[{"term": {"category_ids": "c1"}}])
+        assert os_client.search.await_count == 1
+
     async def test_empty(self, service, os_client):
         os_client.search.return_value = os_search_result()
         r = await _search(service, request_id=None)

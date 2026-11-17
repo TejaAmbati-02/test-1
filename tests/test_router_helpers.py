@@ -73,6 +73,27 @@ class TestBuildFilters:
             {"term": {"sub_category_id": "s1"}},
         ]
 
+    @pytest.mark.parametrize("key", ["category", "category_name"])
+    def test_category_is_single_select(self, client, search_mock, key):
+        assert _filters(client, search_mock, f'{{"{key}": "c1"}}') == [{"term": {"category_ids": "c1"}}]
+        status, code, _ = _rejected(client, f'{{"{key}": ["c1", "c2"]}}')
+        assert (status, code) == (400, "INVALID_FILTER_VALUE")
+
+    def test_sub_category_and_product_type_are_multi_select(self, client, search_mock):
+        assert _filters(client, search_mock, '{"sub_category": ["s1", "s2"], "product_type": ["p1", "p2"]}') == [
+            {"terms": {"sub_category_id": ["s1", "s2"]}},
+            {"bool": {"should": [
+                {"terms": {"product_type_id": ["p1", "p2"]}},
+                {"terms": {"product_type.keyword": ["p1", "p2"]}},
+            ], "minimum_should_match": 1}},
+        ]
+
+    def test_multi_select_facet_filters_are_passed_per_facet(self, client, search_mock):
+        filters = _filters(client, search_mock, '{"category": "c1", "sub_category": ["s1", "s2"], "product_type": ["p1"]}')
+        own = search_mock.call_args.kwargs["multi_select_filters"]
+        assert set(own) == {"sub_category", "product_type"}  # category is single-select: not recounted
+        assert own["sub_category"] == [filters[1]] and own["product_type"] == [filters[2]]
+
     def test_product_type_matches_id_or_name(self, client, search_mock):
         assert _filters(client, search_mock, '{"product_type": "Valve"}') == [{"bool": {"should": [
             {"term": {"product_type_id": "Valve"}},
