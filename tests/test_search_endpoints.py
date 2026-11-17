@@ -17,6 +17,7 @@ from tests.conftest import GIF_BYTES, PNG_BYTES, WEBP_BYTES, make_search_respons
 
 BASE = {"channel": "web", "language": "en"}
 PREVIOUS_ID = "22222222-2222-4222-8222-222222222222"
+SAVED_FACETS = {"category": [{"id": "c1", "value": "Chemicals", "count": 7}], "sub_category": [], "product_type": [], "seller": []}
 
 
 def _real_image(fmt: str) -> bytes:
@@ -37,10 +38,11 @@ def mocks(monkeypatch):
         if previous_request_id and not query and image is None:
             stored = {"raw": {"brand": "Acme"}, "clauses": [{"term": {"brand": "Acme"}}], "multi_select": {}}
             return {"request_id": previous_request_id, "query": "stored query", "query_vector": [0.5],
-                    "image_vector": None, "image_blank": False, "filters": filters or stored, "reused": True}
+                    "image_vector": None, "image_blank": False, "filters": filters or stored,
+                    "facets": SAVED_FACETS, "reused": True}
         return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
                 "image_vector": [0.3] if image else None, "image_blank": image_blank,
-                "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}}, "reused": False}
+                "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}}, "facets": None, "reused": False}
 
     m = {
         "resolve": AsyncMock(side_effect=resolve),
@@ -167,6 +169,26 @@ class TestSearchModes:
         assert mocks["resolve"].call_args.kwargs["filters"] == {
             "raw": {"currency": "SAR"}, "clauses": [{"term": {"currency": "SAR"}}], "multi_select": {}}
         assert mocks["search"].call_args.kwargs["filters"] == [{"term": {"currency": "SAR"}}]
+
+    def test_continued_search_with_no_results_returns_the_saved_facets(self, client, mocks, monkeypatch):
+        save = AsyncMock()
+        monkeypatch.setattr(embedding_store, "save_facets", save)
+        mocks["search"].side_effect = lambda **kw: make_search_response(request_id=kw["request_id"], total_results=0, products=[])
+        body = _post(client, {**BASE, "request_id": PREVIOUS_ID, "filters": '{"currency": "XYZ"}'}).json()
+        assert (body["total_results"], body["facets"]) == (0, SAVED_FACETS)
+        save.assert_not_awaited()  # nothing found -> the saved facets are kept
+
+    def test_continued_search_with_results_saves_its_facets(self, client, mocks, monkeypatch):
+        save = AsyncMock()
+        monkeypatch.setattr(embedding_store, "save_facets", save)
+        body = _post(client, {**BASE, "request_id": PREVIOUS_ID}).json()
+        ctx, facets = save.call_args.args
+        assert ctx["request_id"] == PREVIOUS_ID and facets == body["facets"]
+
+    def test_new_search_with_no_results_has_empty_facets(self, client, mocks):
+        mocks["search"].side_effect = lambda **kw: make_search_response(request_id=kw["request_id"], total_results=0, products=[])
+        body = _post(client, {**BASE, "search_query": "nothing like this"}).json()
+        assert body["facets"] == {"category": [], "sub_category": [], "product_type": [], "seller": []}
 
     def test_refine_with_request_id(self, client, mocks):
         resp = _post(client, {**BASE, "request_id": PREVIOUS_ID, "filters": '{"currency": "SAR"}'})

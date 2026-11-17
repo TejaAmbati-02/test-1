@@ -53,7 +53,7 @@ RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
 # Single-select filter keys: one value only (a string, or a list holding exactly one value).
 # Category is single-select; sub_category and product_type stay multi-select (a list matches any).
 # Every key that filters on category_ids is covered, so the raw field name is no way around it.
-SINGLE_VALUE_FILTER_KEYS = frozenset({"category", "category_name", "category_ids"})
+SINGLE_VALUE_FILTER_KEYS = frozenset({"category", "category_name", "category_ids", "category_id"})
 # Multi-select facets: filter key -> the facet it selects in. That facet is counted WITHOUT its own
 # filter (but with every other filter), so the user can still see and tick more of its values.
 MULTI_SELECT_FACET_KEYS: dict[str, str] = {
@@ -111,9 +111,9 @@ class SearchForm(BaseModel):
         "Filter object encoded as a JSON string, e.g. {\"category\": [\"<category id>\"], \"price\": {\"gte\": 50, \"lte\": 150}}. "
         "Every facet key is a filter key and takes the facet's id: category, sub_category, product_type, seller "
         "(category_name, sub_category_name and sellername are still accepted). Also: seller_id, seller_name (match any of a product's sellers), price, moq, lead_time (number or range), "
-        "material_type, availability, category_ids, currency, contract_indicator, "
+        "material_type, availability, category_ids, category_id, currency, contract_indicator, "
         "temporary_unavailable, under_agreement, supplier_count, sub_category_id, product_type_id, sold_by, sku_id, product_key, "
-        "asmo_material_number, aramco_material_number. A value may be a list (match any), except category / category_name, "
+        "asmo_material_number, aramco_material_number. A value may be a list (match any), except category / category_name / category_ids / category_id, "
         "which are single-select (one id, or a one-item list); numeric keys also take "
         "{gt, gte, lt, lte}. Any other key -> 400 INVALID_FILTER_KEY"
     ))
@@ -321,6 +321,15 @@ async def v1_search(request: Request) -> SearchApiResponse:
                 language=form.language,
                 multi_select_filters=multi_select_filters,
             )
+
+        # 9. Facets of a continued search: when it finds products, save its facets with the search;
+        #    when it finds nothing, return the saved facets of the last search under this request_id
+        #    that did find products, so the user can still pick a filter that gives results.
+        if result.total_results > 0:
+            await embedding_store.save_facets(ctx, result.facets.model_dump())
+        elif ctx["reused"] and ctx["facets"]:
+            logger.info(f"POST /v1/search — 0 results -> returning the saved facets of {ctx['request_id']}")
+            result.facets = SearchFacets(**ctx["facets"])
     except (HTTPException, RequestValidationError):
         raise  # already in the error contract
     except Exception as exc:

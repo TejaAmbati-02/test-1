@@ -309,7 +309,7 @@ class TestMiddleware:
         # The store returns the middleware's id as if Redis had saved it (with Redis off it would be None).
         monkeypatch.setattr(embedding_store, "resolve", AsyncMock(side_effect=lambda rid, q, img, prev, blank, filters=None: {
             "request_id": rid, "query": q, "query_vector": None, "image_vector": None, "image_blank": blank,
-            "filters": filters, "reused": False}))
+            "filters": filters, "facets": None, "reused": False}))
         data = {"channel": "web", "language": "en", "filters": '{"currency": "SAR"}'}
         ids = {client.post("/v1/search", files=multipart(data)).json()["request_id"] for _ in range(3)}
         assert len(ids) == 3

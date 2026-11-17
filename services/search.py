@@ -55,6 +55,7 @@ FILTER_KEY_MAP: dict[str, str] = {
     "lead_time": "seller_details.lead_time",
     # Other filters.
     "category_ids": "category_ids",
+    "category_id": "category_ids",
     "sub_category_id": "sub_category_id",
     "product_type_id": "product_type_id",
     "product_type": "product_type.keyword",

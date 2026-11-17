@@ -17,7 +17,8 @@ from tests.conftest import make_search_response, multipart
 def search_mock(monkeypatch):
     async def resolve(request_id, query, image, previous_request_id, image_blank=False, filters=None):
         return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
-                "image_vector": None, "image_blank": image_blank, "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}}, "reused": False}
+                "image_vector": None, "image_blank": image_blank, "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}},
+                "facets": None, "reused": False}
 
     monkeypatch.setattr(embedding_store, "resolve", AsyncMock(side_effect=resolve))
     mock = AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"]))
@@ -73,7 +74,7 @@ class TestBuildFilters:
             {"term": {"sub_category_id": "s1"}},
         ]
 
-    @pytest.mark.parametrize("key", ["category", "category_name", "category_ids"])
+    @pytest.mark.parametrize("key", ["category", "category_name", "category_ids", "category_id"])
     def test_category_is_single_select(self, client, search_mock, key):
         assert _filters(client, search_mock, f'{{"{key}": "c1"}}') == [{"term": {"category_ids": "c1"}}]
         status, code, _ = _rejected(client, f'{{"{key}": ["c1", "c2"]}}')
