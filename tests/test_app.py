@@ -14,6 +14,7 @@ import app as app_module
 from services.embedder import embedding_service
 from services.opensearch import os_client
 from services.redis_client import redis_client
+from services.embedding_store import embedding_store
 from services.search import search_service
 from tests.conftest import make_search_response, multipart
 
@@ -305,6 +306,10 @@ class TestMiddleware:
             search_service, "search",
             AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"])),
         )
+        # The store returns the middleware's id as if Redis had saved it (with Redis off it would be None).
+        monkeypatch.setattr(embedding_store, "resolve", AsyncMock(side_effect=lambda rid, q, img, prev, blank, filters=None: {
+            "request_id": rid, "query": q, "query_vector": None, "image_vector": None, "image_blank": blank,
+            "filters": filters, "reused": False}))
         data = {"channel": "web", "language": "en", "filters": '{"currency": "SAR"}'}
         ids = {client.post("/v1/search", files=multipart(data)).json()["request_id"] for _ in range(3)}
         assert len(ids) == 3

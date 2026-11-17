@@ -2,24 +2,29 @@
 
 Each search stores ONE Redis key — its request_id (a UUID) — holding JSON:
 
-    {"text_emb": [...] | null, "image_emb": [...] | null, "query": "..." | null, "image_blank": bool}
+    {"text_emb": [...] | null, "image_emb": [...] | null, "query": "..." | null, "image_blank": bool,
+     "filters": {...}, "filter_clauses": [...], "multi_select_filters": {...}}
 
 Every query / image that is sent is embedded and stored — also a too-short query or a blank image
 that the search itself ignores — so every such search gets a request_id. ``image_blank`` marks a
 stored image vector that must not be searched with.
 
 The frontend sends that request_id back (with only filters / sort / page) to refine the same
-search without re-sending the query or re-uploading the image. The query text is kept next to
+search without re-sending the query or re-uploading the image. The search's filters are stored
+too: ``filters`` is the `filters` JSON as sent, ``filter_clauses`` / ``multi_select_filters`` the
+OpenSearch clauses built from it. A refine call that omits `filters` reuses the stored ones; one
+that sends `filters` replaces them under the same request_id (``{}`` clears them). The query text is kept next to
 text_emb because the BM25 half of a text search needs it. Only the image's embedding is stored,
 never the image. Each key expires REDIS_TTL_SECONDS after it was last used.
 
-Redis failures never fail a search that sent a query or image: the search runs as usual, its
-context just can't be reused later.
+The write is awaited, so a returned request_id is always in Redis. Redis failures never fail a
+search that sent a query or image: the search runs as usual, but its request_id is None (nothing
+to refine later).
 
 Use the ready-made object:
 
     from services.embedding_store import embedding_store
-    ctx = await embedding_store.resolve(request_id, query, image, previous_request_id)
+    ctx = await embedding_store.resolve(request_id, query, image, previous_request_id, image_blank, filters=...)
 """
 import asyncio
 import json
@@ -53,14 +58,21 @@ class EmbeddingStore:
         image: tuple[bytes, str] | None,
         previous_request_id: str | None,
         image_blank: bool = False,
+        filters: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Work out the query / image embeddings for this search.
 
-        Returns ``{"request_id", "query", "query_vector", "image_vector", "image_blank", "reused"}``
-        (``image_blank``: the image vector belongs to a blank image — stored, but not to be searched with):
-        * ``previous_request_id`` and no new query / image: refine that search — its stored context
-          is reused as-is (same request_id, expiry refreshed, reused=True).
-        * Otherwise a new context stored under ``request_id``. A new query or image replaces that part
+        ``filters``: ``{"raw": <the filters JSON as sent>, "clauses": [...], "multi_select": {...}}``,
+        or None when the request sent no `filters` (then the previous search's filters are used, if any).
+
+        Returns ``{"request_id", "query", "query_vector", "image_vector", "image_blank", "filters", "reused"}``
+        (``image_blank``: the image vector belongs to a blank image — stored, but not to be searched with;
+        ``filters``: the filters to search with, same shape as the argument):
+        * ``previous_request_id`` and no new query / image: refine that search — same request_id,
+          reused=True. Unchanged filters: its stored context is reused as-is (expiry refreshed).
+          New filters: they replace the stored ones under that same request_id.
+        * Otherwise a new context stored under ``request_id`` (``request_id`` is None when Redis is
+          disabled or the write failed). A new query or image replaces that part
           of the previous context (if any); only what isn't already embedded is sent to OCI (query and
           image concurrently).
 
@@ -96,15 +108,25 @@ class EmbeddingStore:
                                f"request_id '{previous_request_id}' was not found or its search has expired")
             prev = {"request_id": previous_request_id, "query": stored.get("query"),
                     "query_vector": stored.get("text_emb"), "image_vector": stored.get("image_emb"),
-                    "image_blank": bool(stored.get("image_blank", False)), "reused": True}
+                    "image_blank": bool(stored.get("image_blank", False)),
+                    "filters": {"raw": stored.get("filters") or {}, "clauses": stored.get("filter_clauses") or [],
+                                "multi_select": stored.get("multi_select_filters") or {}},
+                    "reused": True}
             logger.info(f"EmbeddingStore — loaded context {previous_request_id}", extra={"status": "success"})
 
         # 2. Refining: no new image, and no query or the SAME query as before (ignoring case and extra
-        #    spaces) -> it is the same search: reuse the previous context as-is (same request_id) and
-        #    refresh its expiry in the background. A failed refresh is only logged.
+        #    spaces) -> it is the same search, kept under the previous request_id.
+        #    * filters omitted or unchanged: reuse the previous context as-is and refresh its expiry in
+        #      the background (a failed refresh is only logged).
+        #    * new filters: fall through to steps 3-4, which re-save the context with the new filters
+        #      under the previous request_id (nothing is re-embedded).
+        reused = False
         same_query_as_before = bool(prev and query and prev["query"]
                                     and " ".join(prev["query"].split()).lower() == " ".join(query.split()).lower())
         if prev and image is None and (not query or same_query_as_before):
+            reused = True
+            request_id = prev["request_id"]
+        if reused and (filters is None or filters["raw"] == prev["filters"]["raw"]):
             try:
                 task = asyncio.create_task(self._redis_svc.client.expire(prev["request_id"], ttl))
                 self._pending.add(task)
@@ -134,30 +156,34 @@ class EmbeddingStore:
         q_vec = new_q_vec if embed_query else (prev["query_vector"] if q and prev else None)
         i_vec = new_i_vec if image is not None else (prev["image_vector"] if prev else None)
         i_blank = image_blank if image is not None else bool(prev and prev["image_blank"])
+        # Filters: the ones sent, else the previous search's, else none.
+        f = filters if filters is not None else (prev["filters"] if prev else {"raw": {}, "clauses": [], "multi_select": {}})
 
-        # 4. Store it under this request_id in the background, so the search doesn't wait. A failed
-        #    write is only logged: a later lookup by that request_id is then a plain miss.
+        # 4. Store it under this request_id and WAIT for Redis to confirm, so a returned request_id is
+        #    always in Redis. If Redis is disabled or the write fails, the search still runs, but the
+        #    request_id returned is None (there is nothing to refine later).
+        saved_request_id: str | None = None
         if self.enabled:
-            value = json.dumps({"text_emb": q_vec, "image_emb": i_vec, "query": q, "image_blank": i_blank})
+            value = json.dumps({"text_emb": q_vec, "image_emb": i_vec, "query": q, "image_blank": i_blank,
+                                "filters": f["raw"], "filter_clauses": f["clauses"],
+                                "multi_select_filters": f["multi_select"]})
             try:
-                task = asyncio.create_task(self._redis_svc.client.set(request_id, value, ex=ttl))
-                self._pending.add(task)
-                task.add_done_callback(lambda t: (
-                    self._pending.discard(t),
-                    t.cancelled() or (logger.info(f"EmbeddingStore — saved {request_id}") if t.exception() is None
-                                      else logger.warning(f"EmbeddingStore — Redis write failed for {request_id}: "
-                                                          f"{t.exception()!r}",
-                                                          extra={"status": "error", "error_details": str(t.exception())})),
-                ))
+                if await self._redis_svc.client.set(request_id, value, ex=ttl):
+                    saved_request_id = request_id
+                    logger.info(f"EmbeddingStore — saved {request_id}")
+                else:
+                    logger.warning(f"EmbeddingStore — Redis did not confirm the write for {request_id}",
+                                   extra={"status": "error"})
             except Exception as exc:
                 logger.warning(f"EmbeddingStore — Redis write failed for {request_id}: {exc!r}",
                                extra={"status": "error", "error_details": str(exc)})
 
-        logger.info(f"EmbeddingStore — new context {request_id} (text_emb_dim={len(q_vec or [])}, "
-                    f"image_emb_dim={len(i_vec or [])}) in {(time.perf_counter() - start) * 1000:.1f}ms",
+        logger.info(f"EmbeddingStore — {'updated filters of' if reused else 'new'} context {saved_request_id} "
+                    f"(text_emb_dim={len(q_vec or [])}, image_emb_dim={len(i_vec or [])}, filters={f['raw']}) "
+                    f"in {(time.perf_counter() - start) * 1000:.1f}ms",
                     extra={"status": "success"})
-        return {"request_id": request_id, "query": q, "query_vector": q_vec, "image_vector": i_vec,
-                "image_blank": i_blank, "reused": False}
+        return {"request_id": saved_request_id, "query": q, "query_vector": q_vec, "image_vector": i_vec,
+                "image_blank": i_blank, "filters": f, "reused": reused}
 
 
 # The one object the app uses — import it where needed:  from services.embedding_store import embedding_store

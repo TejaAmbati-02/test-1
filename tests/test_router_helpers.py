@@ -15,9 +15,9 @@ from tests.conftest import make_search_response, multipart
 
 @pytest.fixture
 def search_mock(monkeypatch):
-    async def resolve(request_id, query, image, previous_request_id, image_blank=False):
+    async def resolve(request_id, query, image, previous_request_id, image_blank=False, filters=None):
         return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
-                "image_vector": None, "image_blank": image_blank, "reused": False}
+                "image_vector": None, "image_blank": image_blank, "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}}, "reused": False}
 
     monkeypatch.setattr(embedding_store, "resolve", AsyncMock(side_effect=resolve))
     mock = AsyncMock(side_effect=lambda **kw: make_search_response(request_id=kw["request_id"]))
@@ -59,10 +59,10 @@ class TestBuildFilters:
 
     def test_term_terms_and_range_clauses(self, client, search_mock):
         assert _filters(client, search_mock,
-            '{"currency": "SAR", "category_ids": ["c1", "c2"], "price": {"gte": 10, "lte": 100}, "contract_indicator": true}'
+            '{"currency": "SAR", "sub_category_id": ["s1", "s2"], "price": {"gte": 10, "lte": 100}, "contract_indicator": true}'
         ) == [
             {"term": {"currency": "SAR"}},
-            {"terms": {"category_ids": ["c1", "c2"]}},
+            {"terms": {"sub_category_id": ["s1", "s2"]}},
             {"range": {"price": {"gte": 10, "lte": 100}}},
             {"term": {"contract_indicator": True}},
         ]
@@ -73,7 +73,7 @@ class TestBuildFilters:
             {"term": {"sub_category_id": "s1"}},
         ]
 
-    @pytest.mark.parametrize("key", ["category", "category_name"])
+    @pytest.mark.parametrize("key", ["category", "category_name", "category_ids"])
     def test_category_is_single_select(self, client, search_mock, key):
         assert _filters(client, search_mock, f'{{"{key}": "c1"}}') == [{"term": {"category_ids": "c1"}}]
         status, code, _ = _rejected(client, f'{{"{key}": ["c1", "c2"]}}')

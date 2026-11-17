@@ -33,12 +33,14 @@ REAL_PNG, REAL_JPEG = _real_image("PNG"), _real_image("JPEG")
 @pytest.fixture
 def mocks(monkeypatch):
     """Mock the embedding store and search service used by the router."""
-    async def resolve(request_id, query, image, previous_request_id, image_blank=False):
+    async def resolve(request_id, query, image, previous_request_id, image_blank=False, filters=None):
         if previous_request_id and not query and image is None:
+            stored = {"raw": {"brand": "Acme"}, "clauses": [{"term": {"brand": "Acme"}}], "multi_select": {}}
             return {"request_id": previous_request_id, "query": "stored query", "query_vector": [0.5],
-                    "image_vector": None, "image_blank": False, "reused": True}
+                    "image_vector": None, "image_blank": False, "filters": filters or stored, "reused": True}
         return {"request_id": request_id, "query": query, "query_vector": [0.1] if query else None,
-                "image_vector": [0.3] if image else None, "image_blank": image_blank, "reused": False}
+                "image_vector": [0.3] if image else None, "image_blank": image_blank,
+                "filters": filters or {"raw": {}, "clauses": [], "multi_select": {}}, "reused": False}
 
     m = {
         "resolve": AsyncMock(side_effect=resolve),
@@ -153,6 +155,18 @@ class TestSearchModes:
         assert kw["filters"] == [{"term": {"currency": "SAR"}}, {"range": {"price": {"lte": 500}}}]
         assert (kw["query"], kw["image_vector"]) == (None, None)
         assert (kw["sort_by"], kw["sort_order"], kw["page"], kw["page_size"]) == ("price", "asc", 2, 25)
+
+    def test_refine_without_filters_searches_with_the_stored_filters(self, client, mocks):
+        resp = _post(client, {**BASE, "request_id": PREVIOUS_ID})
+        assert resp.status_code == 200
+        assert mocks["resolve"].call_args.kwargs["filters"] is None  # none sent
+        assert mocks["search"].call_args.kwargs["filters"] == [{"term": {"brand": "Acme"}}]
+
+    def test_sent_filters_are_passed_to_the_store(self, client, mocks):
+        assert _post(client, {**BASE, "request_id": PREVIOUS_ID, "filters": '{"currency": "SAR"}'}).status_code == 200
+        assert mocks["resolve"].call_args.kwargs["filters"] == {
+            "raw": {"currency": "SAR"}, "clauses": [{"term": {"currency": "SAR"}}], "multi_select": {}}
+        assert mocks["search"].call_args.kwargs["filters"] == [{"term": {"currency": "SAR"}}]
 
     def test_refine_with_request_id(self, client, mocks):
         resp = _post(client, {**BASE, "request_id": PREVIOUS_ID, "filters": '{"currency": "SAR"}'})

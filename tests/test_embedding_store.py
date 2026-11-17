@@ -12,6 +12,8 @@ from services.redis_client import RedisClientService
 
 NEW_ID = "11111111-1111-4111-8111-111111111111"
 OLD_ID = "22222222-2222-4222-8222-222222222222"
+NO_FILTERS = {"raw": {}, "clauses": [], "multi_select": {}}
+SAR = {"raw": {"currency": "SAR"}, "clauses": [{"term": {"currency": "SAR"}}], "multi_select": {}}
 
 
 class FakeRedis:
@@ -26,6 +28,7 @@ class FakeRedis:
 
     async def set(self, key, value, ex=None):
         self.data[key], self.ttls[key] = value, ex
+        return True  # redis-py returns True on a successful SET
 
     async def expire(self, key, ttl):
         self.ttls[key] = ttl
@@ -71,10 +74,11 @@ def _stored(fake_redis: FakeRedis, key: str) -> dict:
 class TestNewContext:
     async def test_query_is_embedded_and_stored(self, store, embedder, fake_redis):
         ctx = await store.resolve(NEW_ID, "valve", None, None)
-        assert ctx == {"request_id": NEW_ID, "query": "valve", "query_vector": [0.1, 0.2], "image_vector": None, "image_blank": False, "reused": False}
+        assert ctx == {"request_id": NEW_ID, "query": "valve", "query_vector": [0.1, 0.2], "image_vector": None, "image_blank": False, "filters": NO_FILTERS, "reused": False}
         embedder.encode_query.assert_awaited_once_with("valve")
         await _drain(store)
-        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": None, "query": "valve", "image_blank": False}
+        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": None, "query": "valve", "image_blank": False,
+                                               "filters": {}, "filter_clauses": [], "multi_select_filters": {}}
         assert fake_redis.ttls[NEW_ID] == 60
         assert not store._pending
 
@@ -89,18 +93,25 @@ class TestNewContext:
         ctx = await store.resolve(NEW_ID, None, (b"img", "image/png"), None, image_blank=True)
         assert (ctx["request_id"], ctx["image_vector"], ctx["image_blank"]) == (NEW_ID, [0.3, 0.4], True)
         await _drain(store)
-        assert _stored(fake_redis, NEW_ID) == {"text_emb": None, "image_emb": [0.3, 0.4], "query": None, "image_blank": True}
+        assert _stored(fake_redis, NEW_ID) == {"text_emb": None, "image_emb": [0.3, 0.4], "query": None, "image_blank": True,
+                                               "filters": {}, "filter_clauses": [], "multi_select_filters": {}}
 
     async def test_disabled_store_embeds_without_saving(self, disabled_store, embedder):
         ctx = await disabled_store.resolve(NEW_ID, "valve", None, None)
         assert ctx["query_vector"] == [0.1, 0.2]
+        assert ctx["request_id"] is None  # nothing stored -> no request_id
         assert not disabled_store._pending
 
-    async def test_background_write_failure_is_swallowed(self, store, fake_redis):
+    async def test_write_failure_returns_no_request_id(self, store, fake_redis):
         fake_redis.set = AsyncMock(side_effect=ConnectionError("write failed"))
-        ctx = await store.resolve(NEW_ID, "valve", None, None)
-        await _drain(store)  # must not raise
+        ctx = await store.resolve(NEW_ID, "valve", None, None)  # must not raise
         assert ctx["query_vector"] == [0.1, 0.2]
+        assert ctx["request_id"] is None
+
+    async def test_unconfirmed_write_returns_no_request_id(self, store, fake_redis):
+        fake_redis.set = AsyncMock(return_value=None)
+        ctx = await store.resolve(NEW_ID, "valve", None, None)
+        assert ctx["request_id"] is None
 
 
 class TestRefine:
@@ -110,7 +121,7 @@ class TestRefine:
 
     async def test_previous_context_is_reused_as_is(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, None, None, OLD_ID)
-        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "image_blank": False, "reused": True}
+        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "image_blank": False, "filters": NO_FILTERS, "reused": True}
         embedder.encode_query.assert_not_awaited()
         await _drain(store)
         assert fake_redis.ttls[OLD_ID] == 60  # expiry refreshed
@@ -118,13 +129,14 @@ class TestRefine:
 
     async def test_new_query_replaces_text_and_keeps_image(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, "pump", None, OLD_ID)
-        assert ctx == {"request_id": NEW_ID, "query": "pump", "query_vector": [0.1, 0.2], "image_vector": [0.6], "image_blank": False, "reused": False}
+        assert ctx == {"request_id": NEW_ID, "query": "pump", "query_vector": [0.1, 0.2], "image_vector": [0.6], "image_blank": False, "filters": NO_FILTERS, "reused": False}
         await _drain(store)
-        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": [0.6], "query": "pump", "image_blank": False}
+        assert _stored(fake_redis, NEW_ID) == {"text_emb": [0.1, 0.2], "image_emb": [0.6], "query": "pump", "image_blank": False,
+                                               "filters": {}, "filter_clauses": [], "multi_select_filters": {}}
 
     async def test_same_query_is_the_same_search(self, store, embedder, fake_redis, previous):
         ctx = await store.resolve(NEW_ID, "  ball   VALVE ", None, OLD_ID)
-        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "image_blank": False, "reused": True}
+        assert ctx == {"request_id": OLD_ID, "query": "Ball Valve", "query_vector": [0.5], "image_vector": [0.6], "image_blank": False, "filters": NO_FILTERS, "reused": True}
         embedder.encode_query.assert_not_awaited()
         await _drain(store)
         assert NEW_ID not in fake_redis.data  # no new context
@@ -164,3 +176,47 @@ class TestRefine:
             await store.resolve(NEW_ID, None, None, OLD_ID)
         assert (e.value.status_code, e.value.detail["code"]) == (503, "EMBEDDING_STORE_UNAVAILABLE")
         assert "down" in e.value.detail["message"]
+
+
+class TestFilters:
+    @pytest.fixture
+    def previous(self, fake_redis):
+        fake_redis.data[OLD_ID] = json.dumps({"text_emb": [0.5], "image_emb": None, "query": "valve",
+                                              "filters": SAR["raw"], "filter_clauses": SAR["clauses"],
+                                              "multi_select_filters": {}})
+
+    async def test_filters_are_stored_with_a_new_search(self, store, fake_redis):
+        ctx = await store.resolve(NEW_ID, "valve", None, None, filters=SAR)
+        assert (ctx["request_id"], ctx["filters"]) == (NEW_ID, SAR)
+        stored = _stored(fake_redis, NEW_ID)
+        assert (stored["filters"], stored["filter_clauses"], stored["multi_select_filters"]) == (
+            {"currency": "SAR"}, [{"term": {"currency": "SAR"}}], {})
+
+    async def test_omitted_filters_reuse_the_stored_ones(self, store, embedder, fake_redis, previous):
+        ctx = await store.resolve(NEW_ID, None, None, OLD_ID)
+        assert (ctx["request_id"], ctx["filters"], ctx["reused"]) == (OLD_ID, SAR, True)
+        embedder.encode_query.assert_not_awaited()
+
+    async def test_new_filters_replace_the_stored_ones_under_the_same_id(self, store, embedder, fake_redis, previous):
+        usd = {"raw": {"currency": "USD"}, "clauses": [{"term": {"currency": "USD"}}], "multi_select": {}}
+        ctx = await store.resolve(NEW_ID, None, None, OLD_ID, filters=usd)
+        assert (ctx["request_id"], ctx["query"], ctx["query_vector"], ctx["filters"], ctx["reused"]) == (
+            OLD_ID, "valve", [0.5], usd, True)
+        embedder.encode_query.assert_not_awaited()
+        assert _stored(fake_redis, OLD_ID)["filters"] == {"currency": "USD"}
+        assert NEW_ID not in fake_redis.data
+
+    async def test_empty_filters_clear_the_stored_ones(self, store, fake_redis, previous):
+        ctx = await store.resolve(NEW_ID, None, None, OLD_ID, filters=NO_FILTERS)
+        assert (ctx["request_id"], ctx["filters"]) == (OLD_ID, NO_FILTERS)
+        assert _stored(fake_redis, OLD_ID)["filter_clauses"] == []
+
+    async def test_new_query_keeps_the_stored_filters(self, store, fake_redis, previous):
+        ctx = await store.resolve(NEW_ID, "pump", None, OLD_ID)
+        assert (ctx["request_id"], ctx["filters"]) == (NEW_ID, SAR)
+        assert _stored(fake_redis, NEW_ID)["filters"] == {"currency": "SAR"}
+
+    async def test_failed_filter_update_returns_no_request_id(self, store, fake_redis, previous):
+        fake_redis.set = AsyncMock(side_effect=ConnectionError("write failed"))
+        ctx = await store.resolve(NEW_ID, None, None, OLD_ID, filters=NO_FILTERS)
+        assert ctx["request_id"] is None

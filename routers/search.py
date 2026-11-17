@@ -52,7 +52,8 @@ BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator", "temporary_unavailable", 
 RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
 # Single-select filter keys: one value only (a string, or a list holding exactly one value).
 # Category is single-select; sub_category and product_type stay multi-select (a list matches any).
-SINGLE_VALUE_FILTER_KEYS = frozenset({"category", "category_name"})
+# Every key that filters on category_ids is covered, so the raw field name is no way around it.
+SINGLE_VALUE_FILTER_KEYS = frozenset({"category", "category_name", "category_ids"})
 # Multi-select facets: filter key -> the facet it selects in. That facet is counted WITHOUT its own
 # filter (but with every other filter), so the user can still see and tick more of its values.
 MULTI_SELECT_FACET_KEYS: dict[str, str] = {
@@ -211,12 +212,15 @@ async def v1_search(request: Request) -> SearchApiResponse:
         image, image_blank = await asyncio.to_thread(image_processor.process, multipart.get("image"))
 
         # 5. Filters: the `filters` field is a JSON object string (2.1) -> OpenSearch filter clauses.
+        #    They are stored in Redis with the search (step 7); a refine call that omits `filters` reuses
+        #    the stored ones, and `filters={}` clears them.
         #    Numeric keys take a number, a non-empty list of numbers, or a range such as {"gte": 50, "lte": 150};
         #    boolean keys take true/false; every other key takes a non-empty string or a non-empty list of
         #    them. A list matches any of its values. Category is single-select: exactly one value
         #    (sub_category and product_type are multi-select).
         filters: list[dict] = []
         multi_select_filters: dict[str, list[dict]] = {}  # facet key -> its own filter clauses
+        raw_filters: dict | None = None  # None = the request sent no `filters`
         if form.filters and form.filters.strip():
             try:
                 raw_filters = json.loads(form.filters)
@@ -270,16 +274,22 @@ async def v1_search(request: Request) -> SearchApiResponse:
                                   "previous_request_id": form.request_id}},
         )
 
-        # 7. One Redis entry per search holds its query/image embeddings under its request_id — for every
-        #    query / image sent, whether or not it is searched with or finds results.
-        #    Sending a previous request_id refines that search.
+        # 7. One Redis entry per search holds its query/image embeddings and its filters under its
+        #    request_id — for every query / image sent, whether or not it is searched with or finds results.
+        #    Sending a previous request_id refines that search. The search then uses the filters resolve
+        #    returns: the ones sent, else the refined search's stored ones.
         embed_start = time.perf_counter()
-        ctx = await embedding_store.resolve(request_id, query, image, form.request_id, image_blank)
+        ctx = await embedding_store.resolve(
+            request_id, query, image, form.request_id, image_blank,
+            filters=None if raw_filters is None else {"raw": raw_filters, "clauses": filters,
+                                                      "multi_select": multi_select_filters},
+        )
         embed_ms = (time.perf_counter() - embed_start) * 1000
+        filters, multi_select_filters = ctx["filters"]["clauses"], ctx["filters"]["multi_select"]
         logger.info(
             f"POST /v1/search — embeddings ready in {embed_ms:.1f}ms: context={ctx["request_id"]}, query={ctx["query"]!r}, "
             f"text_vector={'yes' if ctx["query_vector"] else 'no'}, image_vector={'yes' if ctx["image_vector"] else 'no'}, "
-            f"reused_previous={ctx["reused"]}",
+            f"reused_previous={ctx["reused"]}, filters={ctx["filters"]["raw"]}",
         )
 
         # 8. Search only with the usable parts: a too-short query and a blank image are left out
