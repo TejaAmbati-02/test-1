@@ -284,12 +284,16 @@ class TestSearch:
         assert "hybrid" in _body(os_client)["query"]
 
     async def test_minimum_words_match(self, service, os_client):
+        os_client.search.side_effect = [  # keyword check, exact material-number check ("3.3kv"): none, search
+            os_search_result([], total=3), os_search_result([], total=0), os_search_result([HIT], total=3, aggs=AGGS),
+        ]
         await _search(service, query="busbar system 3.3kv", query_vector=[0.1])
         bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
-        main, seller, fuzzy = bm25["bool"]["should"]
+        main, seller, fuzzy, _material = bm25["bool"]["should"]
         assert main["multi_match"]["minimum_should_match"] == "2<75%"
         assert seller["nested"]["query"]["multi_match"]["minimum_should_match"] == "2<75%"
-        assert fuzzy["multi_match"]["minimum_should_match"] == "2<75%"
+        # "3.3kv" is an identifier -> the typo match is per word, with the same minimum.
+        assert fuzzy["bool"]["minimum_should_match"] == "2<75%"
 
     async def test_words_no_close_product_has_are_dropped_when_nothing_matches(self, service, os_client):
         # "i want steel valvs": no product has "i" / "want" -> keep the words the closest products contain.
@@ -342,6 +346,49 @@ class TestSearch:
         fuzzy = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][2]["multi_match"]
         assert (fuzzy["fuzziness"], fuzzy["prefix_length"]) == ("AUTO:4,7", 1)
         assert fuzzy["fields"] == [f for f in KEYWORD_FIELDS if "material_number" not in f]
+
+    async def test_material_number_query_ranks_the_exact_match_first(self, service, os_client):
+        # 880000629771 used to also find 880000629778 / ...774 / ...779 (typo match on `content`), and
+        # RRF fusion ranked them above the exact owner.
+        os_client.search.side_effect = [
+            os_search_result([], total=39),               # keyword check
+            os_search_result([], total=1),                # exact material-number check: found
+            os_search_result([HIT], total=1, aggs=AGGS),  # the search
+        ]
+        await _search(service, query="880000629771", query_vector=[0.1])
+        calls = [c.args[1] for c in os_client.search.await_args_list]
+        material = {"bool": {"should": [
+            {"term": {f: {"value": v, "case_insensitive": True}}}
+            for f in ("aramco_material_number", "asmo_material_number") for v in ("880000629771", "a-880000629771")
+        ], "minimum_should_match": 1}}
+        bm25 = calls[0]["query"]["bool"]["filter"][0]
+        main, seller, exact = bm25["bool"]["should"]  # no typo-tolerant clause for an identifier
+        assert "fuzziness" not in str(bm25) and exact == material
+        assert calls[1]["query"] == {"bool": {"filter": [material]}}
+        query = calls[2]["query"]
+        assert "hybrid" not in query and _pipeline(os_client) is None
+        assert query["bool"]["must"] == [bm25]
+        assert query["bool"]["should"] == [{"constant_score": {"filter": material, "boost": 100000}}]
+
+    async def test_number_without_an_exact_owner_stays_hybrid(self, service, os_client):
+        os_client.search.side_effect = [
+            os_search_result([], total=3), os_search_result([], total=0), os_search_result([HIT], total=3, aggs=AGGS),
+        ]
+        await _search(service, query="a-880000629771", query_vector=[0.1])
+        terms = os_client.search.await_args_list[1].args[1]["query"]["bool"]["filter"][0]["bool"]["should"]
+        assert [t["term"]["asmo_material_number"]["value"] for t in terms if "asmo_material_number" in t["term"]] == ["a-880000629771"]
+        assert "hybrid" in _body(os_client)["query"] and _pipeline(os_client) == PIPELINE_ID
+
+    async def test_mixed_query_keeps_typos_for_words_but_not_identifiers(self, service, os_client):
+        os_client.search.side_effect = [
+            os_search_result([], total=3), os_search_result([], total=0), os_search_result([HIT], total=3, aggs=AGGS),
+        ]
+        await _search(service, query="JL086A powr", query_vector=[0.1])
+        fuzzy = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][2]["bool"]
+        ident, word = fuzzy["should"]
+        assert ident["multi_match"]["query"] == "JL086A" and "fuzziness" not in ident["multi_match"]
+        assert word["multi_match"]["query"] == "powr" and word["multi_match"]["fuzziness"] == "AUTO:4,7"
+        assert fuzzy["minimum_should_match"] == "2<75%"
 
     async def test_german_typo_match_uses_de_fields(self, service, os_client):
         await _search(service, query="Ventil", query_vector=[0.1], language="de")

@@ -297,24 +297,56 @@ class SearchService:
                 fuzzy_fields = FUZZY_FIELDS_BY_LANGUAGE.get(language, FUZZY_FIELDS_BY_LANGUAGE["en"])
                 words = query.split()
                 keyword_query = query
+                # Query words holding a digit are identifiers (material numbers such as 880000629771 or
+                # JL086A, sizes, part numbers): they must match exactly, never with a typo — otherwise
+                # 880000629771 also finds 880000629778, 880000629774, ... through the `content` field.
+                # A material number also matches when the index stores it with ASMO's "a-" prefix
+                # (asmo_material_number "a-880000629771"), in any letter case.
+                # Only words of 5+ characters count as material numbers, so "2" or "10mm" never pins a
+                # product whose material number happens to be "a-2".
+                number_values = list(dict.fromkeys(
+                    value for word in words if len(word) >= 5 and any(ch.isdigit() for ch in word)
+                    for value in (word, word if word.lower().startswith("a-") else f"a-{word}")
+                ))
+                material_match: dict[str, Any] | None = None
+                if number_values:
+                    material_match = {"bool": {"should": [
+                        {"term": {field: {"value": value, "case_insensitive": True}}}
+                        for field in ("aramco_material_number", "asmo_material_number") for value in number_values
+                    ], "minimum_should_match": 1}}
+                    logger.info(f"Search — step: identifier words in the query -> exact material-number match on "
+                                f"{number_values}; no typo tolerance for them")
                 # Text only: first the query words as typed. If no product contains them, a 2nd try
                 # with only the words the products closest in meaning contain (see below).
                 for attempt in ("strict", "relaxed"):
+                    attempt_words = keyword_query.split()
                     product_match = {"multi_match": {"query": keyword_query, "fields": fields, "type": "best_fields", "lenient": True}}
                     seller_match = {"multi_match": {"query": keyword_query, "fields": SELLER_FIELDS, "type": "best_fields", "lenient": True}}
                     # Typo-tolerant copy of the product match on the text fields only ("valvs" -> "valve").
                     # Exact matches still score higher, so they rank above the typo matches.
+                    # Words with a digit stay exact: with no other word there is no typo match at all;
+                    # mixed with other words ("JL086A powr supply"), each word is matched on its own —
+                    # the identifier exactly, the other words with typos.
                     fuzzy_match: dict[str, Any] | None = None
-                    if _cfg.text_fuzziness:
-                        fuzzy_match = {"multi_match": {
-                            "query": keyword_query, "fields": fuzzy_fields, "type": "best_fields", "lenient": True,
-                            "fuzziness": _cfg.text_fuzziness, "prefix_length": 1,
-                        }}
+                    if _cfg.text_fuzziness and not all(any(ch.isdigit() for ch in w) for w in attempt_words):
+                        if any(any(ch.isdigit() for ch in w) for w in attempt_words):
+                            fuzzy_match = {"bool": {"should": [
+                                {"multi_match": {"query": w, "fields": fields, "lenient": True}}
+                                if any(ch.isdigit() for ch in w) else
+                                {"multi_match": {"query": w, "fields": fuzzy_fields, "lenient": True,
+                                                 "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}
+                                for w in attempt_words
+                            ], "minimum_should_match": _cfg.text_min_words_match or 1}}
+                        else:
+                            fuzzy_match = {"multi_match": {
+                                "query": keyword_query, "fields": fuzzy_fields, "type": "best_fields", "lenient": True,
+                                "fuzziness": _cfg.text_fuzziness, "prefix_length": 1,
+                            }}
                         logger.info(f"Search — step: typo-tolerant match on the text fields (fuzziness={_cfg.text_fuzziness})")
                     if _cfg.text_min_words_match:
                         # e.g. "2<75%": queries of 1-2 words need every word; longer ones 75% of the words.
                         for clause in (product_match, seller_match, fuzzy_match):
-                            if clause:
+                            if clause and "multi_match" in clause:
                                 clause["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
                         logger.info(f"Search — step: a product must match {_cfg.text_min_words_match} of the query words")
                     # minimum_should_match=1 is required, not cosmetic: OpenSearch merges the hybrid `filter`
@@ -324,6 +356,7 @@ class SearchService:
                         product_match,
                         {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
                         *([fuzzy_match] if fuzzy_match else []),
+                        *([material_match] if material_match else []),
                     ], "minimum_should_match": 1}}
                     logger.info(f"Search — step: BM25 ({attempt}) for {keyword_query!r} on language={language} "
                                 f"fields={fields} + nested seller fields={SELLER_FIELDS}")
@@ -356,7 +389,7 @@ class SearchService:
                                     "multi_match": {"query": word, "fields": SELLER_FIELDS, "lenient": True}}}},
                                 *([{"multi_match": {"query": word, "fields": fuzzy_fields, "lenient": True,
                                                     "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
-                                  if _cfg.text_fuzziness else []),
+                                  if _cfg.text_fuzziness and not any(ch.isdigit() for ch in word) else []),
                             ], "minimum_should_match": 1}}} for i, word in enumerate(words)},
                         })
                         word_counts = {word: neighbours.get("aggregations", {}).get(f"word_{i}", {}).get("doc_count", 0)
@@ -376,61 +409,86 @@ class SearchService:
                     return SearchApiResponse(request_id=request_id, total_results=0, page=page,
                                              page_size=page_size, products=[], facets=SearchFacets(**{
                                                  key: getattr(other.facets, key) for key, other in zip(recount, recounted)}))
-                text_knn = {"knn": {_cfg.opensearch_vector_field: {
-                    "vector": query_vector, "k": _cfg.hybrid_retrieval_k, **knn_params,
-                }}}
-                logger.info(f"Search — step: text kNN on '{_cfg.opensearch_vector_field}' "
-                            f"(vector dim={len(query_vector or [])}, k={_cfg.hybrid_retrieval_k})")
-                # Which products may be returned at all. Without a gate the text vector search would
-                # add its 100 nearest products, related or not (e.g. fans for "pump"). The vectors
-                # then only rank what passes the gate.
-                #   text         -> the product contains the query words (checked above)
-                #   text + image -> the product contains the query words OR its image matches the
-                #                   uploaded one (score >= image_min_score), so a photo still finds
-                #                   look-alikes that the text doesn't describe
-                gated = False
-                if _cfg.text_require_keyword_match:
-                    if has_image:
-                        gate: dict[str, Any] = {"bool": {"should": [bm25, image_clause], "minimum_should_match": 1}}
-                        # The text kNN may only rank keyword matches: otherwise it also votes for the
-                        # image-only look-alikes (e.g. a stapler for "battery" + a scissors photo), which
-                        # then get two votes (image + text kNN) and outrank the real keyword matches.
-                        text_knn["knn"][_cfg.opensearch_vector_field]["filter"] = bm25
-                        logger.info("Search — step: results limited to keyword matches OR image matches; "
-                                    "text kNN ranks keyword matches only")
-                    else:
-                        gate = bm25
-                    filters.append(gate)
-                    gated = True
-
-                if not has_image:
-                    mode = "text (keyword matches only)" if gated else "text"
-                    subqueries = [bm25, text_knn]
-                    pipeline_id = PIPELINE_ID
-                    logger.info(f"Search — step: text only -> hybrid [BM25, text kNN] fused by '{pipeline_id}'")
-                elif self._text_image_fusion:
-                    mode = "text+image (keyword or image matches)" if gated else "text+image"
-                    subqueries = [bm25, text_knn, image_clause]  # order matches the pipeline weights
-                    pipeline_id = TEXT_IMAGE_PIPELINE_ID
-                    logger.info(f"Search — step: text + image -> hybrid [BM25, text kNN, image kNN] "
-                                f"fused by weighted '{pipeline_id}'")
+                # Text only, and the query names a material number that a product has: that product goes
+                # first. RRF fusion ranks by position only, and the text vector of a bare number is noise,
+                # so the exact owner could fall below its near-identical neighbours. Ranked by the keyword
+                # score instead (no vectors), with the exact material-number owners pinned on top; the
+                # other keyword matches follow. Decided by the data within the filters, so every page of
+                # the search gets the same query.
+                exact_number_hits = 0
+                if material_match and not has_image:
+                    exact_check = await self._os.search(_cfg.opensearch_index_name, {
+                        "size": 0, "track_total_hits": 1, "terminate_after": 1,
+                        "query": {"bool": {"filter": [material_match, *filters]}},
+                    })
+                    exact_number_hits = exact_check["hits"]["total"]["value"]
+                    logger.info(f"Search — step: exact material-number match for {number_values}: "
+                                f"{'found' if exact_number_hits else 'none'}")
+                if exact_number_hits:
+                    mode = "material number (exact match first)"
+                    query_clause = {"bool": {
+                        "must": [bm25],
+                        "should": [{"constant_score": {"filter": material_match, "boost": 100000}}],
+                        "filter": filters,
+                    }}
+                    logger.info("Search — step: material-number query -> keyword ranking, exact material-number "
+                                "match pinned first, no vectors / RRF pipeline")
                 else:
-                    mode = "text+image (keyword or image matches, plain RRF)" if gated else "text+image (plain RRF)"
-                    # No weighted RRF: plain RRF over the same 3 lists. The text kNN only ranks keyword
-                    # matches (see the gate above), so a keyword match gets 2 votes, an image-only
-                    # look-alike 1, and a product matching both 3. With only [BM25, image] the top
-                    # keyword match and the top image match would tie (e.g. a stapler for "battery").
-                    subqueries = [bm25, text_knn, image_clause]
-                    pipeline_id = PIPELINE_ID
-                    logger.info("Search — step: text + image, weighted RRF unavailable -> hybrid "
-                                f"[BM25, text kNN, image kNN] fused by plain '{pipeline_id}'")
-                # A hybrid query must be the top-level query, so filters go in its own `filter`
-                # (applied to every sub-query) rather than an outer bool.
-                hybrid: dict[str, Any] = {"queries": subqueries, "pagination_depth": depth}
-                if filters:
-                    hybrid["filter"] = {"bool": {"filter": filters}}
-                    logger.info(f"Search — step: {len(filters)} filters applied to every hybrid sub-query")
-                query_clause = {"hybrid": hybrid}
+                    text_knn = {"knn": {_cfg.opensearch_vector_field: {
+                        "vector": query_vector, "k": _cfg.hybrid_retrieval_k, **knn_params,
+                    }}}
+                    logger.info(f"Search — step: text kNN on '{_cfg.opensearch_vector_field}' "
+                                f"(vector dim={len(query_vector or [])}, k={_cfg.hybrid_retrieval_k})")
+                    # Which products may be returned at all. Without a gate the text vector search would
+                    # add its 100 nearest products, related or not (e.g. fans for "pump"). The vectors
+                    # then only rank what passes the gate.
+                    #   text         -> the product contains the query words (checked above)
+                    #   text + image -> the product contains the query words OR its image matches the
+                    #                   uploaded one (score >= image_min_score), so a photo still finds
+                    #                   look-alikes that the text doesn't describe
+                    gated = False
+                    if _cfg.text_require_keyword_match:
+                        if has_image:
+                            gate: dict[str, Any] = {"bool": {"should": [bm25, image_clause], "minimum_should_match": 1}}
+                            # The text kNN may only rank keyword matches: otherwise it also votes for the
+                            # image-only look-alikes (e.g. a stapler for "battery" + a scissors photo), which
+                            # then get two votes (image + text kNN) and outrank the real keyword matches.
+                            text_knn["knn"][_cfg.opensearch_vector_field]["filter"] = bm25
+                            logger.info("Search — step: results limited to keyword matches OR image matches; "
+                                        "text kNN ranks keyword matches only")
+                        else:
+                            gate = bm25
+                        filters.append(gate)
+                        gated = True
+
+                    if not has_image:
+                        mode = "text (keyword matches only)" if gated else "text"
+                        subqueries = [bm25, text_knn]
+                        pipeline_id = PIPELINE_ID
+                        logger.info(f"Search — step: text only -> hybrid [BM25, text kNN] fused by '{pipeline_id}'")
+                    elif self._text_image_fusion:
+                        mode = "text+image (keyword or image matches)" if gated else "text+image"
+                        subqueries = [bm25, text_knn, image_clause]  # order matches the pipeline weights
+                        pipeline_id = TEXT_IMAGE_PIPELINE_ID
+                        logger.info(f"Search — step: text + image -> hybrid [BM25, text kNN, image kNN] "
+                                    f"fused by weighted '{pipeline_id}'")
+                    else:
+                        mode = "text+image (keyword or image matches, plain RRF)" if gated else "text+image (plain RRF)"
+                        # No weighted RRF: plain RRF over the same 3 lists. The text kNN only ranks keyword
+                        # matches (see the gate above), so a keyword match gets 2 votes, an image-only
+                        # look-alike 1, and a product matching both 3. With only [BM25, image] the top
+                        # keyword match and the top image match would tie (e.g. a stapler for "battery").
+                        subqueries = [bm25, text_knn, image_clause]
+                        pipeline_id = PIPELINE_ID
+                        logger.info("Search — step: text + image, weighted RRF unavailable -> hybrid "
+                                    f"[BM25, text kNN, image kNN] fused by plain '{pipeline_id}'")
+                    # A hybrid query must be the top-level query, so filters go in its own `filter`
+                    # (applied to every sub-query) rather than an outer bool.
+                    hybrid: dict[str, Any] = {"queries": subqueries, "pagination_depth": depth}
+                    if filters:
+                        hybrid["filter"] = {"bool": {"filter": filters}}
+                        logger.info(f"Search — step: {len(filters)} filters applied to every hybrid sub-query")
+                    query_clause = {"hybrid": hybrid}
 
         body: dict[str, Any] = {
             "from": (page - 1) * page_size,
