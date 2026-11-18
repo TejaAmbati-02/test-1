@@ -377,26 +377,39 @@ class SearchService:
                         # product ("i want steel valvs": "i", "want"). Which query words do the products
                         # closest in meaning (text vector) contain? Keep those, drop the rest. Decided by
                         # the data, not a word list. Each word counts if it matches exactly or with a typo.
+                        # A word found in a large share of the WHOLE catalogue ("for", "with", "and") describes
+                        # no product, so it is dropped too: otherwise "glass tube for cooking" would be retried
+                        # as just "for" and return every product saying "For General Office Use".
+                        word_filters = {f"word_{i}": {"filter": {"bool": {"should": [
+                            {"multi_match": {"query": word, "fields": fields, "lenient": True}},
+                            {"nested": {"path": "seller_details", "ignore_unmapped": True, "query": {
+                                "multi_match": {"query": word, "fields": SELLER_FIELDS, "lenient": True}}}},
+                            *([{"multi_match": {"query": word, "fields": fuzzy_fields, "lenient": True,
+                                                "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
+                              if _cfg.text_fuzziness and not any(ch.isdigit() for ch in word) else []),
+                        ], "minimum_should_match": 1}}} for i, word in enumerate(words)}
                         neighbours = await self._os.search(_cfg.opensearch_index_name, {
                             "size": 0,
                             "query": {"knn": {_cfg.opensearch_vector_field: {
                                 "vector": query_vector, "k": _cfg.text_relax_neighbors, **knn_params,
                                 **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
                             }}},
-                            "aggs": {f"word_{i}": {"filter": {"bool": {"should": [
-                                {"multi_match": {"query": word, "fields": fields, "lenient": True}},
-                                {"nested": {"path": "seller_details", "ignore_unmapped": True, "query": {
-                                    "multi_match": {"query": word, "fields": SELLER_FIELDS, "lenient": True}}}},
-                                *([{"multi_match": {"query": word, "fields": fuzzy_fields, "lenient": True,
-                                                    "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
-                                  if _cfg.text_fuzziness and not any(ch.isdigit() for ch in word) else []),
-                            ], "minimum_should_match": 1}}} for i, word in enumerate(words)},
+                            "aggs": {**word_filters, "catalogue": {"global": {}, "aggs": word_filters}},
                         })
-                        word_counts = {word: neighbours.get("aggregations", {}).get(f"word_{i}", {}).get("doc_count", 0)
+                        aggs_out = neighbours.get("aggregations", {})
+                        catalogue = aggs_out.get("catalogue", {})
+                        catalogue_size = catalogue.get("doc_count", 0)
+                        word_counts = {word: aggs_out.get(f"word_{i}", {}).get("doc_count", 0)
                                        for i, word in enumerate(words)}
-                        kept = [word for word in words if word_counts[word] > 0]
+                        word_shares = {word: (catalogue.get(f"word_{i}", {}).get("doc_count", 0) / catalogue_size
+                                              if catalogue_size else 0.0) for i, word in enumerate(words)}
+                        kept = [word for word in words
+                                if word_counts[word] > 0 and word_shares[word] <= _cfg.text_relax_max_word_share]
                         logger.info(f"Search — step: no product has all the words {query!r}; words found in the "
-                                    f"{_cfg.text_relax_neighbors} closest products: {word_counts}")
+                                    f"{_cfg.text_relax_neighbors} closest products: {word_counts}; share of the "
+                                    f"{catalogue_size} catalogue products containing each word: "
+                                    f"{ {w: round(v, 3) for w, v in word_shares.items()} } "
+                                    f"(words above {_cfg.text_relax_max_word_share} are too common to search with)")
                         if kept and len(kept) < len(words):
                             keyword_query = " ".join(kept)
                             logger.info(f"Search — step: retrying the keyword match with {keyword_query!r} "

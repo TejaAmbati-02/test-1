@@ -314,7 +314,9 @@ class TestSearch:
         knn = calls[1]["query"]["knn"]["content_vector"]
         assert (calls[1]["size"], knn["vector"], knn["k"]) == (0, [0.1], 20)
         assert knn["filter"] == {"bool": {"filter": user_filters}}
-        assert sorted(calls[1]["aggs"]) == ["word_0", "word_1", "word_2", "word_3"]
+        assert sorted(calls[1]["aggs"]) == ["catalogue", "word_0", "word_1", "word_2", "word_3"]
+        assert calls[1]["aggs"]["catalogue"]["global"] == {}
+        assert sorted(calls[1]["aggs"]["catalogue"]["aggs"]) == ["word_0", "word_1", "word_2", "word_3"]
         bm25 = calls[3]["query"]["hybrid"]["queries"][0]
         main, seller, fuzzy = bm25["bool"]["should"]
         assert main["multi_match"]["query"] == "steel valvs"
@@ -322,6 +324,30 @@ class TestSearch:
         assert fuzzy["multi_match"]["query"] == "steel valvs"
         assert calls[2]["query"]["bool"]["filter"][0] == bm25
         assert r.total_results == 1 and len(r.products) == 1
+
+    async def test_words_common_to_the_whole_catalogue_are_not_searched_alone(self, service, os_client):
+        # "glass tube for cooking": the closest products (office supplies) only share "for", which 40 of
+        # the 100 catalogue products contain -> no retry with "for" (it returned paper clips), 0 results.
+        neighbours = os_search_result([], total=0, aggs={
+            "word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}, "word_2": {"doc_count": 20}, "word_3": {"doc_count": 0},
+            "catalogue": {"doc_count": 100, "word_0": {"doc_count": 2}, "word_1": {"doc_count": 3},
+                          "word_2": {"doc_count": 40}, "word_3": {"doc_count": 1}},
+        })
+        os_client.search.side_effect = [os_search_result([], total=0), neighbours]
+        r = await _search(service, query="glass tube for cooking", query_vector=[0.1])
+        assert os_client.search.await_count == 2 and r.total_results == 0 and r.products == []
+
+    async def test_rare_words_are_still_kept_when_a_common_one_is_dropped(self, service, os_client):
+        neighbours = os_search_result([], total=0, aggs={
+            "word_0": {"doc_count": 5}, "word_1": {"doc_count": 20}, "word_2": {"doc_count": 0},
+            "catalogue": {"doc_count": 100, "word_0": {"doc_count": 4}, "word_1": {"doc_count": 60},
+                          "word_2": {"doc_count": 0}},
+        })
+        os_client.search.side_effect = [os_search_result([], total=0), neighbours,
+                                        os_search_result([], total=1), os_search_result([HIT], total=1, aggs=AGGS)]
+        await _search(service, query="valve for cooking", query_vector=[0.1])
+        main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
+        assert main["multi_match"]["query"] == "valve"
 
     async def test_no_relaxing_when_the_closest_products_have_none_or_all_of_the_words(self, service, os_client):
         for counts in ({"word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}},

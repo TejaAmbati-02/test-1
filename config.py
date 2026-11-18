@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # look at this many products closest in meaning (text vector), keep only the query words they
     # contain ("steel", "valves") and search again. 0 = off (such searches return 0 results).
     text_relax_neighbors: int = 20
+    # ... but a word found in more than this share of the whole catalogue (e.g. "for", "with") is
+    # dropped from that retry: it describes no product and would match almost everything.
+    # 1.0 = off (keep every word the closest products contain).
+    text_relax_max_word_share: float = 0.3
     # HNSW candidate list size per kNN query. The Lucene engine ignores the index
     # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
     # exact image matches at k=100; 500 found every known-answer test image.
