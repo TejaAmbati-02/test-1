@@ -208,12 +208,125 @@ class TestSearch:
         assert _body(os_client)["query"]["hybrid"]["filter"] == {"bool": {"filter": [*user_filters, bm25]}}
         assert user_filters == [{"term": {"currency": "SAR"}}]  # caller's list not modified
 
-    async def test_text_returns_nothing_when_no_product_has_the_words(self, service, os_client):
+    async def test_text_returns_nothing_when_no_product_has_the_words(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         os_client.search.return_value = os_search_result([], total=0)
         r = await _search(service, query="pump", query_vector=[0.1])
         assert os_client.search.await_count == 1  # only the keyword check; no vector search
         assert (r.total_results, r.products) == (0, [])
         assert r.facets.category == [] and r.facets.seller == []
+
+    async def test_semantic_fallback_returns_close_products_when_no_keyword_matches(self, service, os_client):
+        # No product has the words, even after relaxing -> the closest in meaning, high scores only.
+        os_client.search.side_effect = [
+            os_search_result([], total=0),                # keyword check: nothing
+            os_search_result([], total=0),                # partial-word check: nothing
+            os_search_result([HIT], total=1, aggs=AGGS),  # the semantic fallback search
+        ]
+        user_filters = [{"term": {"currency": "SAR"}}]
+        r = await _search(service, query="pump", query_vector=[0.1], filters=user_filters)
+        assert os_client.search.await_count == 3
+        fs = _body(os_client)["query"]["function_score"]
+        assert fs["min_score"] == 0.8
+        assert fs["query"]["knn"]["content_vector"] == {
+            "vector": [0.1], "k": 100, "method_parameters": {"ef_search": 500},
+            "filter": {"bool": {"filter": user_filters}},
+        }
+        assert _pipeline(os_client) is None
+        assert r.total_results == 1 and r.products[0].sku_id == "SKU-1"
+
+    async def test_semantic_fallback_runs_after_the_relaxed_retry_fails(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        neighbours = os_search_result([], total=0, aggs={"word_0": {"doc_count": 0}, "word_1": {"doc_count": 4}})
+        os_client.search.side_effect = [
+            os_search_result([], total=0),                # strict keyword check
+            neighbours,                                   # closest products contain "products"
+            os_search_result([], total=0),                # relaxed keyword check: still nothing
+            os_search_result([HIT], total=1, aggs=AGGS),  # the semantic fallback search
+        ]
+        r = await _search(service, query="want products", query_vector=[0.1])
+        assert os_client.search.await_count == 4
+        assert "function_score" in _body(os_client)["query"] and r.total_results == 1
+
+    async def test_semantic_fallback_needs_a_text_vector(self, service, os_client):
+        os_client.search.return_value = os_search_result([], total=0)
+        r = await _search(service, query="pump", query_vector=None)
+        assert os_client.search.await_count == 2 and r.total_results == 0  # keyword + partial-word checks
+
+    async def test_no_semantic_fallback_when_keywords_match(self, service, os_client):
+        await _search(service, query="pump", query_vector=[0.1])
+        assert "hybrid" in _body(os_client)["query"]
+
+    async def test_partial_word_finds_longer_words_when_nothing_matches_as_typed(self, service, os_client):
+        # "elec": no product has the word "elec" -> retried as the start of a longer word (electrical).
+        os_client.search.side_effect = [
+            os_search_result([], total=0),                # keyword check as typed: nothing
+            os_search_result([], total=5),                # partial-word check: found
+            os_search_result([HIT], total=5, aggs=AGGS),  # the search
+        ]
+        r = await _search(service, query="elec", query_vector=[0.1])
+        calls = [c.args[1] for c in os_client.search.await_args_list]
+        assert "phrase_prefix" not in str(calls[0])  # as typed first: no partial words
+        bm25 = calls[1]["query"]["bool"]["filter"][0]
+        prefix = bm25["bool"]["should"][3]["bool"]
+        assert prefix["minimum_should_match"] == "2<75%"
+        exact, typo, partial = prefix["should"][0]["bool"]["should"]
+        assert exact["multi_match"]["query"] == typo["multi_match"]["query"] == "elec"
+        assert partial == {"multi_match": {"query": "elec", "type": "phrase_prefix", "lenient": True,
+                                           "max_expansions": 100,
+                                           "fields": [f for f in KEYWORD_FIELDS if "material_number" not in f]}}
+        assert _body(os_client)["query"]["hybrid"]["queries"][0] == bm25  # the search uses it too
+        assert r.total_results == 5
+
+    async def test_no_partial_words_when_the_words_match_as_typed(self, service, os_client):
+        await _search(service, query="elec", query_vector=[0.1])
+        assert os_client.search.await_count == 2 and "phrase_prefix" not in str(_body(os_client))
+
+    async def test_identifiers_and_short_words_never_match_as_partial_words(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
+        os_client.search.return_value = os_search_result([], total=0)
+        await _search(service, query="JL086A", query_vector=[0.1])
+        assert os_client.search.await_count == 1  # no word can be partial -> no partial-word check
+        os_client.search.reset_mock()
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=1),
+                                        os_search_result([HIT], total=1, aggs=AGGS)]
+        await _search(service, query="elec 10mm ab", query_vector=[0.1])
+        prefix = os_client.search.await_args_list[1].args[1]["query"]["bool"]["filter"][0]["bool"]["should"][-1]["bool"]
+        per_word = {w["bool"]["should"][0]["multi_match"]["query"]: str(w) for w in prefix["should"]}
+        assert "phrase_prefix" in per_word["elec"]
+        assert "phrase_prefix" not in per_word["10mm"] and "phrase_prefix" not in per_word["ab"]
+
+    async def test_partial_words_can_be_switched_off(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        os_client.search.return_value = os_search_result([], total=0)
+        await _search(service, query="elec", query_vector=[0.1])
+        assert os_client.search.await_count == 1
+
+    async def test_relaxed_retry_keeps_partial_words(self, service, os_client):
+        # "i want elec": nothing as typed, nothing with partial words (3 of 3 words needed) -> the closest
+        # products contain "elec..." (counted as a partial word too) -> retried as "elec", still partial.
+        neighbours = os_search_result([], total=0, aggs={
+            "word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}, "word_2": {"doc_count": 8},
+        })
+        os_client.search.side_effect = [
+            os_search_result([], total=0), os_search_result([], total=0), neighbours,
+            os_search_result([], total=3), os_search_result([HIT], total=3, aggs=AGGS),
+        ]
+        r = await _search(service, query="i want elec", query_vector=[0.1])
+        calls = [c.args[1] for c in os_client.search.await_args_list]
+        word_aggs = calls[2]["aggs"]
+        assert "phrase_prefix" in str(word_aggs["word_2"]) and "phrase_prefix" in str(word_aggs["word_1"])
+        assert "phrase_prefix" not in str(word_aggs["word_0"])  # "i" is too short
+        bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
+        assert bm25["bool"]["should"][0]["multi_match"]["query"] == "elec"
+        assert "phrase_prefix" in str(bm25["bool"]["should"][3])
+        assert r.total_results == 3
 
     async def test_text_keyword_check_can_be_disabled(self, service, os_client, monkeypatch):
         from services import search as search_module
@@ -295,7 +408,9 @@ class TestSearch:
         # "3.3kv" is an identifier -> the typo match is per word, with the same minimum.
         assert fuzzy["bool"]["minimum_should_match"] == "2<75%"
 
-    async def test_words_no_close_product_has_are_dropped_when_nothing_matches(self, service, os_client):
+    async def test_words_no_close_product_has_are_dropped_when_nothing_matches(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         # "i want steel valvs": no product has "i" / "want" -> keep the words the closest products contain.
         neighbours = os_search_result([], total=0, aggs={
             "word_0": {"doc_count": 0}, "word_1": {"doc_count": 0},
@@ -325,7 +440,10 @@ class TestSearch:
         assert calls[2]["query"]["bool"]["filter"][0] == bm25
         assert r.total_results == 1 and len(r.products) == 1
 
-    async def test_words_common_to_the_whole_catalogue_are_not_searched_alone(self, service, os_client):
+    async def test_words_common_to_the_whole_catalogue_are_not_searched_alone(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         # "glass tube for cooking": the closest products (office supplies) only share "for", which 40 of
         # the 100 catalogue products contain -> no retry with "for" (it returned paper clips), 0 results.
         neighbours = os_search_result([], total=0, aggs={
@@ -337,7 +455,9 @@ class TestSearch:
         r = await _search(service, query="glass tube for cooking", query_vector=[0.1])
         assert os_client.search.await_count == 2 and r.total_results == 0 and r.products == []
 
-    async def test_rare_words_are_still_kept_when_a_common_one_is_dropped(self, service, os_client):
+    async def test_rare_words_are_still_kept_when_a_common_one_is_dropped(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         neighbours = os_search_result([], total=0, aggs={
             "word_0": {"doc_count": 5}, "word_1": {"doc_count": 20}, "word_2": {"doc_count": 0},
             "catalogue": {"doc_count": 100, "word_0": {"doc_count": 4}, "word_1": {"doc_count": 60},
@@ -349,7 +469,10 @@ class TestSearch:
         main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
         assert main["multi_match"]["query"] == "valve"
 
-    async def test_no_relaxing_when_the_closest_products_have_none_or_all_of_the_words(self, service, os_client):
+    async def test_no_relaxing_when_the_closest_products_have_none_or_all_of_the_words(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         for counts in ({"word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}},
                        {"word_0": {"doc_count": 3}, "word_1": {"doc_count": 3}}):
             os_client.search.reset_mock()
@@ -359,6 +482,8 @@ class TestSearch:
 
     async def test_no_relaxing_for_one_word_or_when_off(self, service, os_client, monkeypatch):
         from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         os_client.search.return_value = os_search_result([], total=0)
         await _search(service, query="zzqxvw", query_vector=[0.1])
         assert os_client.search.await_count == 1

@@ -316,10 +316,20 @@ class SearchService:
                     ], "minimum_should_match": 1}}
                     logger.info(f"Search — step: identifier words in the query -> exact material-number match on "
                                 f"{number_values}; no typo tolerance for them")
-                # Text only: first the query words as typed. If no product contains them, a 2nd try
-                # with only the words the products closest in meaning contain (see below).
-                for attempt in ("strict", "relaxed"):
+                # Text only: first the query words as typed. If no product contains them, a 2nd try that
+                # also takes each word as the start of a longer word ("elec" -> electrical, electronic).
+                # Then a try with only the words the products closest in meaning contain (see below). If
+                # none finds a keyword match, the semantic fallback (closest in meaning, high score only).
+                # Partial words: long enough (text_prefix_min_chars) and no digit (identifiers stay exact).
+                prefix_words = [w for w in words if _cfg.text_prefix_min_chars
+                                and len(w) >= _cfg.text_prefix_min_chars and not any(ch.isdigit() for ch in w)]
+                semantic_fallback = False
+                for attempt in ("strict", "prefix", "relaxed"):
+                    if attempt == "prefix" and not prefix_words:
+                        continue  # no word can be a partial word -> straight to the relaxed try
                     attempt_words = keyword_query.split()
+                    # Once the prefix try has run, the relaxed try keeps matching partial words too.
+                    use_prefix = attempt != "strict" and bool(prefix_words)
                     product_match = {"multi_match": {"query": keyword_query, "fields": fields, "type": "best_fields", "lenient": True}}
                     seller_match = {"multi_match": {"query": keyword_query, "fields": SELLER_FIELDS, "type": "best_fields", "lenient": True}}
                     # Typo-tolerant copy of the product match on the text fields only ("valvs" -> "valve").
@@ -349,6 +359,27 @@ class SearchService:
                             if clause and "multi_match" in clause:
                                 clause["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
                         logger.info(f"Search — step: a product must match {_cfg.text_min_words_match} of the query words")
+                    # Partial-word match: each query word matches exactly, with a typo, or (if it can be a
+                    # partial word) as the start of a longer word — "elec cable" finds "Electrical Cable".
+                    # Still text_min_words_match of the words must match. Short words and words with a digit
+                    # never match as a prefix ("cap" would also find "capacitor", "JL08" other part numbers).
+                    prefix_match: dict[str, Any] | None = None
+                    if use_prefix:
+                        prefix_match = {"bool": {"should": [
+                            {"bool": {"should": [
+                                {"multi_match": {"query": w, "fields": fields, "lenient": True}},
+                                *([{"multi_match": {"query": w, "fields": fuzzy_fields, "lenient": True,
+                                                    "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
+                                  if _cfg.text_fuzziness and not any(ch.isdigit() for ch in w) else []),
+                                *([{"multi_match": {"query": w, "fields": fuzzy_fields, "type": "phrase_prefix",
+                                                    "lenient": True, "max_expansions": _cfg.text_prefix_max_expansions}}]
+                                  if len(w) >= _cfg.text_prefix_min_chars and not any(ch.isdigit() for ch in w) else []),
+                            ], "minimum_should_match": 1}}
+                            for w in attempt_words
+                        ], "minimum_should_match": _cfg.text_min_words_match or 1}}
+                        logger.info(f"Search — step: partial-word match — words of {_cfg.text_prefix_min_chars}+ "
+                                    f"letters also match as the start of a longer word (up to "
+                                    f"{_cfg.text_prefix_max_expansions} completions each)")
                     # minimum_should_match=1 is required, not cosmetic: OpenSearch merges the hybrid `filter`
                     # into each sub-query (and into the text kNN's own filter), and a bool with a filter clause
                     # makes its should clauses optional — the keyword condition would silently disappear.
@@ -356,6 +387,7 @@ class SearchService:
                         product_match,
                         {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
                         *([fuzzy_match] if fuzzy_match else []),
+                        *([prefix_match] if prefix_match else []),
                         *([material_match] if material_match else []),
                     ], "minimum_should_match": 1}}
                     logger.info(f"Search — step: BM25 ({attempt}) for {keyword_query!r} on language={language} "
@@ -372,7 +404,11 @@ class SearchService:
                         logger.info("Search — step: products contain the query words -> results limited to "
                                     "keyword matches; the vector search only re-ranks them")
                         break
-                    if attempt == "strict" and len(words) > 1 and query_vector is not None and _cfg.text_relax_neighbors > 0:
+                    if attempt == "strict" and prefix_words:
+                        logger.info(f"Search — step: no product has the words {query!r} as typed -> retrying "
+                                    f"with {prefix_words} also matching as partial words")
+                        continue
+                    if attempt != "relaxed" and len(words) > 1 and query_vector is not None and _cfg.text_relax_neighbors > 0:
                         # No product has the words as typed — usually because some of them describe no
                         # product ("i want steel valvs": "i", "want"). Which query words do the products
                         # closest in meaning (text vector) contain? Keep those, drop the rest. Decided by
@@ -387,6 +423,9 @@ class SearchService:
                             *([{"multi_match": {"query": word, "fields": fuzzy_fields, "lenient": True,
                                                 "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
                               if _cfg.text_fuzziness and not any(ch.isdigit() for ch in word) else []),
+                            *([{"multi_match": {"query": word, "fields": fuzzy_fields, "type": "phrase_prefix",
+                                                "lenient": True, "max_expansions": _cfg.text_prefix_max_expansions}}]
+                              if word in prefix_words else []),
                         ], "minimum_should_match": 1}}} for i, word in enumerate(words)}
                         neighbours = await self._os.search(_cfg.opensearch_index_name, {
                             "size": 0,
@@ -415,6 +454,14 @@ class SearchService:
                             logger.info(f"Search — step: retrying the keyword match with {keyword_query!r} "
                                         f"(the text vector still uses the full query)")
                             continue
+                    if query_vector is not None and _cfg.semantic_fallback_min_score > 0:
+                        # No keyword match at all: fall back to the products closest in meaning, but only
+                        # the close ones (score >= semantic_fallback_min_score) — never "similar" padding.
+                        semantic_fallback = True
+                        logger.info(f"Search — no product contains the query words {query!r} -> semantic "
+                                    f"fallback: products closest in meaning with score >= "
+                                    f"{_cfg.semantic_fallback_min_score}")
+                        break
                     logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
                                 extra={"search_query": query, "status": "no_results"})
                     # The multi-select facets may still have values to pick (without their own filter).
@@ -429,7 +476,7 @@ class SearchService:
                 # other keyword matches follow. Decided by the data within the filters, so every page of
                 # the search gets the same query.
                 exact_number_hits = 0
-                if material_match and not has_image:
+                if material_match and not has_image and not semantic_fallback:
                     exact_check = await self._os.search(_cfg.opensearch_index_name, {
                         "size": 0, "track_total_hits": 1, "terminate_after": 1,
                         "query": {"bool": {"filter": [material_match, *filters]}},
@@ -437,7 +484,22 @@ class SearchService:
                     exact_number_hits = exact_check["hits"]["total"]["value"]
                     logger.info(f"Search — step: exact material-number match for {number_values}: "
                                 f"{'found' if exact_number_hits else 'none'}")
-                if exact_number_hits:
+                if semantic_fallback:
+                    # Plain kNN on the text vector (full query, not the relaxed words). Filters go inside the
+                    # kNN (pre-filter); function_score with no functions keeps the kNN score and min_score
+                    # drops the weak neighbours, so total_results, paging and facets count only close ones.
+                    mode = f"text (semantic fallback, score >= {_cfg.semantic_fallback_min_score})"
+                    fallback_knn: dict[str, Any] = {"vector": query_vector, "k": _cfg.semantic_fallback_k, **knn_params}
+                    if filters:
+                        fallback_knn["filter"] = {"bool": {"filter": filters}}
+                    query_clause = {"function_score": {
+                        "query": {"knn": {_cfg.opensearch_vector_field: fallback_knn}},
+                        "min_score": _cfg.semantic_fallback_min_score,
+                    }}
+                    logger.info(f"Search — step: semantic fallback -> text kNN on '{_cfg.opensearch_vector_field}' "
+                                f"(k={_cfg.semantic_fallback_k}, {len(filters)} filters inside the kNN), results "
+                                f"below score {_cfg.semantic_fallback_min_score} dropped, no RRF pipeline")
+                elif exact_number_hits:
                     mode = "material number (exact match first)"
                     query_clause = {"bool": {
                         "must": [bm25],
