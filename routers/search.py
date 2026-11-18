@@ -57,7 +57,8 @@ SINGLE_VALUE_FILTER_KEYS = frozenset({"category", "category_name", "category_ids
 # Multi-select facets: filter key -> the facet it selects in. That facet is counted WITHOUT its own
 # filter (but with every other filter), so the user can still see and tick more of its values.
 MULTI_SELECT_FACET_KEYS: dict[str, str] = {
-    "sub_category": "sub_category", "sub_category_name": "sub_category", "product_type": "product_type",
+    "sub_category": "sub_category", "sub_category_name": "sub_category", "sub_category_id": "sub_category",
+    "product_type": "product_type", "product_type_id": "product_type",
 }
 
 MAX_IMAGE_BYTES = image_processor.max_bytes

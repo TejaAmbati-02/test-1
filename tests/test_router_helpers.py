@@ -95,6 +95,11 @@ class TestBuildFilters:
         assert set(own) == {"sub_category", "product_type"}  # category is single-select: not recounted
         assert own["sub_category"] == [filters[1]] and own["product_type"] == [filters[2]]
 
+    def test_raw_id_keys_are_multi_select_too(self, client, search_mock):
+        filters = _filters(client, search_mock, '{"sub_category_id": ["s1", "s2"], "product_type_id": ["p1", "p2"]}')
+        own = search_mock.call_args.kwargs["multi_select_filters"]
+        assert own == {"sub_category": [filters[0]], "product_type": [filters[1]]}
+
     def test_product_type_matches_id_or_name(self, client, search_mock):
         assert _filters(client, search_mock, '{"product_type": "Valve"}') == [{"bool": {"should": [
             {"term": {"product_type_id": "Valve"}},
