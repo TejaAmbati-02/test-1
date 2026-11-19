@@ -410,28 +410,39 @@ class SearchService:
                             "multi_match": {"query": w, "fields": SELLER_FIELDS, "lenient": True}}}},
                         *[c for c in (typo.get(w), partial.get(w)) if c],
                     ], "minimum_should_match": 1}}} for i, w in enumerate(words)}
-                    # Only neighbours scoring at least text_relax_min_score count: the 20 nearest are
-                    # returned however far away they are, and far ones ("laptop" -> steel tubes) would
-                    # keep their words ("work") and return unrelated products.
-                    neighbour_knn = {"knn": {cfg.opensearch_vector_field: {
-                        "vector": query_vector, "k": cfg.text_relax_neighbors, **knn_params,
-                        **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
-                    }}}
+                    # The nearest products with their scores. Each word clause is named with boost 0: the
+                    # score stays the kNN score, and each hit lists which words it contains
+                    # (matched_queries). Only neighbours scoring at least text_relax_min_score count: the
+                    # nearest are returned however far away they are, and far ones ("laptop" -> steel
+                    # tubes) would keep their words ("work") and return unrelated products.
                     neighbours = await self._os.search(index, {
-                        "size": 0,
-                        "query": ({"function_score": {"query": neighbour_knn, "min_score": cfg.text_relax_min_score}}
-                                  if cfg.text_relax_min_score > 0 else neighbour_knn),
-                        "aggs": {**word_aggs, "catalogue": {"global": {}, "aggs": word_aggs}},
+                        "size": cfg.text_relax_neighbors,
+                        "_source": ["sku_name", "product_name"],
+                        "query": {"bool": {
+                            "must": [{"knn": {cfg.opensearch_vector_field: {
+                                "vector": query_vector, "k": cfg.text_relax_neighbors, **knn_params,
+                                **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
+                            }}}],
+                            "should": [{"constant_score": {"filter": clause["filter"], "boost": 0, "_name": name}}
+                                       for name, clause in word_aggs.items()],
+                        }},
+                        "aggs": {"catalogue": {"global": {}, "aggs": word_aggs}},
                     })
+                    neighbour_hits = neighbours.get("hits", {}).get("hits", [])
+                    close = [h for h in neighbour_hits if (h.get("_score") or 0) >= cfg.text_relax_min_score]
                     found = neighbours.get("aggregations", {})
                     catalogue = found.get("catalogue", {})
                     catalogue_size = catalogue.get("doc_count", 0)
-                    in_neighbours = {w: found.get(f"word_{i}", {}).get("doc_count", 0) for i, w in enumerate(words)}
+                    in_neighbours = {w: sum(f"word_{i}" in h.get("matched_queries", []) for h in close)
+                                     for i, w in enumerate(words)}
                     share = {w: catalogue.get(f"word_{i}", {}).get("doc_count", 0) / catalogue_size if catalogue_size else 0.0
                              for i, w in enumerate(words)}
                     kept = [w for w in words if in_neighbours[w] > 0 and share[w] <= cfg.text_relax_max_word_share]
-                    logger.info(f"Search — relax {query!r}: words in the {cfg.text_relax_neighbors} closest products "
-                                f"{in_neighbours}, catalogue share { {w: round(s, 3) for w, s in share.items()} } "
+                    nearest = [(round(h.get("_score") or 0, 4), (h.get("_source") or {}).get("sku_name")
+                                or (h.get("_source") or {}).get("product_name")) for h in neighbour_hits[:5]]
+                    logger.info(f"Search — relax {query!r}: {len(close)} of the {len(neighbour_hits)} nearest products "
+                                f"score >= {cfg.text_relax_min_score} (top 5: {nearest}); words in those {in_neighbours}, "
+                                f"catalogue share { {w: round(s, 3) for w, s in share.items()} } "
                                 f"(max {cfg.text_relax_max_word_share}) -> keep {kept}")
                     if kept and len(kept) < len(words):
                         keyword_query = " ".join(kept)  # the text vector still uses the full query

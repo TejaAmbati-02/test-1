@@ -240,7 +240,7 @@ class TestSearch:
     async def test_semantic_fallback_runs_after_the_relaxed_retry_fails(self, service, os_client, monkeypatch):
         from services import search as search_module
         monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
-        neighbours = os_search_result([], total=0, aggs={"word_0": {"doc_count": 0}, "word_1": {"doc_count": 4}})
+        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_1"]}], total=1)
         os_client.search.side_effect = [
             os_search_result([], total=0),                # strict keyword check
             neighbours,                                   # closest products contain "products"
@@ -311,16 +311,14 @@ class TestSearch:
     async def test_relaxed_retry_keeps_partial_words(self, service, os_client):
         # "i want elec": nothing as typed, nothing with partial words (3 of 3 words needed) -> the closest
         # products contain "elec..." (counted as a partial word too) -> retried as "elec", still partial.
-        neighbours = os_search_result([], total=0, aggs={
-            "word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}, "word_2": {"doc_count": 8},
-        })
+        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2"]}], total=1)
         os_client.search.side_effect = [
             os_search_result([], total=0), os_search_result([], total=0), neighbours,
             os_search_result([], total=3), os_search_result([HIT], total=3, aggs=AGGS),
         ]
         r = await _search(service, query="i want elec", query_vector=[0.1])
         calls = [c.args[1] for c in os_client.search.await_args_list]
-        word_aggs = calls[2]["aggs"]
+        word_aggs = calls[2]["aggs"]["catalogue"]["aggs"]
         assert "phrase_prefix" in str(word_aggs["word_2"]) and "phrase_prefix" in str(word_aggs["word_1"])
         assert "phrase_prefix" not in str(word_aggs["word_0"])  # "i" is too short
         bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
@@ -412,10 +410,8 @@ class TestSearch:
         from services import search as search_module
         monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         # "i want steel valvs": no product has "i" / "want" -> keep the words the closest products contain.
-        neighbours = os_search_result([], total=0, aggs={
-            "word_0": {"doc_count": 0}, "word_1": {"doc_count": 0},
-            "word_2": {"doc_count": 12}, "word_3": {"doc_count": 9},
-        })
+        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2", "word_3"]},
+                                       {"_score": 0.8, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2"]}], total=2)
         os_client.search.side_effect = [
             os_search_result([], total=0),           # strict keyword check: nothing
             neighbours,                              # which words do the closest products contain?
@@ -427,11 +423,14 @@ class TestSearch:
         calls = [c.args[1] for c in os_client.search.await_args_list]
         assert calls[0]["query"]["bool"]["filter"][0]["bool"]["should"][0]["multi_match"]["query"] == "I want steel valvs"
         # Only close neighbours count (far ones would pick unrelated words).
-        assert calls[1]["query"]["function_score"]["min_score"] == 0.8
-        knn = calls[1]["query"]["function_score"]["query"]["knn"]["content_vector"]
-        assert (calls[1]["size"], knn["vector"], knn["k"]) == (0, [0.1], 20)
+        knn = calls[1]["query"]["bool"]["must"][0]["knn"]["content_vector"]
+        assert (calls[1]["size"], knn["vector"], knn["k"]) == (20, [0.1], 20)
+        # Each word is a named, zero-boost clause: the score stays the kNN score.
+        named = calls[1]["query"]["bool"]["should"]
+        assert [c["constant_score"]["_name"] for c in named] == ["word_0", "word_1", "word_2", "word_3"]
+        assert all(c["constant_score"]["boost"] == 0 for c in named)
         assert knn["filter"] == {"bool": {"filter": user_filters}}
-        assert sorted(calls[1]["aggs"]) == ["catalogue", "word_0", "word_1", "word_2", "word_3"]
+        assert sorted(calls[1]["aggs"]) == ["catalogue"]
         assert calls[1]["aggs"]["catalogue"]["global"] == {}
         assert sorted(calls[1]["aggs"]["catalogue"]["aggs"]) == ["word_0", "word_1", "word_2", "word_3"]
         bm25 = calls[3]["query"]["hybrid"]["queries"][0]
@@ -448,8 +447,7 @@ class TestSearch:
         monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         # "glass tube for cooking": the closest products (office supplies) only share "for", which 40 of
         # the 100 catalogue products contain -> no retry with "for" (it returned paper clips), 0 results.
-        neighbours = os_search_result([], total=0, aggs={
-            "word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}, "word_2": {"doc_count": 20}, "word_3": {"doc_count": 0},
+        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2"]}], total=1, aggs={
             "catalogue": {"doc_count": 100, "word_0": {"doc_count": 2}, "word_1": {"doc_count": 3},
                           "word_2": {"doc_count": 40}, "word_3": {"doc_count": 1}},
         })
@@ -460,8 +458,7 @@ class TestSearch:
     async def test_rare_words_are_still_kept_when_a_common_one_is_dropped(self, service, os_client, monkeypatch):
         from services import search as search_module
         monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
-        neighbours = os_search_result([], total=0, aggs={
-            "word_0": {"doc_count": 5}, "word_1": {"doc_count": 20}, "word_2": {"doc_count": 0},
+        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_0", "word_1"]}], total=1, aggs={
             "catalogue": {"doc_count": 100, "word_0": {"doc_count": 4}, "word_1": {"doc_count": 60},
                           "word_2": {"doc_count": 0}},
         })
@@ -475,21 +472,37 @@ class TestSearch:
         from services import search as search_module
         monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
-        for counts in ({"word_0": {"doc_count": 0}, "word_1": {"doc_count": 0}},
-                       {"word_0": {"doc_count": 3}, "word_1": {"doc_count": 3}}):
+        for matched in ([], ["word_0", "word_1"]):
             os_client.search.reset_mock()
-            os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0, aggs=counts)]
+            os_client.search.side_effect = [os_search_result([], total=0), os_search_result(
+                [{"_score": 0.9, "_source": {}, "matched_queries": matched}], total=1)]
             r = await _search(service, query="zzq xvw", query_vector=[0.1])
             assert os_client.search.await_count == 2 and r.total_results == 0
+
+    async def test_far_neighbours_do_not_choose_the_words(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
+        # "laptop for work": the nearest product (a steel tube, score 0.6 < 0.7) contains "work" ->
+        # not close enough to count -> no retry with "work", 0 results.
+        far = os_search_result([{"_score": 0.6, "_source": {"sku_name": "Structural Tube"},
+                                 "matched_queries": ["word_2"]}], total=1)
+        os_client.search.side_effect = [os_search_result([], total=0), far]
+        r = await _search(service, query="laptop for work", query_vector=[0.1])
+        assert os_client.search.await_count == 2 and r.total_results == 0
 
     async def test_relax_counts_all_neighbours_when_min_score_is_off(self, service, os_client, monkeypatch):
         from services import search as search_module
         monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         monkeypatch.setattr(search_module._cfg, "text_relax_min_score", 0.0)
-        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0, aggs={})]
-        await _search(service, query="zzq xvw", query_vector=[0.1])
-        assert "knn" in os_client.search.await_args_list[1].args[1]["query"]
+        far = os_search_result([{"_score": 0.6, "_source": {"sku_name": "Structural Tube"},
+                                 "matched_queries": ["word_2"]}], total=1)
+        os_client.search.side_effect = [os_search_result([], total=0), far,
+                                        os_search_result([], total=1), os_search_result([HIT], total=1, aggs=AGGS)]
+        await _search(service, query="laptop for work", query_vector=[0.1])
+        main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
+        assert main["multi_match"]["query"] == "work"
 
     async def test_no_relaxing_for_one_word_or_when_off(self, service, os_client, monkeypatch):
         from services import search as search_module

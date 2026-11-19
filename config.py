@@ -84,9 +84,10 @@ class Settings(BaseSettings):
     # only the query words they contain ("steel", "valves") and search again. 0 = off.
     text_relax_neighbors: int = 20
     # ... and only those of them scoring at least this ((1 + cosine) / 2). Without it the 20 nearest
-    # count however far away they are ("I want laptop for my project work" -> steel tubes, kept "work").
-    # 0 = off.
-    text_relax_min_score: float = 0.8
+    # count however far away they are ("I want laptop for my project work" -> steel tubes, kept "work");
+    # 0.8 was too strict ("I want steel pipes" lost the steel tubes). Calibrate with the log line
+    # "relax": it prints the top 5 neighbour scores. 0 = off.
+    text_relax_min_score: float = 0.7
     # ... but a word found in more than this share of the whole catalogue ("for", "with") is dropped
     # from that retry: it describes no product. 1.0 = off.
     text_relax_max_word_share: float = 0.3

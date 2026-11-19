@@ -21,4 +21,8 @@ out_transformed
 .coverage.*
 coverage.xml
 htmlcov/
-test-results/
+test-results
+out_images
+out_prices
+out_transformed
+out_products
