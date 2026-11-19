@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     semantic_fallback_min_score: float = 0.8
     # How many nearest products the semantic fallback looks at (the most it can return).
     semantic_fallback_k: int = 100
+    # Identifier numbers (the *_trim_0 variant fields): when no product has the typed number exactly,
+    # retry allowing this many typos (0-2; 0 = off). Never applied when an exact match exists —
+    # neighbouring numbers are only 1-2 edits apart.
+    identifier_fuzziness: int = 2
 
     # ---- Image search -----------------------------------------------------------------------------
     # Image matches scoring below this are dropped ((1 + cosine) / 2; an exact copy is 1.0). 0 = off.

@@ -12,6 +12,7 @@ from services.search import (
     KEYWORD_FIELDS_DE,
     PIPELINE_ID,
     TEXT_IMAGE_PIPELINE_ID,
+    IDENTIFIER_VARIANT_FIELDS,
     SearchService,
 )
 from tests.conftest import os_search_result
@@ -290,7 +291,8 @@ class TestSearch:
         monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         os_client.search.return_value = os_search_result([], total=0)
         await _search(service, query="JL086A", query_vector=[0.1])
-        assert os_client.search.await_count == 1  # no word can be partial -> no partial-word check
+        # no word can be partial -> no partial-word check; only the fuzzy identifier check follows
+        assert os_client.search.await_count == 2 and "fuzzy" in str(os_client.search.await_args_list[1])
         os_client.search.reset_mock()
         os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=1),
                                         os_search_result([HIT], total=1, aggs=AGGS)]
@@ -533,8 +535,10 @@ class TestSearch:
         await _search(service, query="880000629771", query_vector=[0.1])
         calls = [c.args[1] for c in os_client.search.await_args_list]
         material = {"bool": {"should": [
-            {"term": {f: {"value": v, "case_insensitive": True}}}
-            for f in ("aramco_material_number", "asmo_material_number") for v in ("880000629771", "a-880000629771")
+            *[{"term": {f: {"value": v, "case_insensitive": True}}}
+              for f in ("aramco_material_number", "asmo_material_number") for v in ("880000629771", "a-880000629771")],
+            *[{"term": {f"{f}.keyword": {"value": "880000629771", "case_insensitive": True}}}
+              for f in IDENTIFIER_VARIANT_FIELDS],
         ], "minimum_should_match": 1}}
         bm25 = calls[0]["query"]["bool"]["filter"][0]
         main, seller, exact = bm25["bool"]["should"]  # no typo-tolerant clause for an identifier
@@ -551,8 +555,78 @@ class TestSearch:
         ]
         await _search(service, query="a-880000629771", query_vector=[0.1])
         terms = os_client.search.await_args_list[1].args[1]["query"]["bool"]["filter"][0]["bool"]["should"]
-        assert [t["term"]["asmo_material_number"]["value"] for t in terms if "asmo_material_number" in t["term"]] == ["a-880000629771"]
+        assert [t["term"]["asmo_material_number"]["value"] for t in terms
+                if "asmo_material_number" in t.get("term", {})] == ["a-880000629771"]
         assert "hybrid" in _body(os_client)["query"] and _pipeline(os_client) == PIPELINE_ID
+
+    @pytest.mark.parametrize("query", [
+        "4000000251", "asmo4000000251", "asmo 4000000251",
+        "000000001000805430", "1000805430", "00000000 1000805430", "aramco000000001000805430",
+        "aramco 000000001000805430", "aramco1000805430", "aramco 1000805430", "aramco00000000 1000805430",
+        "aramco 00000000 1000805430",
+        "4600005071", "customer4600005071", "customer 4600005071", "4900000028", "asmo 4900000028",
+    ])
+    async def test_identifier_query_matches_the_variant_fields_as_typed(self, service, os_client, query):
+        os_client.search.side_effect = [
+            os_search_result([], total=1),                # keyword check
+            os_search_result([], total=1),                # exact number check: found
+            os_search_result([HIT], total=1, aggs=AGGS),  # the search
+        ]
+        response = await _search(service, query=query, query_vector=[0.1])
+        calls = [c.args[1] for c in os_client.search.await_args_list]
+        exact = calls[1]["query"]["bool"]["filter"][0]["bool"]["should"]
+        terms = [c["term"] for c in exact if "term" in c]
+        assert all({f"{f}.keyword": {"value": query, "case_insensitive": True}} in terms
+                   for f in IDENTIFIER_VARIANT_FIELDS)  # the query as typed, exact on every .keyword field
+        assert calls[2]["query"]["bool"]["should"][0]["constant_score"]["boost"] == 100000  # exact owners first
+        assert response.products[0].sku_id == "SKU-1"
+
+    async def test_identifier_query_is_lowercased_and_spaces_collapsed(self, service, os_client):
+        os_client.search.side_effect = [
+            os_search_result([], total=1), os_search_result([], total=1), os_search_result([HIT], total=1, aggs=AGGS),
+        ]
+        await _search(service, query="  ARAMCO   00000000  1000805430 ", query_vector=[0.1])
+        exact = os_client.search.await_args_list[1].args[1]["query"]["bool"]["filter"][0]["bool"]["should"]
+        values = {c["term"]["aramco_material_number_trim_0.keyword"]["value"] for c in exact
+                  if "aramco_material_number_trim_0.keyword" in c.get("term", {})}
+        assert values == {"aramco 00000000 1000805430", "1000805430"}  # the whole query + its 5+ char number word
+
+    async def test_exact_identifier_never_runs_the_fuzzy_match(self, service, os_client):
+        os_client.search.side_effect = [
+            os_search_result([], total=1), os_search_result([], total=1), os_search_result([HIT], total=1, aggs=AGGS),
+        ]
+        await _search(service, query="970000352155", query_vector=[0.1])
+        assert os_client.search.await_count == 3
+        assert all('"fuzzy"' not in str(c.args[1]).replace("'", '"') for c in os_client.search.await_args_list)
+
+    async def test_mistyped_identifier_falls_back_to_fuzzy_two_edits(self, service, os_client):
+        os_client.search.side_effect = [
+            os_search_result([], total=0),                # keyword check (exact): nothing
+            os_search_result([], total=0),                # keyword check with partial words ("custmer"): nothing
+            os_search_result([], total=4),                # fuzzy identifier check: found
+            os_search_result([HIT], total=4, aggs=AGGS),  # the search
+        ]
+        response = await _search(service, query="custmer 4600005017", query_vector=[0.1])
+        calls = [c.args[1] for c in os_client.search.await_args_list]
+        fuzzy = calls[2]["query"]["bool"]["filter"][0]["bool"]["should"]
+        assert {"fuzzy": {"aramco_purchase_aggrement_number_trim_0.keyword": {
+            "value": "4600005017", "fuzziness": 2, "prefix_length": 0, "max_expansions": 50}}} in fuzzy
+        assert {f for c in fuzzy for f in c["fuzzy"]} == {f"{f}.keyword" for f in IDENTIFIER_VARIANT_FIELDS}
+        assert calls[3]["query"] == {"bool": {"must": [calls[2]["query"]["bool"]["filter"][0]], "filter": []}}
+        assert "hybrid" not in calls[3]["query"] and _pipeline(os_client) is None
+        assert response.products[0].sku_id == "SKU-1"
+
+    async def test_identifier_fuzziness_can_be_switched_off(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "identifier_fuzziness", 0)
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
+        os_client.search.return_value = os_search_result([], total=0)
+        response = await _search(service, query="4600005017", query_vector=[0.1])
+        assert response.total_results == 0 and "fuzzy" not in str(os_client.search.await_args_list)
+
+    async def test_words_only_query_has_no_identifier_clause(self, service, os_client):
+        await _search(service, query="ball valve", query_vector=[0.1])
+        assert "_trim_0" not in str(os_client.search.await_args_list[0].args[1])
 
     async def test_mixed_query_keeps_typos_for_words_but_not_identifiers(self, service, os_client):
         os_client.search.side_effect = [
@@ -730,3 +804,4 @@ class TestPaginationConsistency:
         os_client.search.side_effect = [os_search_result([HIT], total=1), ApiError(400, "QUERY_ERROR", "bad query")]
         with pytest.raises(ApiError):
             await _search(service, query="valve", query_vector=[0.1])
+

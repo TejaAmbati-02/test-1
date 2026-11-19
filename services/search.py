@@ -167,6 +167,17 @@ SELLER_FIELDS = [
 # Field the autocomplete matches on (and shows), per language.
 SUGGEST_FIELD_BY_LANGUAGE: dict[str, str] = {"en": "product_name", "de": "product_name_de"}
 
+# Identifier variant fields written by the ingest: each holds every form a user may type for the
+# number — as stored, without leading zeros, split by a space, with its label ("asmo", "aramco",
+# "customer") — e.g. ["4600005071", "customer4600005071", "customer 4600005071"]. A query (or a
+# number word in it) equal to one of them finds the product exactly.
+IDENTIFIER_VARIANT_FIELDS = (
+    "asmo_material_number_trim_0",
+    "aramco_material_number_trim_0",
+    "asmo_purchase_aggrement_number_trim_0",
+    "aramco_purchase_aggrement_number_trim_0",
+)
+
 
 class SearchService:
     def __init__(self, os_client: OpenSearchClientService) -> None:
@@ -328,12 +339,32 @@ class SearchService:
                 value for w in words if len(w) >= 5 and has_digit[w]
                 for value in (w, w if w.lower().startswith("a-") else f"a-{w}")
             ))
+            # Identifier variants ("aramco 00000000 1000805430", "customer4600005071"): the whole query,
+            # and each number word in it, matched exactly against the variant fields' ``.keyword``
+            # sub-field (extra spaces collapsed; id_normalizer applies to the query term too, plus
+            # case_insensitive), so a value matches only as a whole. A number word needs 5+ digits
+            # after its leading zeros, so "00000000" alone never matches every zero-padded number; a
+            # query without one ("10mm cable") gets no identifier clause at all.
+            number_words = [w.lower() for w in words if has_digit[w] and len(w.lstrip("0")) >= 5]
+            variant_values = list(dict.fromkeys([" ".join(words).lower(), *number_words])) if number_words else []
             material_match: dict[str, Any] | None = None
-            if number_values:
+            if number_values or variant_values:
                 material_match = {"bool": {"should": [
-                    {"term": {field: {"value": value, "case_insensitive": True}}}
-                    for field in ("aramco_material_number", "asmo_material_number") for value in number_values
+                    *[{"term": {field: {"value": value, "case_insensitive": True}}}
+                      for field in ("aramco_material_number", "asmo_material_number") for value in number_values],
+                    *[{"term": {f"{field}.keyword": {"value": value, "case_insensitive": True}}}
+                      for field in IDENTIFIER_VARIANT_FIELDS for value in variant_values],
                 ], "minimum_should_match": 1}}
+            # The same values with typos allowed — used only when no product matches exactly (below).
+            # The fuzzy score falls with the edit distance, so the closest values rank first.
+            fuzzy_identifier: dict[str, Any] | None = None
+            if variant_values and cfg.identifier_fuzziness:
+                fuzzy_identifier = {"bool": {"should": [
+                    {"fuzzy": {f"{field}.keyword": {"value": value, "fuzziness": cfg.identifier_fuzziness,
+                                                    "prefix_length": 0, "max_expansions": 50}}}
+                    for field in IDENTIFIER_VARIANT_FIELDS for value in variant_values
+                ], "minimum_should_match": 1}}
+            identifier_fuzzy = False
 
             # Find a keyword match that some product has. Each attempt builds the BM25 query and (text
             # only) checks with a cheap size-0 search whether any product matches it:
@@ -400,6 +431,21 @@ class SearchService:
                     logger.info(f"Search — no product has {query!r} as typed -> retrying with partial words {prefix_words}")
                     continue
 
+                # A mistyped identifier ("4600005017", "asmo400000251"): no product has it exactly, so
+                # try the variant fields with up to identifier_fuzziness edits. Only as a fallback —
+                # neighbouring numbers (970000352152 / ...153) are 1-2 edits apart, so a correct number
+                # must never pull them in.
+                if fuzzy_identifier and not identifier_fuzzy:
+                    fuzzy_check = await self._os.search(index, {
+                        "size": 0, "track_total_hits": 1, "terminate_after": 1,
+                        "query": {"bool": {"filter": [fuzzy_identifier, *filters]}},
+                    })
+                    if fuzzy_check["hits"]["total"]["value"] > 0:
+                        identifier_fuzzy = True
+                        logger.info(f"Search — no exact identifier {variant_values} -> fuzzy match "
+                                    f"(up to {cfg.identifier_fuzziness} edits)")
+                        break
+
                 if attempt != "relaxed" and len(words) > 1 and query_vector is not None and cfg.text_relax_neighbors > 0:
                     # Which query words do the products closest in meaning contain? Keep those — unless a
                     # word is in too large a share of the WHOLE catalogue ("for", "with"): it describes
@@ -465,7 +511,7 @@ class SearchService:
             # with the exact owners pinned on top (RRF ranks by position, and a bare number's vector
             # is noise, so the exact owner could fall below near-identical numbers).
             exact_number_hits = 0
-            if material_match and not has_image and not semantic_fallback:
+            if material_match and not has_image and not semantic_fallback and not identifier_fuzzy:
                 exact_check = await self._os.search(index, {
                     "size": 0, "track_total_hits": 1, "terminate_after": 1,
                     "query": {"bool": {"filter": [material_match, *filters]}},
@@ -481,6 +527,11 @@ class SearchService:
                     fallback_knn["filter"] = {"bool": {"filter": filters}}
                 query_clause = {"function_score": {"query": {"knn": {cfg.opensearch_vector_field: fallback_knn}},
                                                    "min_score": cfg.semantic_fallback_min_score}}
+
+            elif identifier_fuzzy:
+                # Only the products whose identifier is within the allowed edits, closest first.
+                mode = f"identifier (fuzzy, up to {cfg.identifier_fuzziness} edits)"
+                query_clause = {"bool": {"must": [fuzzy_identifier], "filter": filters}}
 
             elif exact_number_hits:
                 mode = "material number (exact match first)"
