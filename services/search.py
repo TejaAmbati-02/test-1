@@ -461,13 +461,19 @@ class SearchService:
                     # (matched_queries). Only neighbours scoring at least text_relax_min_score count: the
                     # nearest are returned however far away they are, and far ones ("laptop" -> steel
                     # tubes) would keep their words ("work") and return unrelated products.
+                    # The kNN only looks at products containing at least one query word: across the whole
+                    # catalogue, products close in meaning but sharing no word ("I want lamps" -> other
+                    # lighting) can fill every neighbour slot, so the one that has "lamps" is never seen
+                    # and no word is kept.
+                    any_word = {"bool": {"should": [clause["filter"] for clause in word_aggs.values()],
+                                         "minimum_should_match": 1}}
                     neighbours = await self._os.search(index, {
                         "size": cfg.text_relax_neighbors,
                         "_source": ["sku_name", "product_name"],
                         "query": {"bool": {
                             "must": [{"knn": {cfg.opensearch_vector_field: {
                                 "vector": query_vector, "k": cfg.text_relax_neighbors, **knn_params,
-                                **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
+                                "filter": {"bool": {"filter": [*filters, any_word]}},
                             }}}],
                             "should": [{"constant_score": {"filter": clause["filter"], "boost": 0, "_name": name}}
                                        for name, clause in word_aggs.items()],

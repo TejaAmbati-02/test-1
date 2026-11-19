@@ -431,7 +431,9 @@ class TestSearch:
         named = calls[1]["query"]["bool"]["should"]
         assert [c["constant_score"]["_name"] for c in named] == ["word_0", "word_1", "word_2", "word_3"]
         assert all(c["constant_score"]["boost"] == 0 for c in named)
-        assert knn["filter"] == {"bool": {"filter": user_filters}}
+        # Only products containing at least one query word compete for the neighbour slots.
+        assert knn["filter"] == {"bool": {"filter": [*user_filters, {"bool": {
+            "should": [c["constant_score"]["filter"] for c in named], "minimum_should_match": 1}}]}}
         assert sorted(calls[1]["aggs"]) == ["catalogue"]
         assert calls[1]["aggs"]["catalogue"]["global"] == {}
         assert sorted(calls[1]["aggs"]["catalogue"]["aggs"]) == ["word_0", "word_1", "word_2", "word_3"]
