@@ -42,7 +42,7 @@ from utils.logger import logger
 PIPELINE_ID = "hybrid-rrf-pipeline"                       # plain RRF
 TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"  # weighted: [BM25, text kNN, image kNN]
 
----------
+
 # Filters — every key the `filters` JSON may hold (any other key -> 400 INVALID_FILTER_KEY).
 #
 #   key: (index field(s), value type, nested path, multi-select facet)
@@ -57,7 +57,7 @@ TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"  # weighted: [BM25, te
 #                    in a nested query, so it matches if ANY seller matches
 #   multi-select   — the facet this filter selects in; that facet is counted WITHOUT this filter
 #                    (but with every other one), so the user can still tick more of its values
----------
+
 FILTERS: dict[str, tuple[tuple[str, ...], str, str | None, str | None]] = {
     # Facet filters: the frontend sends back the facet's ``id`` (see FACETS below).
     "category":               (("category_ids",), "single", None, None),
@@ -124,11 +124,11 @@ FACET_AGGS: dict[str, Any] = {
 IMAGE_PATH = "images"
 IMAGE_VECTOR_FIELD = "images.image_vector"
 
----------
+
 # Text fields searched by BM25, per request language. "field^N" = weight N (a match there ranks
 # higher). Fields missing from the index are skipped (``lenient``), so German search still works on
 # ``content`` until the index carries the ``*_de`` fields.
----------
+
 KEYWORD_FIELDS = [
     "aramco_material_number^8",
     "asmo_material_number^8",
