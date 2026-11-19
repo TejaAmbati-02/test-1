@@ -26,7 +26,7 @@ def test_defaults_for_optional_settings():
     assert s.max_top_k == 100
     assert s.hybrid_retrieval_k == 100
     assert s.knn_ef_search == 500
-    assert s.image_min_score == 0.6
+    assert s.image_min_score == 0.75
     assert s.semantic_fallback_min_score == 0.8
     assert s.semantic_fallback_k == 100
     assert s.text_prefix_min_chars == 3

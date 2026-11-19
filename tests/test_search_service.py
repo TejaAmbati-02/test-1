@@ -347,7 +347,7 @@ class TestSearch:
     async def test_image_is_plain_nested_knn_with_min_score(self, service, os_client):
         await _search(service, image_vector=[0.3])
         fs = _body(os_client)["query"]["function_score"]
-        assert fs["min_score"] == 0.6
+        assert fs["min_score"] == 0.75
         nested = fs["query"]["nested"]
         assert (nested["path"], nested["score_mode"]) == ("images", "max")
         assert nested["query"]["knn"][IMAGE_VECTOR_FIELD] == {"vector": [0.3], "k": 1000, "method_parameters": {"ef_search": 500}}

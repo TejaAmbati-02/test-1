@@ -95,7 +95,9 @@ class Settings(BaseSettings):
 
     # ---- Image search -----------------------------------------------------------------------------
     # Image matches scoring below this are dropped ((1 + cosine) / 2; an exact copy is 1.0). 0 = off.
-    image_min_score: float = 0.6
+    # 0.6 (cosine 0.2) let unrelated products through (a USB cable for a capacitor photo); 0.75 =
+    # cosine 0.5. Calibrate: just above the score of the best UNRELATED product for a real photo.
+    image_min_score: float = 0.85
     # Images whose pixels vary less than this (std dev per colour channel, 0-255) are blank / single
     # colour and not searched. 0 = off.
     image_min_detail: float = 6.0
