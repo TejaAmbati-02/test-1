@@ -1,3 +1,7 @@
+"""Request / response shapes of the API (the frontend contract, spec v2.1) and the error type.
+
+Raise ``ApiError(status, code, message)`` anywhere to return ``{"code", "message"}`` with that status.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -6,8 +10,9 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 
+# ------------------------------------------------------------------------------------------------
 # Search API — response contract (ASMO AI Search API Specification v2.1, 2.4)
-
+# ------------------------------------------------------------------------------------------------
 
 class SellerDetail(BaseModel):
     """One seller offer for the SKU (source: seller_details[])."""
@@ -63,10 +68,9 @@ class SearchApiResponse(BaseModel):
     previous_filters: dict[str, Any] | None = Field(default=None, description="Only when a continued search finds nothing: the filters (as sent) of the last search under that request_id that found products — the ones the returned facets were counted with. Otherwise null")
 
 
-
+# ------------------------------------------------------------------------------------------------
 # Suggestions API — response contract (3.2)
-
-
+# ------------------------------------------------------------------------------------------------
 
 class QuerySuggestion(BaseModel):
     text: str = Field(description="Suggested search query string matching the prefix")
@@ -83,10 +87,9 @@ class SuggestionsResponse(BaseModel):
     product_suggestions: list[ProductSuggestion] = Field(description="Product suggestions matching the prefix")
 
 
-
+# ------------------------------------------------------------------------------------------------
 # Operational / diagnostic models (not part of the frontend contract)
-
-
+# ------------------------------------------------------------------------------------------------
 
 class IndexInfo(BaseModel):
     name: str = Field(description="Index name in OpenSearch")
@@ -121,10 +124,9 @@ class LatencyResponse(BaseModel):
     error: str | None = Field(default=None, description="Error message if a round-trip failed")
 
 
-
+# ------------------------------------------------------------------------------------------------
 # Error contract (5.1) — flat {code, message}
-
-
+# ------------------------------------------------------------------------------------------------
 
 class ErrorResponse(BaseModel):
     code: str = Field(description="Stable, machine-readable backend error identifier, e.g. INVALID_FILTER_KEY")

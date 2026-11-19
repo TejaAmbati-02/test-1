@@ -124,40 +124,37 @@ class EmbeddingStore:
                     "facets": stored.get("facets"), "facets_filters": stored.get("facets_filters"), "reused": True}
             logger.info(f"EmbeddingStore — loaded context {previous_request_id}", extra={"status": "success"})
 
-        # 2. Refining: no new image, and no query or the SAME query as before (ignoring case and extra
-        #    spaces) -> it is the same search, kept under the previous request_id.
-        #    * filters omitted or unchanged: reuse the previous context as-is and refresh its expiry in
-        #      the background (a failed refresh is only logged).
-        #    * new filters: fall through to steps 3-4, which re-save the context with the new filters
-        #      under the previous request_id (nothing is re-embedded).
-        reused = False
-        same_query_as_before = bool(prev and query and prev["query"]
-                                    and " ".join(prev["query"].split()).lower() == " ".join(query.split()).lower())
-        if prev and image is None and (not query or same_query_as_before):
-            reused = True
+        # 2. The query of this search: the new one, else the previous one. "Same query" ignores case
+        #    and extra spaces.
+        q = query or (prev["query"] if prev else None)
+        same_query = bool(q and prev and prev["query"]
+                          and " ".join(prev["query"].split()).lower() == " ".join(q.split()).lower())
+
+        # 3. Refining = a previous search, no new image, and no new query (or the same one). It stays
+        #    under the previous request_id.
+        #    * filters omitted or unchanged: reuse the stored context as-is; its expiry is refreshed in
+        #      the background (the response doesn't wait; a failed refresh is only logged).
+        #    * new filters: continue to steps 4-5, which re-save it with the new filters (no re-embedding).
+        reused = bool(prev and image is None and (not query or same_query))
+        if reused:
             request_id = prev["request_id"]
         if reused and (filters is None or filters["raw"] == prev["filters"]["raw"]):
             try:
                 task = asyncio.create_task(self._redis_svc.client.expire(prev["request_id"], ttl))
-                self._pending.add(task)
-                task.add_done_callback(lambda t: (
-                    self._pending.discard(t),
-                    t.cancelled() or t.exception() is None or logger.warning(
-                        f"EmbeddingStore — Redis expiry refresh failed for {prev['request_id']}: {t.exception()!r}",
-                        extra={"status": "error", "error_details": str(t.exception())}),
-                ))
+                self._pending.add(task)  # keep a reference so the task isn't garbage-collected mid-write
+                task.add_done_callback(self._pending.discard)
+                task.add_done_callback(lambda t: t.cancelled() or t.exception() is None or logger.warning(
+                    f"EmbeddingStore — Redis expiry refresh failed for {prev['request_id']}: {t.exception()!r}",
+                    extra={"status": "error", "error_details": str(t.exception())}))
             except Exception as exc:
                 logger.warning(f"EmbeddingStore — Redis expiry refresh failed for {prev['request_id']}: {exc!r}",
                                extra={"status": "error", "error_details": str(exc)})
             logger.info(f"EmbeddingStore — reusing stored context {prev['request_id']} as-is")
             return prev
 
-        # 3. New context. The query: the new one, else the previous one. Re-embed it only when it changed
-        #    (an unchanged query reuses the stored vector); a new image is always embedded, otherwise the
-        #    previous image vector is kept. The query and the image are embedded concurrently.
-        q = query or (prev["query"] if prev else None)
-        same_query = bool(q and prev and prev["query"]
-                          and " ".join(prev["query"].split()).lower() == " ".join(q.split()).lower())
+        # 4. Build the context. Re-embed the query only when it changed (an unchanged query reuses the
+        #    stored vector); a new image is always embedded, otherwise the previous image vector is
+        #    kept. Query and image are embedded concurrently.
         embed_query = bool(q) and not same_query
         new_q_vec, new_i_vec = await asyncio.gather(
             self._emb.encode_query(q) if embed_query else asyncio.sleep(0, result=None),
@@ -172,7 +169,7 @@ class EmbeddingStore:
         facets = prev["facets"] if reused else None
         facets_filters = prev["facets_filters"] if reused else None
 
-        # 4. Store it under this request_id and WAIT for Redis to confirm, so a returned request_id is
+        # 5. Store it under this request_id and WAIT for Redis to confirm, so a returned request_id is
         #    always in Redis. If Redis is disabled or the write fails, the search still runs, but the
         #    request_id returned is None (there is nothing to refine later).
         saved_request_id: str | None = None

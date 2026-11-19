@@ -5,9 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from services.search import (
-    ALLOWED_FILTER_KEYS,
     FACET_AGGS,
-    FILTER_KEY_MAP,
+    FILTERS,
     IMAGE_VECTOR_FIELD,
     KEYWORD_FIELDS,
     KEYWORD_FIELDS_DE,
@@ -63,10 +62,11 @@ async def _search(service, **overrides):
 
 
 class TestTables:
-    def test_filter_keys_cover_map(self):
-        assert ALLOWED_FILTER_KEYS == frozenset(FILTER_KEY_MAP)
-        assert FILTER_KEY_MAP["category"] == FILTER_KEY_MAP["category_name"] == "category_ids"
-        assert FILTER_KEY_MAP["seller"] == FILTER_KEY_MAP["sellername"] == "seller_details.seller_id"
+    def test_filter_table(self):
+        assert FILTERS["category"][0] == FILTERS["category_name"][0] == ("category_ids",)
+        assert FILTERS["seller"][0] == ("seller_details.seller_id",)
+        assert FILTERS["sellername"][0] == ("seller_details.seller_id", "seller_details.seller_name.keyword")
+        assert all(value_type in ("text", "single", "number", "bool") for _, value_type, _, _ in FILTERS.values())
 
     def test_facet_aggs(self):
         assert set(FACET_AGGS) == {"category", "sub_category", "product_type", "seller"}

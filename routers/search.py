@@ -1,8 +1,14 @@
 """HTTP endpoints: POST /v1/search, GET /v1/search/suggestions and GET /indices.
 
-The endpoints validate the request against the frontend contract and map
-backend failures to the error contract ({"code", "message"}); the search
-logic itself lives in services/.
+The endpoints validate the request against the frontend contract and map backend failures to the
+error contract ({"code", "message"}); the search logic itself lives in services/.
+
+POST /v1/search, step by step (numbered the same way in v1_search):
+  1. read the multipart body          5. `filters` JSON -> OpenSearch filter clauses
+  2. text fields -> SearchForm        6. the query text (empty request -> 400)
+  3. check channel / language / sort  7. embeddings + Redis context  (services/embedding_store.py)
+  4. the image  (image_processor)     8. run the search              (services/search.py)
+                                      9. facets fallback for a continued search that finds nothing
 """
 from __future__ import annotations
 
@@ -32,7 +38,7 @@ from models.response import (
 from services.embedding_store import embedding_store
 from services.image_processor import image_processor
 from services.opensearch import os_client
-from services.search import ALLOWED_FILTER_KEYS, FILTER_ALT_FIELDS, FILTER_KEY_MAP, NESTED_FILTER_PATHS, search_service
+from services.search import FILTERS, search_service
 from utils.keycloak_auth import keycloak_auth
 from utils.logger import logger
 
@@ -45,21 +51,6 @@ SUPPORTED_CHANNELS = frozenset({"web", "mobile"})
 SUPPORTED_LANGUAGES = frozenset({"en", "de"})  # en -> English fields, de -> *_de fields + content
 SUPPORTED_SORT_BY = frozenset({"relevance", "price"})
 SUPPORTED_SORT_ORDER = frozenset({"asc", "desc"})
-
-# Filter value types (5: an invalid filter value -> 400). Keys not listed take strings.
-NUMERIC_FILTER_KEYS = frozenset({"price", "moq", "supplier_count", "lead_time"})
-BOOLEAN_FILTER_KEYS = frozenset({"contract_indicator", "temporary_unavailable", "under_agreement"})
-RANGE_OPERATORS = frozenset({"gt", "gte", "lt", "lte"})
-# Single-select filter keys: one value only (a string, or a list holding exactly one value).
-# Category is single-select; sub_category and product_type stay multi-select (a list matches any).
-# Every key that filters on category_ids is covered, so the raw field name is no way around it.
-SINGLE_VALUE_FILTER_KEYS = frozenset({"category", "category_name", "category_ids", "category_id"})
-# Multi-select facets: filter key -> the facet it selects in. That facet is counted WITHOUT its own
-# filter (but with every other filter), so the user can still see and tick more of its values.
-MULTI_SELECT_FACET_KEYS: dict[str, str] = {
-    "sub_category": "sub_category", "sub_category_name": "sub_category", "sub_category_id": "sub_category",
-    "product_type": "product_type", "product_type_id": "product_type",
-}
 
 MAX_IMAGE_BYTES = image_processor.max_bytes
 # Multipart parts may be up to this size (above MAX_IMAGE_BYTES so an oversized
@@ -212,15 +203,12 @@ async def v1_search(request: Request) -> SearchApiResponse:
         #    response gets a request_id, but it is not searched with.
         image, image_blank = await asyncio.to_thread(image_processor.process, multipart.get("image"))
 
-        # 5. Filters: the `filters` field is a JSON object string (2.1) -> OpenSearch filter clauses.
-        #    They are stored in Redis with the search (step 7); a refine call that omits `filters` reuses
-        #    the stored ones, and `filters={}` clears them.
-        #    Numeric keys take a number, a non-empty list of numbers, or a range such as {"gte": 50, "lte": 150};
-        #    boolean keys take true/false; every other key takes a non-empty string or a non-empty list of
-        #    them. A list matches any of its values. Category is single-select: exactly one value
-        #    (sub_category and product_type are multi-select).
+        # 5. Filters: the `filters` field is a JSON object string -> OpenSearch filter clauses. The rules
+        #    for each key (value type, index field, nested, multi-select) are the FILTERS table in
+        #    services/search.py. They are stored in Redis with the search (step 7): a refine call
+        #    that omits `filters` reuses the stored ones, and `filters={}` clears them.
         filters: list[dict] = []
-        multi_select_filters: dict[str, list[dict]] = {}  # facet key -> its own filter clauses
+        multi_select_filters: dict[str, list[dict]] = {}  # multi-select facet -> its own filter clauses
         raw_filters: dict | None = None  # None = the request sent no `filters`
         if form.filters and form.filters.strip():
             try:
@@ -230,35 +218,45 @@ async def v1_search(request: Request) -> SearchApiResponse:
             if not isinstance(raw_filters, dict):
                 raise ApiError(400, "INVALID_FILTER", "filters must be a JSON object")
             for key, value in raw_filters.items():
-                if key not in ALLOWED_FILTER_KEYS:
+                # a) A known key?
+                if key not in FILTERS:
                     logger.warning(f"POST /v1/search — rejected unknown filter key '{key}'")
                     raise ApiError(400, "INVALID_FILTER_KEY", f"The filter key '{key}' is not supported.")
-                # Check the value's shape and the type of every scalar in it.
-                is_range = isinstance(value, dict)
-                scalars = list(value.values()) if is_range else value if isinstance(value, list) else [value]
-                if key in NUMERIC_FILTER_KEYS:
-                    types_ok = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in scalars)
-                elif key in BOOLEAN_FILTER_KEYS:
-                    types_ok = all(isinstance(v, bool) for v in scalars)
+                index_fields, value_type, nested_path, facet = FILTERS[key]
+
+                # b) The value's shape: {"gte": 50} -> range, ["A", "B"] -> terms (match any), "A" -> term.
+                if isinstance(value, dict):
+                    kind, values = "range", list(value.values())
+                elif isinstance(value, list):
+                    kind, values = "terms", value
                 else:
-                    types_ok = all(isinstance(v, str) and v != "" for v in scalars)
-                range_ok = not is_range or (key in NUMERIC_FILTER_KEYS and set(value) <= RANGE_OPERATORS)
-                single_ok = key not in SINGLE_VALUE_FILTER_KEYS or len(scalars) == 1
-                if not (scalars and types_ok and range_ok and single_ok):
+                    kind, values = "term", [value]
+
+                # c) Every value has the key's type; ranges only for numbers; single-select takes one value.
+                if value_type == "number":
+                    valid = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values)
+                elif value_type == "bool":
+                    valid = all(isinstance(v, bool) for v in values)
+                else:
+                    valid = all(isinstance(v, str) and v != "" for v in values)
+                if kind == "range":
+                    valid = valid and value_type == "number" and set(value) <= {"gt", "gte", "lt", "lte"}
+                if value_type == "single":
+                    valid = valid and len(values) == 1
+                if not values or not valid:
                     logger.warning(f"POST /v1/search — rejected invalid value for filter '{key}': {value!r}")
                     raise ApiError(400, "INVALID_FILTER_VALUE", f"Invalid value for filter '{key}': {json.dumps(value)}")
-                # {"lte": 500} -> range, ["A", "B"] -> terms (match any), scalar -> term.
-                kind = "range" if is_range else "terms" if isinstance(value, list) else "term"
-                index_fields = FILTER_ALT_FIELDS.get(key, (FILTER_KEY_MAP[key],))
+
+                # d) The clause: on one field, or on either of two; wrapped in `nested` for seller fields.
                 if len(index_fields) == 1:
                     clause: dict = {kind: {index_fields[0]: value}}
                 else:
                     clause = {"bool": {"should": [{kind: {f: value}} for f in index_fields], "minimum_should_match": 1}}
-                if key in NESTED_FILTER_PATHS:
-                    clause = {"nested": {"path": NESTED_FILTER_PATHS[key], "query": clause}}
+                if nested_path:
+                    clause = {"nested": {"path": nested_path, "query": clause}}
                 filters.append(clause)
-                if key in MULTI_SELECT_FACET_KEYS:
-                    multi_select_filters.setdefault(MULTI_SELECT_FACET_KEYS[key], []).append(clause)
+                if facet:
+                    multi_select_filters.setdefault(facet, []).append(clause)
                 logger.info(f"POST /v1/search — filter '{key}'={value!r} -> {clause}")
 
         # 6. The query text. Text shorter than MIN_QUERY_CHARS (e.g. "pu") is embedded and stored like any
@@ -288,9 +286,9 @@ async def v1_search(request: Request) -> SearchApiResponse:
         embed_ms = (time.perf_counter() - embed_start) * 1000
         filters, multi_select_filters = ctx["filters"]["clauses"], ctx["filters"]["multi_select"]
         logger.info(
-            f"POST /v1/search — embeddings ready in {embed_ms:.1f}ms: context={ctx["request_id"]}, query={ctx["query"]!r}, "
-            f"text_vector={'yes' if ctx["query_vector"] else 'no'}, image_vector={'yes' if ctx["image_vector"] else 'no'}, "
-            f"reused_previous={ctx["reused"]}, filters={ctx["filters"]["raw"]}",
+            f"POST /v1/search — embeddings ready in {embed_ms:.1f}ms: context={ctx['request_id']}, query={ctx['query']!r}, "
+            f"text_vector={'yes' if ctx['query_vector'] else 'no'}, image_vector={'yes' if ctx['image_vector'] else 'no'}, "
+            f"reused_previous={ctx['reused']}, filters={ctx['filters']['raw']}",
         )
 
         # 8. Search only with the usable parts: a too-short query and a blank image are left out

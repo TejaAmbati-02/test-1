@@ -1,103 +1,114 @@
+"""All settings, read once from environment variables / .env when this module is first imported.
+
+    from config import settings
+    settings.opensearch_index_name
+
+Settings without a default MUST be in .env (the app refuses to start otherwise).
+Every setting can be overridden by an environment variable of the same name in UPPER_CASE.
+"""
 import logging
 
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# The shared "app" logger (same one utils.logger exposes). Imported via logging
-# directly so config stays free of app imports; handlers attach once app_logging.setup runs.
+# The shared "app" logger (same handlers as utils.logger). Taken from logging directly so config
+# imports nothing from the app; handlers attach once app_logging.setup runs.
 logger = logging.getLogger("app")
- 
- 
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
- 
+
+    # API
+    api_title: str = "ASMO AI Search API"
+    api_version: str = "2.1.0"
+    api_description: str = "Frontend contract v2.1 — text/image/filter search with hybrid BM25 + kNN (RRF) and suggestions"
+    # Auto-reload on code changes when started with `python app.py` (local dev only; never in a OneDrive folder).
+    reload: bool = False
+
+    # OpenSearch (required) 
     opensearch_host: str
     opensearch_port: int
     opensearch_user: str
     opensearch_password: str
     opensearch_timeout: int
- 
-    # OCI GenAI (Cohere Embed) — query/document embeddings (all values from .env)
+    opensearch_index_name: str = "asmo-search-api-index"
+    opensearch_vector_field: str = "content_vector"  # the product's text embedding
+
+    # OCI GenAI embeddings (Cohere Embed; required)
     oci_config_file: str
     oci_profile: str
     oci_compartment_id: str
     oci_region: str
     oci_genai_endpoint: str
- 
     embedding_model_name: str
     embedding_dimension: int
     embedding_normalize: bool
- 
- 
-    opensearch_index_name: str = "asmo-search-api-index"
-    opensearch_vector_field: str = "content_vector"
+    # How often (seconds) to send a tiny embed so the model stays warm. Each tick is a billable call.
+    oci_embed_heartbeat_interval: int = 60
+
+    # ---- Paging and ranking -----------------------------------------------------------------------
     default_top_k: int = 10
     max_top_k: int = 100
- 
     hybrid_semantic_weight: float = 0.5
     hybrid_keyword_weight: float = 0.5
+    # How many nearest products the text kNN of a hybrid (text) search fetches.
     hybrid_retrieval_k: int = 100
     # How many candidates a search collects before merging and paging — the same for every page, so
     # totals and order stay consistent across pages. Results beyond it can't be paged to.
     search_depth: int = 1000
-    # Text search: return only products that contain the query words (BM25 match); the vector
-    # search just re-ranks them instead of padding the results with "similar" but unrelated
-    # products (e.g. fans for "pump"). No product contains the words -> 0 results.
-    # false = old behaviour: always mix in vector-only matches.
+    # HNSW candidate list size per kNN query. Lucene ignores the index setting knn.algo_param.ef_search
+    # (it searches only ~k candidates), which missed exact image matches at k=100; 500 found them all.
+    knn_ef_search: int = 500
+    # Text shorter than this many characters is not searched (search and suggestions).
+    min_query_chars: int = 3
+
+    # ---- Text search: which products count as a match ---------------------------------------------
+    # Return only products that contain the query words (BM25); the vector search just re-ranks them
+    # instead of padding the results with "similar" but unrelated products (e.g. fans for "pump").
+    # false = always mix in vector-only matches.
     text_require_keyword_match: bool = True
-    # How many of the query words a product must contain (OpenSearch minimum_should_match).
-    # "2<75%": 1-2 words -> all of them; 3+ words -> 75% (e.g. 2 of 3). "" = any one word is enough.
+    # How many query words a product must contain (OpenSearch minimum_should_match).
+    # "2<75%": 1-2 words -> all of them; 3+ words -> 75%. "" = any one word is enough.
     text_min_words_match: str = "2<75%"
-    # Typo tolerance for the text fields (not the material numbers, which must match exactly), so
-    # "valvs" still finds "valve". OpenSearch fuzziness: "AUTO:4,7" = words of 1-3 letters exact,
-    # 4-6 letters 1 typo, 7+ letters 2 typos. "" = off (exact words only).
+    # Typo tolerance for the text fields (never for material numbers): "valvs" still finds "valve".
+    # "AUTO:4,7" = words of 1-3 letters exact, 4-6 letters 1 typo, 7+ letters 2 typos. "" = off.
     text_fuzziness: str = "AUTO:4,7"
-    # Partial words ("elec" -> electrical): when no product has the words as typed, words of at least
-    # this many letters (no digits) are also matched as the start of a longer word. 0 = off.
+    # Partial words ("elec" -> electrical): when nothing matches as typed, words of at least this many
+    # letters (no digits) also match as the start of a longer word. 0 = off.
     text_prefix_min_chars: int = 3
-    # How many completions each partial word may expand to (OpenSearch max_expansions; taken in
-    # alphabetical order, so too low a value can miss e.g. "electronics" after many "elec..." words).
+    # How many completions each partial word may expand to (taken alphabetically, so too low a value
+    # can miss e.g. "electronics" after many other "elec..." words).
     text_prefix_max_expansions: int = 100
-    # Text search where no product contains the query words as typed (e.g. "i want steel valves"):
-    # look at this many products closest in meaning (text vector), keep only the query words they
-    # contain ("steel", "valves") and search again. 0 = off (such searches return 0 results).
+    # Still no match (e.g. "i want steel valves"): look at this many products closest in meaning, keep
+    # only the query words they contain ("steel", "valves") and search again. 0 = off.
     text_relax_neighbors: int = 20
-    # ... but a word found in more than this share of the whole catalogue (e.g. "for", "with") is
-    # dropped from that retry: it describes no product and would match almost everything.
-    # 1.0 = off (keep every word the closest products contain).
+    # ... but a word found in more than this share of the whole catalogue ("for", "with") is dropped
+    # from that retry: it describes no product. 1.0 = off.
     text_relax_max_word_share: float = 0.3
-    # Text search where no product contains the query words, even after the retry above: return the
-    # products closest in meaning (text vector) instead of 0 results — but only those scoring at least
-    # this much. Scores are (1 + cosine) / 2, so 1.0 = identical meaning; 0 = off (0 results, as before).
-    # Calibrate on real queries: the log line "semantic fallback" prints the scores of what came back.
+    # Still no match: return the products closest in meaning instead of 0 results — only those scoring
+    # at least this much ((1 + cosine) / 2, so 1.0 = identical). 0 = off. Calibrate with the log line
+    # "semantic fallback".
     semantic_fallback_min_score: float = 0.8
     # How many nearest products the semantic fallback looks at (the most it can return).
     semantic_fallback_k: int = 100
-    # HNSW candidate list size per kNN query. The Lucene engine ignores the index
-    # setting knn.algo_param.ef_search (it searches only ~k candidates), which missed
-    # exact image matches at k=100; 500 found every known-answer test image.
-    knn_ef_search: int = 500
-    # Image matches scoring below this are dropped. Scores are (1 + cosine) / 2,
-    # so an exact copy is 1.0; 0 disables. Calibrate with eval_image_search.py.
+
+    # ---- Image search -----------------------------------------------------------------------------
+    # Image matches scoring below this are dropped ((1 + cosine) / 2; an exact copy is 1.0). 0 = off.
     image_min_score: float = 0.6
-    # Images whose pixels vary less than this (std dev per colour channel, 0-255) are treated as
-    # blank / single colour and not searched. 0 = off.
+    # Images whose pixels vary less than this (std dev per colour channel, 0-255) are blank / single
+    # colour and not searched. 0 = off.
     image_min_detail: float = 6.0
-    # Weight of the image kNN in text + image RRF fusion; the rest is split
-    # equally between BM25 and the text kNN. 0.4 = text 60% (BM25 30% + text kNN 30%), image 40%.
+    # Weight of the image kNN in text + image RRF; the rest is split equally between BM25 and the
+    # text kNN. 0.4 = BM25 30% + text kNN 30% + image 40%.
     text_image_image_weight: float = 0.4
-    # Text shorter than this many characters is not searched (search and suggestions).
-    min_query_chars: int = 3
-    # Uploaded images larger than this many pixels are scaled down (aspect ratio
-    # kept) before embedding; see services/image_processor.py.
+    # Uploads larger than this many pixels are scaled down (aspect ratio kept) before embedding.
     image_max_pixels: int = 2_400_000
-    # JPEG quality used when re-encoding a preprocessed (non-PNG) upload.
+    # JPEG quality used when re-encoding a non-PNG upload.
     image_jpeg_quality: int = 90
 
- 
-    # Redis — search-context store for /v1/search. Each search is one key, its
-    # request_id, holding {"text_emb", "image_emb", "query"}; it expires
-    # redis_ttl_seconds after it was last used.
+    # ---- Redis: search contexts for request_id refinement (services/embedding_store.py) ------------
+    # Each search is one key, its request_id; it expires redis_ttl_seconds after it was last used.
     redis_enabled: bool = True
     redis_host: str = ""
     redis_port: int = 443
@@ -109,21 +120,7 @@ class Settings(BaseSettings):
     redis_timeout: int = 10
     redis_ttl_seconds: int = 3600
 
-    # Logging — every log line always prints to the console; LOG_TO_FILE=true
-    # also writes JSON lines to logs/asmo-<YYYY-MM-DD-HH-MM-SS>.log (a new file for every app start).
-    log_level: str = "INFO"
-    log_to_file: bool = False
-    # Azure Application Insights: when set, logs are also sent there.
-    app_insights_connection_string: str = ""
-    # Environment name written on every log line (e.g. dev / qa / prod).
-    env_name: str | None = None
-
-    # How often (seconds) to send a tiny embed to OCI GenAI so the model stays warm. Each tick is a billable call.
-    oci_embed_heartbeat_interval: int = 60
-    # Auto-reload on code changes when started with `python app.py` (local dev only; never in a OneDrive folder).
-    reload: bool = False
-
-    # Keycloak — checks the "Authorization: Bearer <token>" on every endpoint (utils/keycloak_auth.py).
+    # ---- Keycloak: checks "Authorization: Bearer <token>" on every endpoint (utils/keycloak_auth.py)
     keycloak_auth_enabled: bool = True
     keycloak_server_url: str = ""
     keycloak_realm: str = ""
@@ -131,12 +128,17 @@ class Settings(BaseSettings):
     keycloak_client_secret: str = ""
     keycloak_timeout: int = 5
 
-    api_title: str = "ASMO AI Search API"
-    api_version: str = "2.1.0"
-    api_description: str = "Frontend contract v2.1 — text/image/filter search with hybrid BM25 + kNN (RRF) and suggestions"
- 
- 
-# Settings are read once, when this module is first imported.
+    # ---- Logging (utils/logger.py) ----------------------------------------------------------------
+    # Every line always prints to the console; LOG_TO_FILE=true also writes JSON lines to
+    # logs/asmo-<YYYY-MM-DD-HH-MM-SS>.log (a new file for every app start).
+    log_level: str = "INFO"
+    log_to_file: bool = False
+    # Azure Application Insights: when set, logs are also sent there.
+    app_insights_connection_string: str = ""
+    # Environment name written on every log line (e.g. dev / qa / prod).
+    env_name: str | None = None
+
+
 try:
     settings = Settings()
 except ValidationError as exc:

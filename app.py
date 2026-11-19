@@ -1,4 +1,14 @@
-"""ASMO AI Search API — FastAPI app: startup/shutdown, middleware, health checks and error handlers."""
+"""ASMO AI Search API — the FastAPI app.
+
+This file only wires things together:
+  * lifespan      — startup (OCI client, OpenSearch, Redis, search pipelines) and shutdown
+  * middleware    — gives every request an id and logs request + response
+  * routers       — the search endpoints live in routers/search.py
+  * health checks — /health and /health/latency/{opensearch,redis,oci}
+  * error handlers — every error leaves the API as {"code", "message"}
+
+Run locally:  python app.py   (or: uvicorn app:app --port 8000)
+"""
 from __future__ import annotations
 
 import asyncio
@@ -33,10 +43,6 @@ from utils.keycloak_auth import keycloak_auth  # noqa: E402
 # the server/aiohttp idle-reap window (~15s), otherwise the next request pays a full handshake (~1s).
 OPENSEARCH_HEARTBEAT_INTERVAL = 5
 
-# How often to send a tiny embed to OCI GenAI so the on-demand model stays warm (a cold
-# model costs ~1.5s on the first embed). Each tick is a billable call, so keep it only as
-# frequent as needed. Set OCI_EMBED_HEARTBEAT_INTERVAL (seconds) in .env.
-OCI_EMBED_HEARTBEAT_INTERVAL = settings.oci_embed_heartbeat_interval
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
@@ -69,10 +75,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
                          extra={"status": "error", "error_details": str(exc)})
         raise
 
-    # Keep the warm connection / warm model alive so no request hits a cold start.
+    # Keep the OpenSearch connection and the OCI model warm so no request hits a cold start
+    # (a cold OCI model costs ~1.5s; each OCI heartbeat is a billable call).
     heartbeats = [
         asyncio.create_task(os_client.keep_warm(OPENSEARCH_HEARTBEAT_INTERVAL)),
-        asyncio.create_task(embedding_service.keep_warm(OCI_EMBED_HEARTBEAT_INTERVAL)),
+        asyncio.create_task(embedding_service.keep_warm(settings.oci_embed_heartbeat_interval)),
     ]
     logger.info("Startup complete — API is ready")
     yield
@@ -141,7 +148,9 @@ app.include_router(index_router)
 app.include_router(v1_router)
 
 
+# ---------------------------------------------------------------------------------------------
 # Health checks
+# ---------------------------------------------------------------------------------------------
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health() -> HealthResponse:
@@ -158,85 +167,59 @@ async def health() -> HealthResponse:
     )
 
 
-@app.get("/health/latency/opensearch", response_model=LatencyResponse, tags=["Health"])
-async def latency_opensearch(samples: int = 5) -> LatencyResponse:
-    """Measure round-trip latency to OpenSearch (one GET / per sample, 1-20 samples). Stops at the first failure."""
+@app.get("/health/latency/opensearch", response_model=LatencyResponse, tags=["Health"], summary="Latency to OpenSearch")
+@app.get("/health/latency/redis", response_model=LatencyResponse, tags=["Health"], summary="Latency to Redis")
+@app.get("/health/latency/oci", response_model=LatencyResponse, tags=["Health"], summary="Latency to OCI GenAI")
+async def latency(request: Request, samples: int = 5) -> LatencyResponse:
+    """Measure round-trip latency to one dependency, named by the last part of the URL:
+    opensearch (GET /), redis (PING) or oci (one embed call). 1-20 samples; stops at the first failure."""
+    # 1. Which dependency, and where it is.
+    target = request.url.path.rsplit("/", 1)[-1]
     samples = max(1, min(samples, 20))
+    endpoint = {
+        "opensearch": f"{settings.opensearch_host}:{settings.opensearch_port}",
+        "redis": redis_client.endpoint,
+        "oci": settings.oci_genai_endpoint,
+    }[target]
+    if target == "redis" and not redis_client.enabled:
+        return LatencyResponse(target=target, endpoint=endpoint, samples=samples, samples_ms=[],
+                               min_ms=0.0, avg_ms=0.0, max_ms=0.0, ok=False,
+                               error="Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)")
+
+    # 2. Time one call per sample.
     times: list[float] = []
     error: str | None = None
     for i in range(samples):
         start = time.perf_counter()
         try:
-            await os_client.client.info()
+            if target == "opensearch":
+                await os_client.client.info()
+            elif target == "redis":
+                await redis_client.client.ping()
+            else:
+                await embedding_service.encode_query("latency check")
         except Exception as exc:
             error = f"sample {i + 1} failed: {exc}"
-            logger.warning(f"opensearch latency {error}", extra={"status": "error", "error_details": str(exc)})
+            logger.warning(f"{target} latency {error}", extra={"status": "error", "error_details": str(exc)})
             break
         times.append(round((time.perf_counter() - start) * 1000, 1))
+
+    # 3. Summary.
     result = LatencyResponse(
-        target="opensearch", endpoint=f"{settings.opensearch_host}:{settings.opensearch_port}", samples=samples,
-        samples_ms=times, min_ms=min(times) if times else 0.0, avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
-        max_ms=max(times) if times else 0.0, ok=error is None and len(times) == samples, error=error,
+        target=target, endpoint=endpoint, samples=samples, samples_ms=times,
+        min_ms=min(times) if times else 0.0,
+        avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
+        max_ms=max(times) if times else 0.0,
+        ok=error is None and len(times) == samples,
+        error=error,
     )
-    logger.info(f"opensearch latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
+    logger.info(f"{target} latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
     return result
 
 
-@app.get("/health/latency/redis", response_model=LatencyResponse, tags=["Health"])
-async def latency_redis(samples: int = 5) -> LatencyResponse:
-    """Measure round-trip latency to Redis (one PING per sample, 1-20 samples). Stops at the first failure."""
-    samples = max(1, min(samples, 20))
-    if not redis_client.enabled:
-        return LatencyResponse(
-            target="redis", endpoint=redis_client.endpoint, samples=samples, samples_ms=[],
-            min_ms=0.0, avg_ms=0.0, max_ms=0.0, ok=False,
-            error="Redis is disabled (REDIS_ENABLED=false or REDIS_HOST unset)",
-        )
-    times: list[float] = []
-    error: str | None = None
-    for i in range(samples):
-        start = time.perf_counter()
-        try:
-            await redis_client.client.ping()
-        except Exception as exc:
-            error = f"sample {i + 1} failed: {exc}"
-            logger.warning(f"redis latency {error}", extra={"status": "error", "error_details": str(exc)})
-            break
-        times.append(round((time.perf_counter() - start) * 1000, 1))
-    result = LatencyResponse(
-        target="redis", endpoint=redis_client.endpoint, samples=samples,
-        samples_ms=times, min_ms=min(times) if times else 0.0, avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
-        max_ms=max(times) if times else 0.0, ok=error is None and len(times) == samples, error=error,
-    )
-    logger.info(f"redis latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-    return result
-
-
-@app.get("/health/latency/oci", response_model=LatencyResponse, tags=["Health"])
-async def latency_oci(samples: int = 5) -> LatencyResponse:
-    """Measure round-trip latency to OCI GenAI (one embed call per sample, 1-20 samples). Stops at the first failure."""
-    samples = max(1, min(samples, 20))
-    times: list[float] = []
-    error: str | None = None
-    for i in range(samples):
-        start = time.perf_counter()
-        try:
-            await embedding_service.encode_query("latency check")
-        except Exception as exc:
-            error = f"sample {i + 1} failed: {exc}"
-            logger.warning(f"oci latency {error}", extra={"status": "error", "error_details": str(exc)})
-            break
-        times.append(round((time.perf_counter() - start) * 1000, 1))
-    result = LatencyResponse(
-        target="oci", endpoint=settings.oci_genai_endpoint, samples=samples,
-        samples_ms=times, min_ms=min(times) if times else 0.0, avg_ms=round(sum(times) / len(times), 1) if times else 0.0,
-        max_ms=max(times) if times else 0.0, ok=error is None and len(times) == samples, error=error,
-    )
-    logger.info(f"oci latency — min={result.min_ms}ms avg={result.avg_ms}ms max={result.max_ms}ms ok={result.ok}")
-    return result
-
-
-# Error handlers — every error leaves the API as {"code", "message"} (5.1)
+# ---------------------------------------------------------------------------------------------
+# Error handlers — every error leaves the API as {"code", "message"} (contract 5.1)
+# ---------------------------------------------------------------------------------------------
 
 
 @app.exception_handler(StarletteHTTPException)

@@ -1,15 +1,19 @@
 """Builds the OpenSearch queries for /v1/search and /v1/search/suggestions and shapes the results.
 
-Search modes (2.2):
-  * text          -> hybrid BM25 multi_match + kNN on the text vector, fused with RRF
-  * image         -> plain nested kNN on images.image_vector (each SKU scores by its best image)
-  * text + image  -> hybrid BM25 + text kNN + image kNN fused with weighted RRF. A product is
-                     returned if it contains the query words OR its image matches (>= image_min_score).
-                     The text kNN only ranks keyword matches, so keyword matches outrank image-only
-                     look-alikes. If the cluster has no weighted RRF: the same 3 lists with plain RRF.
+    from services.search import search_service
+    response = await search_service.search(query=..., query_vector=..., image_vector=..., filters=[...], ...)
+
+Search modes (picked from what the request sends):
   * filter-browse -> no query and no image: just the filters (or match_all)
+  * image         -> nested kNN on images.image_vector (each SKU scores by its best image)
+  * text          -> hybrid [BM25, text kNN] fused with RRF; only products containing the query words
+  * text + image  -> hybrid [BM25, text kNN, image kNN] fused with weighted RRF; products containing
+                     the query words OR whose image matches (>= image_min_score)
 
 Language: ``en`` runs BM25 on the English fields; ``de`` on the ``*_de`` fields + ``content``.
+
+The tables below (filters, facets, text fields) are the only things to edit to add a filter
+key, a facet or a searched field.
 """
 from __future__ import annotations
 
@@ -32,96 +36,98 @@ from models.response import (
 from services.opensearch import OpenSearchClientService, os_client
 from utils.logger import logger
 
-PIPELINE_ID = "hybrid-rrf-pipeline"
-# Weighted RRF for text + image: sub-query order is [BM25, text kNN, image kNN].
-TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"
+# RRF search pipelines (created at startup by setup_pipeline).
+PIPELINE_ID = "hybrid-rrf-pipeline"                       # plain RRF
+TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"  # weighted: [BM25, text kNN, image kNN]
 
-# Filter keys (4) -> the index field each one filters on. Text fields use their
-# ``.keyword`` sub-field so exact-match term filters work.
-FILTER_KEY_MAP: dict[str, str] = {
+# ------------------------------------------------------------------------------------------------
+# Filters — every key the `filters` JSON may hold (any other key -> 400 INVALID_FILTER_KEY).
+#
+#   key: (index field(s), value type, nested path, multi-select facet)
+#
+#   index field(s) — the field the filter matches; with two fields, a value matching either counts.
+#                    Text fields use their ``.keyword`` sub-field so the match is exact.
+#   value type     — "text"   a non-empty string, or a list of them (match any)
+#                    "single" exactly one string (or a one-item list): category is single-select
+#                    "number" a number, a list of numbers, or a range {"gt"/"gte"/"lt"/"lte": n}
+#                    "bool"   true / false
+#   nested path    — the field lives in nested objects (a product's sellers): the clause is wrapped
+#                    in a nested query, so it matches if ANY seller matches
+#   multi-select   — the facet this filter selects in; that facet is counted WITHOUT this filter
+#                    (but with every other one), so the user can still tick more of its values
+# ------------------------------------------------------------------------------------------------
+FILTERS: dict[str, tuple[tuple[str, ...], str, str | None, str | None]] = {
     # Facet filters: the frontend sends back the facet's ``id`` (see FACETS below).
-    "category": "category_ids",
-    "sub_category": "sub_category_id",
-    "seller": "seller_details.seller_id",
+    "category":               (("category_ids",), "single", None, None),
+    "sub_category":           (("sub_category_id",), "text", None, "sub_category"),
+    "product_type":           (("product_type_id", "product_type.keyword"), "text", None, "product_type"),  # id or name
+    "seller":                 (("seller_details.seller_id",), "text", "seller_details", None),
     # Earlier names of the facet filters, still accepted.
-    "category_name": "category_ids",
-    "sub_category_name": "sub_category_id",
-    "sellername": "seller_details.seller_id",
-    # Seller by its own field names: matches a product if ANY of its sellers matches
-    # (not just the primary one, unlike sold_by).
-    "seller_id": "seller_details.seller_id",
-    "seller_name": "seller_details.seller_name.keyword",
-    # Not a facet, but filterable by a number or range.
-    "lead_time": "seller_details.lead_time",
+    "category_name":          (("category_ids",), "single", None, None),
+    "sub_category_name":      (("sub_category_id",), "text", None, "sub_category"),
+    "sellername":             (("seller_details.seller_id", "seller_details.seller_name.keyword"), "text", "seller_details", None),
+    # Seller by its own fields (any of the product's sellers, unlike sold_by = the primary one).
+    "seller_id":              (("seller_details.seller_id",), "text", "seller_details", None),
+    "seller_name":            (("seller_details.seller_name.keyword",), "text", "seller_details", None),
+    "lead_time":              (("seller_details.lead_time",), "number", "seller_details", None),
     # Other filters.
-    "category_ids": "category_ids",
-    "category_id": "category_ids",
-    "sub_category_id": "sub_category_id",
-    "product_type_id": "product_type_id",
-    "product_type": "product_type.keyword",
-    "material_type": "material_type",
-    "availability": "availability",
-    "price": "price",
-    "moq": "moq",
-    "currency": "currency",
-    "sold_by": "sold_by.keyword",
-    "supplier_count": "supplier_count",
-    "contract_indicator": "contract_indicator",
-    "temporary_unavailable": "temporary_unavailable",
-    "under_agreement": "under_agreement",
-    "sku_id": "sku_id",
-    "product_key": "product_key",
-    "asmo_material_number": "asmo_material_number",
-    "aramco_material_number": "aramco_material_number",
-}
-ALLOWED_FILTER_KEYS: frozenset[str] = frozenset(FILTER_KEY_MAP)
-# Filter keys on a nested field: the clause is wrapped in a nested query on this path.
-NESTED_FILTER_PATHS: dict[str, str] = {
-    "seller": "seller_details", "sellername": "seller_details", "lead_time": "seller_details",
-    "seller_id": "seller_details", "seller_name": "seller_details",
-}
-# Filter keys that match any of several fields: product_type takes the facet id
-# (product_type_id) or, as before, the product-type name; sellername takes the
-# seller id or the seller name (it used to compare names against the id field).
-FILTER_ALT_FIELDS: dict[str, tuple[str, ...]] = {
-    "product_type": ("product_type_id", "product_type.keyword"),
-    "sellername": ("seller_details.seller_id", "seller_details.seller_name.keyword"),
+    "category_ids":           (("category_ids",), "single", None, None),
+    "category_id":            (("category_ids",), "single", None, None),
+    "sub_category_id":        (("sub_category_id",), "text", None, "sub_category"),
+    "product_type_id":        (("product_type_id",), "text", None, "product_type"),
+    "material_type":          (("material_type",), "text", None, None),
+    "availability":           (("availability",), "text", None, None),
+    "price":                  (("price",), "number", None, None),
+    "moq":                    (("moq",), "number", None, None),
+    "currency":               (("currency",), "text", None, None),
+    "sold_by":                (("sold_by.keyword",), "text", None, None),
+    "supplier_count":         (("supplier_count",), "number", None, None),
+    "contract_indicator":     (("contract_indicator",), "bool", None, None),
+    "temporary_unavailable":  (("temporary_unavailable",), "bool", None, None),
+    "under_agreement":        (("under_agreement",), "bool", None, None),
+    "sku_id":                 (("sku_id",), "text", None, None),
+    "product_key":            (("product_key",), "text", None, None),
+    "asmo_material_number":   (("asmo_material_number",), "text", None, None),
+    "aramco_material_number": (("aramco_material_number",), "text", None, None),
 }
 
-# Facets returned to the frontend, counted over ALL matching products (not just the page).
-# Each value is {id, value, count}: ``id`` is what the frontend sends back as the filter
-# with the same key, ``value`` is the label.
-#   key -> (id field, label field or None to show the id, nested path or None)
+# ------------------------------------------------------------------------------------------------
+# Facets returned with every search, counted over ALL matching products (not just the page).
+# Each value is {id, value, count}: ``id`` is what the frontend sends back as the filter with the
+# same key, ``value`` the label to show.
+#   key: (id field, label field or None to show the id, nested path or None)
+# ------------------------------------------------------------------------------------------------
 FACETS: dict[str, tuple[str, str | None, str | None]] = {
     "category":     ("category_ids", "category_name.keyword", None),
     "sub_category": ("sub_category_id", "sub_category_name.keyword", None),
     "product_type": ("product_type_id", "product_type.keyword", None),
     "seller":       ("seller_details.seller_id", "seller_details.seller_name.keyword", "seller_details"),
 }
-FACET_SIZE = 50
-
-# The OpenSearch aggregations that compute FACETS; built once from the table above.
-FACET_AGGS: dict[str, Any] = {}
-for _key, (_id_field, _label_field, _nested_path) in FACETS.items():
-    _terms: dict[str, Any] = {"terms": {"field": _id_field, "size": FACET_SIZE}}
-    _sub: dict[str, Any] = {}
-    if _label_field:
-        _sub["label"] = {"terms": {"field": _label_field, "size": 1}}
-    if _nested_path:
-        _sub["products"] = {"reverse_nested": {}}  # count products, not seller offers
-    if _sub:
-        _terms["aggs"] = _sub
-    FACET_AGGS[_key] = {"nested": {"path": _nested_path}, "aggs": {"values": _terms}} if _nested_path else _terms
+# The OpenSearch aggregations that count the FACETS above (top 50 values each; the label is the
+# value's most common name; the nested seller facet counts products, not seller offers).
+FACET_AGGS: dict[str, Any] = {
+    "category": {"terms": {"field": "category_ids", "size": 50},
+                 "aggs": {"label": {"terms": {"field": "category_name.keyword", "size": 1}}}},
+    "sub_category": {"terms": {"field": "sub_category_id", "size": 50},
+                     "aggs": {"label": {"terms": {"field": "sub_category_name.keyword", "size": 1}}}},
+    "product_type": {"terms": {"field": "product_type_id", "size": 50},
+                     "aggs": {"label": {"terms": {"field": "product_type.keyword", "size": 1}}}},
+    "seller": {"nested": {"path": "seller_details"}, "aggs": {"values": {
+        "terms": {"field": "seller_details.seller_id", "size": 50},
+        "aggs": {"label": {"terms": {"field": "seller_details.seller_name.keyword", "size": 1}},
+                 "products": {"reverse_nested": {}}},
+    }}},
+}
 
 # Nested image field written by the ingest pipeline: [{image_url, image_vector}, ...].
 IMAGE_PATH = "images"
 IMAGE_VECTOR_FIELD = "images.image_vector"
 
-# Text fields searched by the BM25 half of the hybrid query, per request language.
-# "field^N" = weight N (higher = a match in that field ranks higher; no ^ means 1).
-# English uses the base fields; German uses their ``*_de`` copies. Fields missing from the
-# index are skipped (``lenient``), so German search still works on ``content`` until the
-# index carries the ``*_de`` fields.
+# ------------------------------------------------------------------------------------------------
+# Text fields searched by BM25, per request language. "field^N" = weight N (a match there ranks
+# higher). Fields missing from the index are skipped (``lenient``), so German search still works on
+# ``content`` until the index carries the ``*_de`` fields.
+# ------------------------------------------------------------------------------------------------
 KEYWORD_FIELDS = [
     "aramco_material_number^8",
     "asmo_material_number^8",
@@ -145,14 +151,15 @@ KEYWORD_FIELDS_DE = [
     "content^1",
 ]
 KEYWORD_FIELDS_BY_LANGUAGE: dict[str, list[str]] = {"en": KEYWORD_FIELDS, "de": KEYWORD_FIELDS_DE}
-# Fields the typo-tolerant (fuzzy) match searches: the text fields only. Material numbers are
-# left out so a mistyped number never returns a different, near-identical number.
+# The typo-tolerant match searches the same fields WITHOUT the material numbers, so a mistyped
+# number never returns a different, near-identical number.
 FUZZY_FIELDS_BY_LANGUAGE: dict[str, list[str]] = {
-    lang: [f for f in fields if not f.startswith(("aramco_material_number", "asmo_material_number"))]
-    for lang, fields in KEYWORD_FIELDS_BY_LANGUAGE.items()
+    "en": ["sku_name^7", "product_name^7", "product_description^3", "category_name^1",
+           "sub_category_name^1", "product_type^1", "content^1"],
+    "de": ["sku_name_de^7", "product_name_de^7", "product_description_de^3", "category_name_de^1",
+           "sub_category_name_de^1", "product_type_de^1", "content^1"],
 }
-# Seller fields live inside the nested ``seller_details`` objects, so they are searched by a
-# separate nested query (a normal multi_match can't reach nested fields).
+# Seller fields live in the nested ``seller_details`` objects, so a separate nested query searches them.
 SELLER_FIELDS = [
     "seller_details.seller_name^5",
     "seller_details.seller_id^5",
@@ -164,36 +171,32 @@ SUGGEST_FIELD_BY_LANGUAGE: dict[str, str] = {"en": "product_name", "de": "produc
 class SearchService:
     def __init__(self, os_client: OpenSearchClientService) -> None:
         self._os = os_client
-        # Set by setup_pipeline(): False when the cluster rejects weighted RRF,
-        # in which case text + image falls back to text-as-filter.
+        # Set by setup_pipeline(): False when the cluster rejects weighted RRF; text + image search
+        # then fuses the same 3 lists with the plain RRF pipeline.
         self._text_image_fusion = False
-        logger.info("Search — SearchService created")
 
     async def setup_pipeline(self) -> None:
         """Create the RRF search pipelines (called once at startup)."""
         # 1. Weighted text + image pipeline — always (re)written so weight changes apply.
-        #    Optional: if the cluster rejects it, text + image search falls back to text-as-filter.
+        #    Optional: if the cluster rejects it, text + image search uses the plain pipeline.
         w = _cfg.text_image_image_weight
         weights = [(1 - w) / 2, (1 - w) / 2, w]  # BM25, text kNN, image kNN
-        logger.info(f"Search — setup: image weight={w} -> RRF weights [BM25, text kNN, image kNN]={weights}")
         try:
             await self._os.create_search_pipeline(TEXT_IMAGE_PIPELINE_ID, rank_constant=60, weights=weights)
             self._text_image_fusion = True
-            logger.info(f"Search — '{TEXT_IMAGE_PIPELINE_ID}' ready (weights={weights})")
+            logger.info(f"Search — pipeline '{TEXT_IMAGE_PIPELINE_ID}' ready (weights [BM25, text kNN, image kNN]={weights})")
         except Exception as exc:
             self._text_image_fusion = False
             logger.warning(
                 f"Search — weighted RRF not available ({type(exc).__name__}: {exc}); "
-                "text + image search falls back to filtering by the text",
+                "text + image search uses plain RRF",
                 extra={"status": "error", "error_details": str(exc)},
             )
 
-        # 2. Plain RRF pipeline for text search — required, created only if missing.
-        logger.info(f"Search — setup: checking whether pipeline '{PIPELINE_ID}' exists")
+        # 2. Plain RRF pipeline — required, created only if missing.
         if await self._os.pipeline_exists(PIPELINE_ID):
             logger.info(f"Search — pipeline '{PIPELINE_ID}' already exists")
             return
-        logger.info(f"Search — setup: pipeline '{PIPELINE_ID}' missing, creating it")
         await self._os.create_search_pipeline(PIPELINE_ID, rank_constant=60)
         logger.info(f"Search — pipeline '{PIPELINE_ID}' created")
 
@@ -211,24 +214,47 @@ class SearchService:
         language: str = "en",
         multi_select_filters: dict[str, list[dict]] | None = None,
     ) -> SearchApiResponse:
-        """Run a text / image / text + image / filter-browse search (mode picked from the inputs).
+        """Run a text / image / text + image / filter-browse search (the mode is picked from the inputs).
 
-        ``filters`` are ready-made OpenSearch clauses. ``sort_by="price"`` sorts by price;
-        anything else keeps relevance order. ``language`` picks the BM25 text fields
-        (``de`` -> the ``*_de`` fields + ``content``).
+        ``filters`` are ready-made OpenSearch clauses. ``sort_by="price"`` sorts by price; anything
+        else keeps relevance order. ``language`` picks the BM25 text fields (``de`` -> ``*_de`` + content).
         ``multi_select_filters`` maps a multi-select facet (sub_category, product_type) to its own
-        clauses in ``filters``: that facet is counted by the same search without those clauses, so
-        it still lists the values the user can add (the other facets are counted with every filter).
+        clauses in ``filters``: that facet is counted without them, so it still lists the values the
+        user can add (the other facets are counted with every filter).
+
+        Steps:
+          1. Start the multi-select facet recounts (they run alongside the main search).
+          2. Build the query for the mode:
+               2a. filter-browse  — no query, no image: just the filters
+               2b. image          — nested kNN on the product images
+               2c. text (+ image) — find which keyword match works (as typed -> partial words ->
+                   only the meaningful words -> semantic fallback), then build the final query
+          3. Request body: paging, sort, facet aggregations.
+          4. Run it (a page after the last result becomes an empty page).
+          5. Hits -> products.
+          6. Aggregations -> facets.
         """
+        cfg = _cfg
+        index = cfg.opensearch_index_name
         has_image = image_vector is not None
         filters = list(filters)  # never modify the caller's list
-        # Multi-select facets (sub_category, product_type) with a selection: each is counted by the same
-        # search without its own filter (its other filters still apply). Started now so they run
-        # alongside the main search; awaited where the response is built.
+        pipeline_id: str | None = None
+        logger.info(
+            f"Search — start: query={query!r}, language={language}, text_vector={query_vector is not None}, "
+            f"image_vector={has_image}, filters={len(filters)}, sort={sort_by}/{sort_order}, page={page}x{page_size}",
+            extra={"search_query": query, "language": language,
+                   "input_data": {"filters": filters, "sort_by": sort_by, "sort_order": sort_order,
+                                  "page": page, "page_size": page_size, "request_id": request_id}},
+        )
+
+        # ---------------------------------------------------------------------------------------
+        # 1. Multi-select facets (sub_category, product_type) with a selection are each counted by
+        #    the same search WITHOUT their own filter. Started now, awaited in steps 2c / 6.
+        # ---------------------------------------------------------------------------------------
         recount = {key: clauses for key, clauses in (multi_select_filters or {}).items() if key in FACETS and clauses}
         recount_task: asyncio.Future | None = None
         if recount:
-            logger.info(f"Search — step: counting multi-select facets without their own filter: {sorted(recount)}")
+            logger.info(f"Search — counting multi-select facets without their own filter: {sorted(recount)}")
             recount_task = asyncio.gather(*(
                 self.search(
                     query=query, query_vector=query_vector, image_vector=image_vector,
@@ -238,446 +264,343 @@ class SearchService:
                 )
                 for clauses in recount.values()
             ))
-        pipeline_id: str | None = None
-        logger.info(
-            f"Search — start: query={query!r}, language={language}, has_text_vector={query_vector is not None}, "
-            f"has_image_vector={has_image}, filters={len(filters)}, sort_by={sort_by}, sort_order={sort_order}, "
-            f"page={page}, page_size={page_size}",
-            extra={"search_query": query, "language": language,
-                   "input_data": {"filters": filters, "sort_by": sort_by, "sort_order": sort_order,
-                                  "page": page, "page_size": page_size, "request_id": request_id}},
-        )
+
+        # ---------------------------------------------------------------------------------------
+        # 2. Build the query.
+        # ---------------------------------------------------------------------------------------
+        # Per-query HNSW candidate count (Lucene ignores the index-level ef_search setting).
+        knn_params = {"method_parameters": {"ef_search": cfg.knn_ef_search}} if cfg.knn_ef_search else {}
+        # How many candidates each part of the search collects before merging and paging. FIXED for
+        # every page (OpenSearch needs the same pagination_depth on every page), so the total and the
+        # order stay the same across pages. Results beyond it can't be paged to.
+        depth = cfg.search_depth
+
+        # The image kNN (used by 2b and by text + image in 2c). Each SKU scores by its best image;
+        # function_score with no functions keeps that score, and min_score drops weak matches.
+        image_knn: dict[str, Any] = {}
+        image_clause: dict[str, Any] = {}
+        if has_image:
+            image_knn = {"vector": image_vector, "k": depth, **knn_params}
+            image_clause = {"nested": {"path": IMAGE_PATH, "score_mode": "max",
+                                       "query": {"knn": {IMAGE_VECTOR_FIELD: image_knn}}}}
+            if cfg.image_min_score > 0:
+                image_clause = {"function_score": {"query": image_clause, "min_score": cfg.image_min_score}}
 
         if not query and not has_image:
+            # 2a. Filter-browse.
             mode = "filter-browse"
             query_clause: dict[str, Any] = {"bool": {"filter": filters}} if filters else {"match_all": {}}
-            logger.info(f"Search — step: no query and no image -> filter-browse "
-                        f"({'bool filter with ' + str(len(filters)) + ' filters' if filters else 'match_all'})")
+
+        elif not query:
+            # 2b. Image only: one kNN list needs no RRF. Filters go INSIDE the kNN (pre-filter).
+            mode = "image"
+            if filters:
+                image_knn["filter"] = {"bool": {"filter": filters}}
+            query_clause = image_clause
+
         else:
-            # Per-query HNSW candidate count (Lucene ignores the index-level ef_search setting).
-            knn_params = {"method_parameters": {"ef_search": _cfg.knn_ef_search}} if _cfg.knn_ef_search else {}
-            # How many candidates each part of the search collects before results are merged and paged.
-            # FIXED for every page of a search (OpenSearch requires the same pagination_depth on every page):
-            # if it grew with the page, each page would be a different search — a different total and a
-            # different order, so products could repeat or be skipped between pages.
-            depth = _cfg.search_depth
-            logger.info(f"Search — step: kNN ef_search={_cfg.knn_ef_search or 'index default'}, depth={depth} "
-                        f"(fixed for every page; results beyond it are not reachable)")
-            if page * page_size > depth:
-                logger.info(f"Search — page {page} x {page_size} is beyond SEARCH_DEPTH={depth} -> this page is empty")
+            # 2c. Text, or text + image.
+            fields = KEYWORD_FIELDS_BY_LANGUAGE.get(language, KEYWORD_FIELDS)
+            fuzzy_fields = FUZZY_FIELDS_BY_LANGUAGE.get(language, FUZZY_FIELDS_BY_LANGUAGE["en"])
+            min_words = cfg.text_min_words_match  # e.g. "2<75%": 1-2 words -> all, 3+ words -> 75%
+            words = query.split()
+            # Words with a digit are identifiers (material / part numbers, sizes): always matched exactly.
+            has_digit = {w: any(ch.isdigit() for ch in w) for w in words}
+            # Words that may also match as the start of a longer word ("elec" -> electrical).
+            prefix_words = [w for w in words if cfg.text_prefix_min_chars
+                            and len(w) >= cfg.text_prefix_min_chars and not has_digit[w]]
 
-            image_clause: dict[str, Any] = {}
-            image_knn: dict[str, Any] = {}
-            if has_image:
-                image_knn = {"vector": image_vector, "k": depth, **knn_params}
-                image_clause = {"nested": {
-                    "path": IMAGE_PATH, "score_mode": "max",
-                    "query": {"knn": {IMAGE_VECTOR_FIELD: image_knn}},
-                }}
-                logger.info(f"Search — step: image kNN built on '{IMAGE_VECTOR_FIELD}' (vector dim={len(image_vector)}, k={depth})")
-                if _cfg.image_min_score > 0:
-                    # function_score with no functions keeps the kNN score; min_score drops weak matches.
-                    image_clause = {"function_score": {"query": image_clause, "min_score": _cfg.image_min_score}}
-                    logger.info(f"Search — step: image results below score {_cfg.image_min_score} will be dropped")
-                else:
-                    logger.info("Search — step: no image min_score (all image kNN hits kept)")
+            # How ONE query word can match a product — built once here, reused by every clause below:
+            #   exact[w]   — the word as typed, on every text field
+            #   typo[w]    — with typos, text fields only (not for identifiers)
+            #   partial[w] — as the start of a longer word (prefix_words only)
+            exact = {w: {"multi_match": {"query": w, "fields": fields, "lenient": True}} for w in words}
+            typo = {w: {"multi_match": {"query": w, "fields": fuzzy_fields, "lenient": True,
+                                        "fuzziness": cfg.text_fuzziness, "prefix_length": 1}}
+                    for w in words if cfg.text_fuzziness and not has_digit[w]}
+            partial = {w: {"multi_match": {"query": w, "fields": fuzzy_fields, "type": "phrase_prefix",
+                                           "lenient": True, "max_expansions": cfg.text_prefix_max_expansions}}
+                       for w in prefix_words}
 
-            if not query:
-                mode = "image"
-                # Filters go inside the kNN so it pre-filters instead of post-filtering. One kNN
-                # list needs no RRF, so no hybrid query / pipeline.
-                logger.info("Search — step: image only -> plain nested kNN, no RRF pipeline")
-                if filters:
-                    image_knn["filter"] = {"bool": {"filter": filters}}
-                    logger.info(f"Search — step: {len(filters)} filters applied inside the image kNN (pre-filter)")
-                query_clause = image_clause
-            else:
-                # BM25: match the weighted product fields OR any seller's name / id.
-                fields = KEYWORD_FIELDS_BY_LANGUAGE.get(language, KEYWORD_FIELDS)
-                fuzzy_fields = FUZZY_FIELDS_BY_LANGUAGE.get(language, FUZZY_FIELDS_BY_LANGUAGE["en"])
-                words = query.split()
-                keyword_query = query
-                # Query words holding a digit are identifiers (material numbers such as 880000629771 or
-                # JL086A, sizes, part numbers): they must match exactly, never with a typo — otherwise
-                # 880000629771 also finds 880000629778, 880000629774, ... through the `content` field.
-                # A material number also matches when the index stores it with ASMO's "a-" prefix
-                # (asmo_material_number "a-880000629771"), in any letter case.
-                # Only words of 5+ characters count as material numbers, so "2" or "10mm" never pins a
-                # product whose material number happens to be "a-2".
-                number_values = list(dict.fromkeys(
-                    value for word in words if len(word) >= 5 and any(ch.isdigit() for ch in word)
-                    for value in (word, word if word.lower().startswith("a-") else f"a-{word}")
-                ))
-                material_match: dict[str, Any] | None = None
-                if number_values:
-                    material_match = {"bool": {"should": [
-                        {"term": {field: {"value": value, "case_insensitive": True}}}
-                        for field in ("aramco_material_number", "asmo_material_number") for value in number_values
-                    ], "minimum_should_match": 1}}
-                    logger.info(f"Search — step: identifier words in the query -> exact material-number match on "
-                                f"{number_values}; no typo tolerance for them")
-                # Text only: first the query words as typed. If no product contains them, a 2nd try that
-                # also takes each word as the start of a longer word ("elec" -> electrical, electronic).
-                # Then a try with only the words the products closest in meaning contain (see below). If
-                # none finds a keyword match, the semantic fallback (closest in meaning, high score only).
-                # Partial words: long enough (text_prefix_min_chars) and no digit (identifiers stay exact).
-                prefix_words = [w for w in words if _cfg.text_prefix_min_chars
-                                and len(w) >= _cfg.text_prefix_min_chars and not any(ch.isdigit() for ch in w)]
-                semantic_fallback = False
-                for attempt in ("strict", "prefix", "relaxed"):
-                    if attempt == "prefix" and not prefix_words:
-                        continue  # no word can be a partial word -> straight to the relaxed try
-                    attempt_words = keyword_query.split()
-                    # Once the prefix try has run, the relaxed try keeps matching partial words too.
-                    use_prefix = attempt != "strict" and bool(prefix_words)
-                    product_match = {"multi_match": {"query": keyword_query, "fields": fields, "type": "best_fields", "lenient": True}}
-                    seller_match = {"multi_match": {"query": keyword_query, "fields": SELLER_FIELDS, "type": "best_fields", "lenient": True}}
-                    # Typo-tolerant copy of the product match on the text fields only ("valvs" -> "valve").
-                    # Exact matches still score higher, so they rank above the typo matches.
-                    # Words with a digit stay exact: with no other word there is no typo match at all;
-                    # mixed with other words ("JL086A powr supply"), each word is matched on its own —
-                    # the identifier exactly, the other words with typos.
-                    fuzzy_match: dict[str, Any] | None = None
-                    if _cfg.text_fuzziness and not all(any(ch.isdigit() for ch in w) for w in attempt_words):
-                        if any(any(ch.isdigit() for ch in w) for w in attempt_words):
-                            fuzzy_match = {"bool": {"should": [
-                                {"multi_match": {"query": w, "fields": fields, "lenient": True}}
-                                if any(ch.isdigit() for ch in w) else
-                                {"multi_match": {"query": w, "fields": fuzzy_fields, "lenient": True,
-                                                 "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}
-                                for w in attempt_words
-                            ], "minimum_should_match": _cfg.text_min_words_match or 1}}
-                        else:
-                            fuzzy_match = {"multi_match": {
-                                "query": keyword_query, "fields": fuzzy_fields, "type": "best_fields", "lenient": True,
-                                "fuzziness": _cfg.text_fuzziness, "prefix_length": 1,
-                            }}
-                        logger.info(f"Search — step: typo-tolerant match on the text fields (fuzziness={_cfg.text_fuzziness})")
-                    if _cfg.text_min_words_match:
-                        # e.g. "2<75%": queries of 1-2 words need every word; longer ones 75% of the words.
-                        for clause in (product_match, seller_match, fuzzy_match):
-                            if clause and "multi_match" in clause:
-                                clause["multi_match"]["minimum_should_match"] = _cfg.text_min_words_match
-                        logger.info(f"Search — step: a product must match {_cfg.text_min_words_match} of the query words")
-                    # Partial-word match: each query word matches exactly, with a typo, or (if it can be a
-                    # partial word) as the start of a longer word — "elec cable" finds "Electrical Cable".
-                    # Still text_min_words_match of the words must match. Short words and words with a digit
-                    # never match as a prefix ("cap" would also find "capacitor", "JL08" other part numbers).
-                    prefix_match: dict[str, Any] | None = None
-                    if use_prefix:
-                        prefix_match = {"bool": {"should": [
-                            {"bool": {"should": [
-                                {"multi_match": {"query": w, "fields": fields, "lenient": True}},
-                                *([{"multi_match": {"query": w, "fields": fuzzy_fields, "lenient": True,
-                                                    "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
-                                  if _cfg.text_fuzziness and not any(ch.isdigit() for ch in w) else []),
-                                *([{"multi_match": {"query": w, "fields": fuzzy_fields, "type": "phrase_prefix",
-                                                    "lenient": True, "max_expansions": _cfg.text_prefix_max_expansions}}]
-                                  if len(w) >= _cfg.text_prefix_min_chars and not any(ch.isdigit() for ch in w) else []),
-                            ], "minimum_should_match": 1}}
-                            for w in attempt_words
-                        ], "minimum_should_match": _cfg.text_min_words_match or 1}}
-                        logger.info(f"Search — step: partial-word match — words of {_cfg.text_prefix_min_chars}+ "
-                                    f"letters also match as the start of a longer word (up to "
-                                    f"{_cfg.text_prefix_max_expansions} completions each)")
-                    # minimum_should_match=1 is required, not cosmetic: OpenSearch merges the hybrid `filter`
-                    # into each sub-query (and into the text kNN's own filter), and a bool with a filter clause
-                    # makes its should clauses optional — the keyword condition would silently disappear.
-                    bm25 = {"bool": {"should": [
-                        product_match,
-                        {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True, "query": seller_match}},
-                        *([fuzzy_match] if fuzzy_match else []),
-                        *([prefix_match] if prefix_match else []),
-                        *([material_match] if material_match else []),
-                    ], "minimum_should_match": 1}}
-                    logger.info(f"Search — step: BM25 ({attempt}) for {keyword_query!r} on language={language} "
-                                f"fields={fields} + nested seller fields={SELLER_FIELDS}")
-                    if not _cfg.text_require_keyword_match or has_image:
-                        break  # no keyword check: text + image must still return the image matches
-                    # Does any product (within the filters) contain the query words? A cheap
-                    # size-0 search that stops at the first match.
-                    check = await self._os.search(_cfg.opensearch_index_name, {
-                        "size": 0, "track_total_hits": 1, "terminate_after": 1,
-                        "query": {"bool": {"filter": [bm25, *filters]}},
-                    })
-                    if check["hits"]["total"]["value"] > 0:
-                        logger.info("Search — step: products contain the query words -> results limited to "
-                                    "keyword matches; the vector search only re-ranks them")
-                        break
-                    if attempt == "strict" and prefix_words:
-                        logger.info(f"Search — step: no product has the words {query!r} as typed -> retrying "
-                                    f"with {prefix_words} also matching as partial words")
-                        continue
-                    if attempt != "relaxed" and len(words) > 1 and query_vector is not None and _cfg.text_relax_neighbors > 0:
-                        # No product has the words as typed — usually because some of them describe no
-                        # product ("i want steel valvs": "i", "want"). Which query words do the products
-                        # closest in meaning (text vector) contain? Keep those, drop the rest. Decided by
-                        # the data, not a word list. Each word counts if it matches exactly or with a typo.
-                        # A word found in a large share of the WHOLE catalogue ("for", "with", "and") describes
-                        # no product, so it is dropped too: otherwise "glass tube for cooking" would be retried
-                        # as just "for" and return every product saying "For General Office Use".
-                        word_filters = {f"word_{i}": {"filter": {"bool": {"should": [
-                            {"multi_match": {"query": word, "fields": fields, "lenient": True}},
-                            {"nested": {"path": "seller_details", "ignore_unmapped": True, "query": {
-                                "multi_match": {"query": word, "fields": SELLER_FIELDS, "lenient": True}}}},
-                            *([{"multi_match": {"query": word, "fields": fuzzy_fields, "lenient": True,
-                                                "fuzziness": _cfg.text_fuzziness, "prefix_length": 1}}]
-                              if _cfg.text_fuzziness and not any(ch.isdigit() for ch in word) else []),
-                            *([{"multi_match": {"query": word, "fields": fuzzy_fields, "type": "phrase_prefix",
-                                                "lenient": True, "max_expansions": _cfg.text_prefix_max_expansions}}]
-                              if word in prefix_words else []),
-                        ], "minimum_should_match": 1}}} for i, word in enumerate(words)}
-                        neighbours = await self._os.search(_cfg.opensearch_index_name, {
-                            "size": 0,
-                            "query": {"knn": {_cfg.opensearch_vector_field: {
-                                "vector": query_vector, "k": _cfg.text_relax_neighbors, **knn_params,
-                                **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
-                            }}},
-                            "aggs": {**word_filters, "catalogue": {"global": {}, "aggs": word_filters}},
-                        })
-                        aggs_out = neighbours.get("aggregations", {})
-                        catalogue = aggs_out.get("catalogue", {})
-                        catalogue_size = catalogue.get("doc_count", 0)
-                        word_counts = {word: aggs_out.get(f"word_{i}", {}).get("doc_count", 0)
-                                       for i, word in enumerate(words)}
-                        word_shares = {word: (catalogue.get(f"word_{i}", {}).get("doc_count", 0) / catalogue_size
-                                              if catalogue_size else 0.0) for i, word in enumerate(words)}
-                        kept = [word for word in words
-                                if word_counts[word] > 0 and word_shares[word] <= _cfg.text_relax_max_word_share]
-                        logger.info(f"Search — step: no product has all the words {query!r}; words found in the "
-                                    f"{_cfg.text_relax_neighbors} closest products: {word_counts}; share of the "
-                                    f"{catalogue_size} catalogue products containing each word: "
-                                    f"{ {w: round(v, 3) for w, v in word_shares.items()} } "
-                                    f"(words above {_cfg.text_relax_max_word_share} are too common to search with)")
-                        if kept and len(kept) < len(words):
-                            keyword_query = " ".join(kept)
-                            logger.info(f"Search — step: retrying the keyword match with {keyword_query!r} "
-                                        f"(the text vector still uses the full query)")
-                            continue
-                    if query_vector is not None and _cfg.semantic_fallback_min_score > 0:
-                        # No keyword match at all: fall back to the products closest in meaning, but only
-                        # the close ones (score >= semantic_fallback_min_score) — never "similar" padding.
-                        semantic_fallback = True
-                        logger.info(f"Search — no product contains the query words {query!r} -> semantic "
-                                    f"fallback: products closest in meaning with score >= "
-                                    f"{_cfg.semantic_fallback_min_score}")
-                        break
-                    logger.info(f"Search — no product contains the query words {query!r} -> returning 0 results",
-                                extra={"search_query": query, "status": "no_results"})
-                    # The multi-select facets may still have values to pick (without their own filter).
-                    recounted = await recount_task if recount_task else []
-                    return SearchApiResponse(request_id=request_id, total_results=0, page=page,
-                                             page_size=page_size, products=[], facets=SearchFacets(**{
-                                                 key: getattr(other.facets, key) for key, other in zip(recount, recounted)}))
-                # Text only, and the query names a material number that a product has: that product goes
-                # first. RRF fusion ranks by position only, and the text vector of a bare number is noise,
-                # so the exact owner could fall below its near-identical neighbours. Ranked by the keyword
-                # score instead (no vectors), with the exact material-number owners pinned on top; the
-                # other keyword matches follow. Decided by the data within the filters, so every page of
-                # the search gets the same query.
-                exact_number_hits = 0
-                if material_match and not has_image and not semantic_fallback:
-                    exact_check = await self._os.search(_cfg.opensearch_index_name, {
-                        "size": 0, "track_total_hits": 1, "terminate_after": 1,
-                        "query": {"bool": {"filter": [material_match, *filters]}},
-                    })
-                    exact_number_hits = exact_check["hits"]["total"]["value"]
-                    logger.info(f"Search — step: exact material-number match for {number_values}: "
-                                f"{'found' if exact_number_hits else 'none'}")
-                if semantic_fallback:
-                    # Plain kNN on the text vector (full query, not the relaxed words). Filters go inside the
-                    # kNN (pre-filter); function_score with no functions keeps the kNN score and min_score
-                    # drops the weak neighbours, so total_results, paging and facets count only close ones.
-                    mode = f"text (semantic fallback, score >= {_cfg.semantic_fallback_min_score})"
-                    fallback_knn: dict[str, Any] = {"vector": query_vector, "k": _cfg.semantic_fallback_k, **knn_params}
-                    if filters:
-                        fallback_knn["filter"] = {"bool": {"filter": filters}}
-                    query_clause = {"function_score": {
-                        "query": {"knn": {_cfg.opensearch_vector_field: fallback_knn}},
-                        "min_score": _cfg.semantic_fallback_min_score,
-                    }}
-                    logger.info(f"Search — step: semantic fallback -> text kNN on '{_cfg.opensearch_vector_field}' "
-                                f"(k={_cfg.semantic_fallback_k}, {len(filters)} filters inside the kNN), results "
-                                f"below score {_cfg.semantic_fallback_min_score} dropped, no RRF pipeline")
-                elif exact_number_hits:
-                    mode = "material number (exact match first)"
-                    query_clause = {"bool": {
-                        "must": [bm25],
-                        "should": [{"constant_score": {"filter": material_match, "boost": 100000}}],
-                        "filter": filters,
-                    }}
-                    logger.info("Search — step: material-number query -> keyword ranking, exact material-number "
-                                "match pinned first, no vectors / RRF pipeline")
-                else:
-                    text_knn = {"knn": {_cfg.opensearch_vector_field: {
-                        "vector": query_vector, "k": _cfg.hybrid_retrieval_k, **knn_params,
-                    }}}
-                    logger.info(f"Search — step: text kNN on '{_cfg.opensearch_vector_field}' "
-                                f"(vector dim={len(query_vector or [])}, k={_cfg.hybrid_retrieval_k})")
-                    # Which products may be returned at all. Without a gate the text vector search would
-                    # add its 100 nearest products, related or not (e.g. fans for "pump"). The vectors
-                    # then only rank what passes the gate.
-                    #   text         -> the product contains the query words (checked above)
-                    #   text + image -> the product contains the query words OR its image matches the
-                    #                   uploaded one (score >= image_min_score), so a photo still finds
-                    #                   look-alikes that the text doesn't describe
-                    gated = False
-                    if _cfg.text_require_keyword_match:
-                        if has_image:
-                            gate: dict[str, Any] = {"bool": {"should": [bm25, image_clause], "minimum_should_match": 1}}
-                            # The text kNN may only rank keyword matches: otherwise it also votes for the
-                            # image-only look-alikes (e.g. a stapler for "battery" + a scissors photo), which
-                            # then get two votes (image + text kNN) and outrank the real keyword matches.
-                            text_knn["knn"][_cfg.opensearch_vector_field]["filter"] = bm25
-                            logger.info("Search — step: results limited to keyword matches OR image matches; "
-                                        "text kNN ranks keyword matches only")
-                        else:
-                            gate = bm25
-                        filters.append(gate)
-                        gated = True
+            # Material numbers: identifier words of 5+ characters match aramco/asmo_material_number
+            # exactly (any case), also with ASMO's "a-" prefix. Shorter ones ("2", "10mm") never do.
+            number_values = list(dict.fromkeys(
+                value for w in words if len(w) >= 5 and has_digit[w]
+                for value in (w, w if w.lower().startswith("a-") else f"a-{w}")
+            ))
+            material_match: dict[str, Any] | None = None
+            if number_values:
+                material_match = {"bool": {"should": [
+                    {"term": {field: {"value": value, "case_insensitive": True}}}
+                    for field in ("aramco_material_number", "asmo_material_number") for value in number_values
+                ], "minimum_should_match": 1}}
 
-                    if not has_image:
-                        mode = "text (keyword matches only)" if gated else "text"
-                        subqueries = [bm25, text_knn]
-                        pipeline_id = PIPELINE_ID
-                        logger.info(f"Search — step: text only -> hybrid [BM25, text kNN] fused by '{pipeline_id}'")
-                    elif self._text_image_fusion:
-                        mode = "text+image (keyword or image matches)" if gated else "text+image"
-                        subqueries = [bm25, text_knn, image_clause]  # order matches the pipeline weights
-                        pipeline_id = TEXT_IMAGE_PIPELINE_ID
-                        logger.info(f"Search — step: text + image -> hybrid [BM25, text kNN, image kNN] "
-                                    f"fused by weighted '{pipeline_id}'")
+            # Find a keyword match that some product has. Each attempt builds the BM25 query and (text
+            # only) checks with a cheap size-0 search whether any product matches it:
+            #   strict  — the words as typed (exact or with a typo)
+            #   prefix  — also as partial words (skipped when no word can be partial)
+            #   relaxed — only the query words the products closest in meaning contain
+            # Nothing matches -> semantic fallback (close products only), or 0 results.
+            keyword_query = query
+            semantic_fallback = False
+            for attempt in ("strict", "prefix", "relaxed"):
+                if attempt == "prefix" and not prefix_words:
+                    continue
+                attempt_words = keyword_query.split()
+                use_prefix = attempt != "strict" and bool(prefix_words)  # stays on for "relaxed"
+
+                product_match = {"multi_match": {"query": keyword_query, "fields": fields,
+                                                 "type": "best_fields", "lenient": True}}
+                seller_match = {"multi_match": {"query": keyword_query, "fields": SELLER_FIELDS,
+                                                "type": "best_fields", "lenient": True}}
+                # Typo-tolerant match. With identifiers mixed in ("JL086A powr supply") each word is
+                # matched on its own (identifier exact, the rest with typos); only identifiers -> none.
+                fuzzy_match: dict[str, Any] | None = None
+                if cfg.text_fuzziness and not all(has_digit[w] for w in attempt_words):
+                    if any(has_digit[w] for w in attempt_words):
+                        fuzzy_match = {"bool": {"should": [exact[w] if has_digit[w] else typo[w] for w in attempt_words],
+                                                "minimum_should_match": min_words or 1}}
                     else:
-                        mode = "text+image (keyword or image matches, plain RRF)" if gated else "text+image (plain RRF)"
-                        # No weighted RRF: plain RRF over the same 3 lists. The text kNN only ranks keyword
-                        # matches (see the gate above), so a keyword match gets 2 votes, an image-only
-                        # look-alike 1, and a product matching both 3. With only [BM25, image] the top
-                        # keyword match and the top image match would tie (e.g. a stapler for "battery").
-                        subqueries = [bm25, text_knn, image_clause]
-                        pipeline_id = PIPELINE_ID
-                        logger.info("Search — step: text + image, weighted RRF unavailable -> hybrid "
-                                    f"[BM25, text kNN, image kNN] fused by plain '{pipeline_id}'")
-                    # A hybrid query must be the top-level query, so filters go in its own `filter`
-                    # (applied to every sub-query) rather than an outer bool.
-                    hybrid: dict[str, Any] = {"queries": subqueries, "pagination_depth": depth}
-                    if filters:
-                        hybrid["filter"] = {"bool": {"filter": filters}}
-                        logger.info(f"Search — step: {len(filters)} filters applied to every hybrid sub-query")
-                    query_clause = {"hybrid": hybrid}
+                        fuzzy_match = {"multi_match": {"query": keyword_query, "fields": fuzzy_fields,
+                                                       "type": "best_fields", "lenient": True,
+                                                       "fuzziness": cfg.text_fuzziness, "prefix_length": 1}}
+                if min_words:
+                    for clause in (product_match, seller_match, fuzzy_match):
+                        if clause and "multi_match" in clause:
+                            clause["multi_match"]["minimum_should_match"] = min_words
+                # Partial words: each word matches exactly, with a typo, or as a prefix.
+                prefix_match: dict[str, Any] | None = None
+                if use_prefix:
+                    prefix_match = {"bool": {"should": [
+                        {"bool": {"should": [c for c in (exact[w], typo.get(w), partial.get(w)) if c],
+                                  "minimum_should_match": 1}}
+                        for w in attempt_words
+                    ], "minimum_should_match": min_words or 1}}
+                # minimum_should_match=1 is required: OpenSearch merges the hybrid `filter` into each
+                # sub-query, and a bool with a filter makes its should clauses optional otherwise.
+                bm25 = {"bool": {"should": [
+                    product_match,
+                    {"nested": {"path": "seller_details", "score_mode": "max", "ignore_unmapped": True,
+                                "query": seller_match}},
+                    *[c for c in (fuzzy_match, prefix_match, material_match) if c],
+                ], "minimum_should_match": 1}}
 
+                # No keyword check: text + image must still return the image-only matches.
+                if not cfg.text_require_keyword_match or has_image:
+                    break
+                check = await self._os.search(index, {
+                    "size": 0, "track_total_hits": 1, "terminate_after": 1,
+                    "query": {"bool": {"filter": [bm25, *filters]}},
+                })
+                if check["hits"]["total"]["value"] > 0:
+                    logger.info(f"Search — keyword match found ({attempt}: {keyword_query!r}); "
+                                f"vectors only re-rank the keyword matches")
+                    break
+                if attempt == "strict" and prefix_words:
+                    logger.info(f"Search — no product has {query!r} as typed -> retrying with partial words {prefix_words}")
+                    continue
+
+                if attempt != "relaxed" and len(words) > 1 and query_vector is not None and cfg.text_relax_neighbors > 0:
+                    # Which query words do the products closest in meaning contain? Keep those — unless a
+                    # word is in too large a share of the WHOLE catalogue ("for", "with"): it describes
+                    # nothing. "i want steel valvs" -> "steel valvs".
+                    word_aggs = {f"word_{i}": {"filter": {"bool": {"should": [
+                        exact[w],
+                        {"nested": {"path": "seller_details", "ignore_unmapped": True, "query": {
+                            "multi_match": {"query": w, "fields": SELLER_FIELDS, "lenient": True}}}},
+                        *[c for c in (typo.get(w), partial.get(w)) if c],
+                    ], "minimum_should_match": 1}}} for i, w in enumerate(words)}
+                    neighbours = await self._os.search(index, {
+                        "size": 0,
+                        "query": {"knn": {cfg.opensearch_vector_field: {
+                            "vector": query_vector, "k": cfg.text_relax_neighbors, **knn_params,
+                            **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
+                        }}},
+                        "aggs": {**word_aggs, "catalogue": {"global": {}, "aggs": word_aggs}},
+                    })
+                    found = neighbours.get("aggregations", {})
+                    catalogue = found.get("catalogue", {})
+                    catalogue_size = catalogue.get("doc_count", 0)
+                    in_neighbours = {w: found.get(f"word_{i}", {}).get("doc_count", 0) for i, w in enumerate(words)}
+                    share = {w: catalogue.get(f"word_{i}", {}).get("doc_count", 0) / catalogue_size if catalogue_size else 0.0
+                             for i, w in enumerate(words)}
+                    kept = [w for w in words if in_neighbours[w] > 0 and share[w] <= cfg.text_relax_max_word_share]
+                    logger.info(f"Search — relax {query!r}: words in the {cfg.text_relax_neighbors} closest products "
+                                f"{in_neighbours}, catalogue share { {w: round(s, 3) for w, s in share.items()} } "
+                                f"(max {cfg.text_relax_max_word_share}) -> keep {kept}")
+                    if kept and len(kept) < len(words):
+                        keyword_query = " ".join(kept)  # the text vector still uses the full query
+                        continue
+
+                if query_vector is not None and cfg.semantic_fallback_min_score > 0:
+                    semantic_fallback = True
+                    logger.info(f"Search — no keyword match for {query!r} -> semantic fallback "
+                                f"(score >= {cfg.semantic_fallback_min_score})")
+                    break
+                logger.info(f"Search — no product contains {query!r} -> 0 results",
+                            extra={"search_query": query, "status": "no_results"})
+                # The multi-select facets may still have values to pick (without their own filter).
+                recounted = await recount_task if recount_task else []
+                return SearchApiResponse(request_id=request_id, total_results=0, page=page, page_size=page_size,
+                                         products=[], facets=SearchFacets(**{
+                                             key: getattr(other.facets, key) for key, other in zip(recount, recounted)}))
+
+            # Text only and the query names a material number some product has: rank by keyword score
+            # with the exact owners pinned on top (RRF ranks by position, and a bare number's vector
+            # is noise, so the exact owner could fall below near-identical numbers).
+            exact_number_hits = 0
+            if material_match and not has_image and not semantic_fallback:
+                exact_check = await self._os.search(index, {
+                    "size": 0, "track_total_hits": 1, "terminate_after": 1,
+                    "query": {"bool": {"filter": [material_match, *filters]}},
+                })
+                exact_number_hits = exact_check["hits"]["total"]["value"]
+
+            if semantic_fallback:
+                # Plain kNN on the full query's text vector, filters inside the kNN; min_score drops the
+                # weak neighbours, so total_results, paging and facets count only close products.
+                mode = f"text (semantic fallback, score >= {cfg.semantic_fallback_min_score})"
+                fallback_knn: dict[str, Any] = {"vector": query_vector, "k": cfg.semantic_fallback_k, **knn_params}
+                if filters:
+                    fallback_knn["filter"] = {"bool": {"filter": filters}}
+                query_clause = {"function_score": {"query": {"knn": {cfg.opensearch_vector_field: fallback_knn}},
+                                                   "min_score": cfg.semantic_fallback_min_score}}
+
+            elif exact_number_hits:
+                mode = "material number (exact match first)"
+                query_clause = {"bool": {
+                    "must": [bm25],
+                    "should": [{"constant_score": {"filter": material_match, "boost": 100000}}],
+                    "filter": filters,
+                }}
+
+            else:
+                # Hybrid query fused by RRF. The "gate" decides which products may be returned at all
+                # (without it the text kNN would add its nearest products, related or not):
+                #   text         -> the product contains the query words
+                #   text + image -> contains the query words OR its image matches; the text kNN then
+                #                   ranks keyword matches only, so image-only look-alikes can't outrank them
+                text_knn = {"knn": {cfg.opensearch_vector_field: {
+                    "vector": query_vector, "k": cfg.hybrid_retrieval_k, **knn_params,
+                }}}
+                gated = cfg.text_require_keyword_match
+                if gated and has_image:
+                    filters.append({"bool": {"should": [bm25, image_clause], "minimum_should_match": 1}})
+                    text_knn["knn"][cfg.opensearch_vector_field]["filter"] = bm25
+                elif gated:
+                    filters.append(bm25)
+
+                # Sub-query order matches the pipeline weights: [BM25, text kNN, image kNN]. Without
+                # weighted RRF the same 3 lists use plain RRF (a keyword match gets 2 votes, an
+                # image-only look-alike 1, a product matching both 3).
+                if not has_image:
+                    mode = "text (keyword matches only)" if gated else "text"
+                    subqueries = [bm25, text_knn]
+                    pipeline_id = PIPELINE_ID
+                elif self._text_image_fusion:
+                    mode = "text+image (keyword or image matches)" if gated else "text+image"
+                    subqueries = [bm25, text_knn, image_clause]
+                    pipeline_id = TEXT_IMAGE_PIPELINE_ID
+                else:
+                    mode = "text+image (keyword or image matches, plain RRF)" if gated else "text+image (plain RRF)"
+                    subqueries = [bm25, text_knn, image_clause]
+                    pipeline_id = PIPELINE_ID
+                # A hybrid query must be the top-level query, so the filters go in its own `filter`.
+                hybrid: dict[str, Any] = {"queries": subqueries, "pagination_depth": depth}
+                if filters:
+                    hybrid["filter"] = {"bool": {"filter": filters}}
+                query_clause = {"hybrid": hybrid}
+
+        # ---------------------------------------------------------------------------------------
+        # 3. Request body. Embedding vectors are never returned (large and useless to clients).
+        # ---------------------------------------------------------------------------------------
         body: dict[str, Any] = {
             "from": (page - 1) * page_size,
             "size": page_size,
-            # Never return embedding vectors — they're large and useless to clients.
-            "_source": {"excludes": [_cfg.opensearch_vector_field, IMAGE_PATH]},
+            "_source": {"excludes": [cfg.opensearch_vector_field, IMAGE_PATH]},
             "query": query_clause,
             "aggs": FACET_AGGS,
         }
         if sort_by == "price":
             body["sort"] = [{"price": {"order": sort_order}}]
-            logger.info(f"Search — step: sorting by price {sort_order}")
-        else:
-            logger.info("Search — step: sorting by relevance score")
-        logger.info(
-            f"Search — mode={mode}, pipeline={pipeline_id}, index={_cfg.opensearch_index_name}, "
-            f"from={body['from']}, size={body['size']}",
-            extra={"search_query": query, "search_mode": mode, "pipeline": pipeline_id},
-        )
+        logger.info(f"Search — mode={mode}, pipeline={pipeline_id}, from={body['from']}, size={body['size']}, "
+                    f"sort={'price ' + sort_order if sort_by == 'price' else 'relevance'}",
+                    extra={"search_query": query, "search_mode": mode, "pipeline": pipeline_id})
 
+        # ---------------------------------------------------------------------------------------
+        # 4. Run it. A hybrid search asked for a page after its last result gets "Reached end of
+        #    search result" (400) from OpenSearch: return an empty page with page 1's total + facets.
+        # ---------------------------------------------------------------------------------------
         start = time.perf_counter()
         try:
-            raw = await self._os.search(_cfg.opensearch_index_name, body, pipeline_id=pipeline_id)
+            raw = await self._os.search(index, body, pipeline_id=pipeline_id)
         except ApiError as exc:
-            # A hybrid (text / text+image) search asked for a page after its last result: OpenSearch
-            # answers "Reached end of search result" (400) instead of an empty page. That is not an
-            # error for the client — return an empty page. The same search from the first page gives
-            # the real total and facets, so total_results stays the same on every page.
             if "Reached end of search result" not in str(exc.detail):
                 raise
-            logger.info(f"Search — page {page} is after the last result -> empty page "
-                        f"(re-reading the total and facets from page 1)")
-            raw = await self._os.search(_cfg.opensearch_index_name, {**body, "from": 0},
-                                        pipeline_id=pipeline_id)
+            logger.info(f"Search — page {page} is after the last result -> empty page")
+            raw = await self._os.search(index, {**body, "from": 0}, pipeline_id=pipeline_id)
             raw["hits"]["hits"] = []
         wall_ms = (time.perf_counter() - start) * 1000
-        took_ms = raw.get("took", 0)
         hits = raw["hits"]["hits"]
         total = raw["hits"]["total"]["value"]
         logger.info(
-            f"Search — {mode}: {total} total results, {len(hits)} returned on page {page}, "
-            f"max_score={raw['hits'].get('max_score')} "
-            f"(OpenSearch wall={wall_ms:.1f}ms, server={took_ms}ms, network={wall_ms - took_ms:.1f}ms, pipeline={pipeline_id})",
-            extra={"status": "success", "search_query": query, "search_mode": mode, "latency": f"{wall_ms:.1f}ms",
+            f"Search — {mode}: {total} results, {len(hits)} on page {page} "
+            f"(OpenSearch {wall_ms:.1f}ms, server {raw.get('took', 0)}ms)",
+            extra={"status": "success" if hits else "no_results", "search_query": query, "search_mode": mode,
+                   "latency": f"{wall_ms:.1f}ms",
                    "response_payload": {"total_results": total, "returned": len(hits),
-                                        "max_score": raw["hits"].get("max_score"), "took_ms": took_ms}},
+                                        "max_score": raw["hits"].get("max_score"), "took_ms": raw.get("took", 0)}},
         )
-        # One line per result: its rank, score and identifiers. In text / text+image modes the
-        # score is the RRF fusion score (rank-based), not the raw BM25 score.
-        for rank, hit in enumerate(hits, start=(page - 1) * page_size + 1):
-            src = hit.get("_source", {})
-            sellers = [sd.get("seller_name") for sd in src.get("seller_details") or []]
-            logger.info(
-                f"Search — result #{rank}: score={hit.get('_score')}, id={hit.get('_id')}, "
-                f"sku_id={src.get('sku_id')}, name={src.get('sku_name') or src.get('product_name')!r}, "
-                f"aramco_material_number={src.get('aramco_material_number')}, "
-                f"asmo_material_number={src.get('asmo_material_number')}, sellers={sellers}",
-                extra={"search_query": query, "search_mode": mode,
-                       "result": {"rank": rank, "score": hit.get("_score"), "id": hit.get("_id"),
-                                  "sku_id": src.get("sku_id"),
-                                  "name": src.get("sku_name") or src.get("product_name"),
-                                  "aramco_material_number": src.get("aramco_material_number"),
-                                  "asmo_material_number": src.get("asmo_material_number"),
-                                  "sellers": sellers, "price": src.get("price")}},
-            )
-        if not hits:
-            logger.info(f"Search — no results for query={query!r} (mode={mode}, filters={len(filters)})",
-                        extra={"search_query": query, "search_mode": mode, "status": "no_results"})
-        # Facet counts returned with the results.
-        aggs = raw.get("aggregations", {})
-        facet_counts = {
-            key: len(aggs.get(key, {}).get("values", aggs.get(key, {})).get("buckets", []))
-            for key in FACETS
-        }
-        logger.info(f"Search — facets: {facet_counts}", extra={"search_query": query, "facets": facet_counts})
-        # Map the OpenSearch response to the frontend contract (2.4): products + facets.
-        logger.info(f"Search — mapping {len(raw['hits']['hits'])} hits to the response")
+
+        # ---------------------------------------------------------------------------------------
+        # 5. Hits -> products (frontend contract 2.4), one log line per result.
+        # ---------------------------------------------------------------------------------------
         products: list[ProductItem] = []
-        for hit in raw["hits"]["hits"]:
+        for rank, hit in enumerate(hits, start=(page - 1) * page_size + 1):
             src = hit.get("_source", {})
             sellers: list[SellerDetail] = []
             for i, seller in enumerate(src.get("seller_details") or []):
-                # Older indexes keep temporary_unavailable / under_agreement on the root document
-                # (the primary, cheapest seller's offer): use those for seller 0 when its offer has none.
-                fallback = src if i == 0 else {}
+                # Older indexes keep temporary_unavailable / under_agreement on the root document (the
+                # primary, cheapest seller's offer): used for seller 0 when its offer has none.
+                root = src if i == 0 else {}
                 sellers.append(SellerDetail(
                     seller_id=seller.get("seller_id"),
                     name=seller.get("seller_name"),
                     lead_time=seller.get("lead_time"),
                     unit_type=seller.get("unit_type"),
                     price=seller.get("price"),
-                    moq=seller["moq"] if seller.get("moq") is not None else "",  # the FE expects "" when there's no MOQ
+                    moq=seller["moq"] if seller.get("moq") is not None else "",  # the frontend expects "" for none
                     currency=seller.get("currency"),
-                    temporary_unavailable=(
-                        seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None
-                        else fallback.get("temporary_unavailable")
-                    ),
-                    under_agreement=(
-                        seller["under_agreement"] if seller.get("under_agreement") is not None
-                        else fallback.get("under_agreement")
-                    ),
+                    temporary_unavailable=(seller["temporary_unavailable"] if seller.get("temporary_unavailable") is not None
+                                           else root.get("temporary_unavailable")),
+                    under_agreement=(seller["under_agreement"] if seller.get("under_agreement") is not None
+                                     else root.get("under_agreement")),
                 ))
-            products.append(ProductItem(
+            product = ProductItem(
                 sku_id=src.get("sku_id"),
                 sku_name=src.get("sku_name") or src.get("product_name"),  # older indexes only have product_name
                 primary_image_url=src.get("primary_image_url"),
                 asmo_material_number=src.get("asmo_material_number"),
                 aramco_material_number=src.get("aramco_material_number"),
                 seller_details=sellers,
-            ))
-            logger.info(f"Search — mapped product sku_id={src.get('sku_id')}: {len(sellers)} sellers, "
-                        f"prices={[sd.price for sd in sellers]}, "
-                        f"name_from={'sku_name' if src.get('sku_name') else 'product_name'}")
+            )
+            products.append(product)
+            logger.info(
+                f"Search — #{rank}: score={hit.get('_score')}, sku_id={product.sku_id}, name={product.sku_name!r}, "
+                f"aramco={product.aramco_material_number}, asmo={product.asmo_material_number}, "
+                f"sellers={[s.name for s in sellers]}, prices={[s.price for s in sellers]}",
+                extra={"search_query": query, "search_mode": mode,
+                       "result": {"rank": rank, "score": hit.get("_score"), "id": hit.get("_id"),
+                                  "sku_id": product.sku_id, "name": product.sku_name,
+                                  "aramco_material_number": product.aramco_material_number,
+                                  "asmo_material_number": product.asmo_material_number,
+                                  "sellers": [s.name for s in sellers], "price": src.get("price")}},
+            )
 
+        # ---------------------------------------------------------------------------------------
+        # 6. Aggregations -> facets {id, value, count}. Nested facets (seller) count products, not
+        #    offers. Multi-select facets take the counts made without their own filter (step 1).
+        # ---------------------------------------------------------------------------------------
         aggs = raw.get("aggregations", {})
         facets: dict[str, list[FacetTermValue]] = {}
         for key, (_id_field, label_field, nested_path) in FACETS.items():
@@ -689,26 +612,20 @@ class SearchService:
                 label = labels[0]["key"] if label_field and labels else bucket["key"]
                 count = bucket["products"]["doc_count"] if nested_path else bucket["doc_count"]
                 facets[key].append(FacetTermValue(id=bucket["key"], value=str(label), count=count))
-            logger.info(f"Search — facet '{key}': {[(f.value, f.count) for f in facets[key]]}")
-
-        # Multi-select facets: replace with the counts made without their own filter (started above).
         if recount_task:
             for key, other in zip(recount, await recount_task):
                 facets[key] = getattr(other.facets, key)
-                logger.info(f"Search — facet '{key}' (without its own filter): "
-                            f"{[(f.value, f.count) for f in facets[key]]}")
-
-        response = SearchApiResponse(
+        logger.info(f"Search — done: {len(products)} products, total={total}, facets="
+                    f"{ {key: len(values) for key, values in facets.items()} }",
+                    extra={"search_query": query, "status": "success"})
+        return SearchApiResponse(
             request_id=request_id,
-            total_results=raw["hits"]["total"]["value"],
+            total_results=total,
             page=page,
             page_size=page_size,
             products=products,
             facets=SearchFacets(**facets),
         )
-        logger.info(f"Search — done: returning {len(response.products)} products (total={response.total_results}, "
-                    f"request_id={response.request_id})", extra={"search_query": query, "status": "success"})
-        return response
 
     async def get_suggestions(
         self, query: str, query_limit: int = 5, product_limit: int = 5, language: str = "en",
