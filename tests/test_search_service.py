@@ -426,7 +426,9 @@ class TestSearch:
         r = await _search(service, query="I want steel valvs", query_vector=[0.1], filters=user_filters)
         calls = [c.args[1] for c in os_client.search.await_args_list]
         assert calls[0]["query"]["bool"]["filter"][0]["bool"]["should"][0]["multi_match"]["query"] == "I want steel valvs"
-        knn = calls[1]["query"]["knn"]["content_vector"]
+        # Only close neighbours count (far ones would pick unrelated words).
+        assert calls[1]["query"]["function_score"]["min_score"] == 0.8
+        knn = calls[1]["query"]["function_score"]["query"]["knn"]["content_vector"]
         assert (calls[1]["size"], knn["vector"], knn["k"]) == (0, [0.1], 20)
         assert knn["filter"] == {"bool": {"filter": user_filters}}
         assert sorted(calls[1]["aggs"]) == ["catalogue", "word_0", "word_1", "word_2", "word_3"]
@@ -479,6 +481,15 @@ class TestSearch:
             os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0, aggs=counts)]
             r = await _search(service, query="zzq xvw", query_vector=[0.1])
             assert os_client.search.await_count == 2 and r.total_results == 0
+
+    async def test_relax_counts_all_neighbours_when_min_score_is_off(self, service, os_client, monkeypatch):
+        from services import search as search_module
+        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
+        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
+        monkeypatch.setattr(search_module._cfg, "text_relax_min_score", 0.0)
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0, aggs={})]
+        await _search(service, query="zzq xvw", query_vector=[0.1])
+        assert "knn" in os_client.search.await_args_list[1].args[1]["query"]
 
     async def test_no_relaxing_for_one_word_or_when_off(self, service, os_client, monkeypatch):
         from services import search as search_module

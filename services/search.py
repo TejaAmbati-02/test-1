@@ -410,12 +410,17 @@ class SearchService:
                             "multi_match": {"query": w, "fields": SELLER_FIELDS, "lenient": True}}}},
                         *[c for c in (typo.get(w), partial.get(w)) if c],
                     ], "minimum_should_match": 1}}} for i, w in enumerate(words)}
+                    # Only neighbours scoring at least text_relax_min_score count: the 20 nearest are
+                    # returned however far away they are, and far ones ("laptop" -> steel tubes) would
+                    # keep their words ("work") and return unrelated products.
+                    neighbour_knn = {"knn": {cfg.opensearch_vector_field: {
+                        "vector": query_vector, "k": cfg.text_relax_neighbors, **knn_params,
+                        **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
+                    }}}
                     neighbours = await self._os.search(index, {
                         "size": 0,
-                        "query": {"knn": {cfg.opensearch_vector_field: {
-                            "vector": query_vector, "k": cfg.text_relax_neighbors, **knn_params,
-                            **({"filter": {"bool": {"filter": list(filters)}}} if filters else {}),
-                        }}},
+                        "query": ({"function_score": {"query": neighbour_knn, "min_score": cfg.text_relax_min_score}}
+                                  if cfg.text_relax_min_score > 0 else neighbour_knn),
                         "aggs": {**word_aggs, "catalogue": {"global": {}, "aggs": word_aggs}},
                     })
                     found = neighbours.get("aggregations", {})
