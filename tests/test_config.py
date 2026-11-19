@@ -70,9 +70,9 @@ def test_unknown_env_keys_are_ignored(monkeypatch):
     Settings(_env_file=None)  # extra="ignore" — must not raise
 
 
-# --------------------------------------------------------------------------
+#---
 # Module import: settings are built (and validated) once, at import time
-# --------------------------------------------------------------------------
+#---
 
 
 @pytest.fixture

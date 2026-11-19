@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # How often (seconds) to send a tiny embed so the model stays warm. Each tick is a billable call.
     oci_embed_heartbeat_interval: int = 60
 
-    # ---- Paging and ranking -----------------------------------------------------------------------
+    # Paging and ranking
     default_top_k: int = 10
     max_top_k: int = 100
     hybrid_semantic_weight: float = 0.5
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     # Text shorter than this many characters is not searched (search and suggestions).
     min_query_chars: int = 3
 
-    # ---- Text search: which products count as a match ---------------------------------------------
+    # Text search: which products count as a match
     # Return only products that contain the query words (BM25); the vector search just re-ranks them
     # instead of padding the results with "similar" but unrelated products (e.g. fans for "pump").
     # false = always mix in vector-only matches.
@@ -80,15 +80,14 @@ class Settings(BaseSettings):
     # How many completions each partial word may expand to (taken alphabetically, so too low a value
     # can miss e.g. "electronics" after many other "elec..." words).
     text_prefix_max_expansions: int = 100
-    # Still no match (e.g. "i want steel valves"): look at this many products closest in meaning, keep
-    # only the query words they contain ("steel", "valves") and search again. 0 = off.
-    text_relax_neighbors: int = 20
-    # ... and only those of them scoring at least this ((1 + cosine) / 2). Without it the 20 nearest
-    # count however far away they are ("I want laptop for my project work" -> steel tubes, kept "work");
-    # 0.8 was too strict ("I want steel pipes" lost the steel tubes). Calibrate with the log line
-    # "relax": it prints the top 5 neighbour scores. 0 = off.
-    text_relax_min_score: float = 0.7
-    # ... but a word found in more than this share of the whole catalogue ("for", "with") is dropped
+    # Still no match (e.g. "I want lamps"): weigh each query word by how much the query's meaning
+    # (its embedding) changes without it, and search again with only the important words some product
+    # has — "lamps". Only if the MOST important word is in the catalogue: "laptop for work" has no
+    # laptops, and searching just "work" returned steel tubes. A word is important when its weight is at
+    # least this share of the top word's (measured: lamps 1.0 / want 0.68 / I 0.36; laptop 1.0 /
+    # work 0.72 / for 0.43). Calibrate with diagnose_word_importance.py or the log line "relax". 0 = off.
+    text_relax_min_importance: float = 0.5
+    # ... and a word found in more than this share of the whole catalogue ("for", "with") is dropped
     # from that retry: it describes no product. 1.0 = off.
     text_relax_max_word_share: float = 0.3
     # Still no match: return the products closest in meaning instead of 0 results — only those scoring
@@ -102,7 +101,7 @@ class Settings(BaseSettings):
     # neighbouring numbers are only 1-2 edits apart.
     identifier_fuzziness: int = 2
 
-    # ---- Image search -----------------------------------------------------------------------------
+    # Image search------
     # Image matches scoring below this are dropped ((1 + cosine) / 2; an exact copy is 1.0). 0 = off.
     # 0.6 (cosine 0.2) let unrelated products through (a USB cable for a capacitor photo); 0.75 =
     # cosine 0.5. Calibrate: just above the score of the best UNRELATED product for a real photo.
@@ -118,7 +117,7 @@ class Settings(BaseSettings):
     # JPEG quality used when re-encoding a non-PNG upload.
     image_jpeg_quality: int = 90
 
-    # ---- Redis: search contexts for request_id refinement (services/embedding_store.py) ------------
+    # Redis: search contexts for request_id refinement (services/embedding_store.py)
     # Each search is one key, its request_id; it expires redis_ttl_seconds after it was last used.
     redis_enabled: bool = True
     redis_host: str = ""
@@ -131,7 +130,7 @@ class Settings(BaseSettings):
     redis_timeout: int = 10
     redis_ttl_seconds: int = 3600
 
-    # ---- Keycloak: checks "Authorization: Bearer <token>" on every endpoint (utils/keycloak_auth.py)
+    # Keycloak: checks "Authorization: Bearer <token>" on every endpoint (utils/keycloak_auth.py)
     keycloak_auth_enabled: bool = True
     keycloak_server_url: str = ""
     keycloak_realm: str = ""
@@ -139,7 +138,7 @@ class Settings(BaseSettings):
     keycloak_client_secret: str = ""
     keycloak_timeout: int = 5
 
-    # ---- Logging (utils/logger.py) ----------------------------------------------------------------
+    # Logging (utils/logger.py)-------------------
     # Every line always prints to the console; LOG_TO_FILE=true also writes JSON lines to
     # logs/asmo-<YYYY-MM-DD-HH-MM-SS>.log (a new file for every app start).
     log_level: str = "INFO"

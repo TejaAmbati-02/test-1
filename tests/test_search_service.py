@@ -238,20 +238,6 @@ class TestSearch:
         assert _pipeline(os_client) is None
         assert r.total_results == 1 and r.products[0].sku_id == "SKU-1"
 
-    async def test_semantic_fallback_runs_after_the_relaxed_retry_fails(self, service, os_client, monkeypatch):
-        from services import search as search_module
-        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
-        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_1"]}], total=1)
-        os_client.search.side_effect = [
-            os_search_result([], total=0),                # strict keyword check
-            neighbours,                                   # closest products contain "products"
-            os_search_result([], total=0),                # relaxed keyword check: still nothing
-            os_search_result([HIT], total=1, aggs=AGGS),  # the semantic fallback search
-        ]
-        r = await _search(service, query="want products", query_vector=[0.1])
-        assert os_client.search.await_count == 4
-        assert "function_score" in _body(os_client)["query"] and r.total_results == 1
-
     async def test_semantic_fallback_needs_a_text_vector(self, service, os_client):
         os_client.search.return_value = os_search_result([], total=0)
         r = await _search(service, query="pump", query_vector=None)
@@ -309,24 +295,6 @@ class TestSearch:
         os_client.search.return_value = os_search_result([], total=0)
         await _search(service, query="elec", query_vector=[0.1])
         assert os_client.search.await_count == 1
-
-    async def test_relaxed_retry_keeps_partial_words(self, service, os_client):
-        # "i want elec": nothing as typed, nothing with partial words (3 of 3 words needed) -> the closest
-        # products contain "elec..." (counted as a partial word too) -> retried as "elec", still partial.
-        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2"]}], total=1)
-        os_client.search.side_effect = [
-            os_search_result([], total=0), os_search_result([], total=0), neighbours,
-            os_search_result([], total=3), os_search_result([HIT], total=3, aggs=AGGS),
-        ]
-        r = await _search(service, query="i want elec", query_vector=[0.1])
-        calls = [c.args[1] for c in os_client.search.await_args_list]
-        word_aggs = calls[2]["aggs"]["catalogue"]["aggs"]
-        assert "phrase_prefix" in str(word_aggs["word_2"]) and "phrase_prefix" in str(word_aggs["word_1"])
-        assert "phrase_prefix" not in str(word_aggs["word_0"])  # "i" is too short
-        bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
-        assert bm25["bool"]["should"][0]["multi_match"]["query"] == "elec"
-        assert "phrase_prefix" in str(bm25["bool"]["should"][3])
-        assert r.total_results == 3
 
     async def test_text_keyword_check_can_be_disabled(self, service, os_client, monkeypatch):
         from services import search as search_module
@@ -408,117 +376,142 @@ class TestSearch:
         # "3.3kv" is an identifier -> the typo match is per word, with the same minimum.
         assert fuzzy["bool"]["minimum_should_match"] == "2<75%"
 
-    async def test_words_no_close_product_has_are_dropped_when_nothing_matches(self, service, os_client, monkeypatch):
-        from services import search as search_module
-        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
-        # "i want steel valvs": no product has "i" / "want" -> keep the words the closest products contain.
-        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2", "word_3"]},
-                                       {"_score": 0.8, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2"]}], total=2)
+    # Relaxed retry: the important query words some product has--------------------
+
+    @staticmethod
+    def _relaxing(service, weights: dict[str, float]):
+        """Give the service a fake embedder: each word is one dimension with its weight, so leaving a
+        heavy word out moves the vector far and leaving a light one out barely moves it."""
+        vocab = sorted(weights)
+        calls: list[str] = []
+
+        async def embed(text: str) -> list[float]:
+            calls.append(text)
+            present = set(text.lower().split())
+            return [weights[w] if w in present else 0.0 for w in vocab]
+
+        service._embed = embed
+        return embed, calls
+
+    @staticmethod
+    def _catalogue(*counts: int, size: int = 100):
+        """The size-0 search counting how many products have each query word."""
+        return os_search_result([], total=0, aggs={"catalogue": {
+            "doc_count": size, **{f"word_{i}": {"doc_count": n} for i, n in enumerate(counts)}}})
+
+    async def test_relax_keeps_the_important_words_some_product_has(self, service, os_client):
+        # "I want lamps": 2 of 3 words needed, only "lamps" is in a product -> searched again as "lamps".
+        embed, calls = self._relaxing(service, {"i": 0.5, "want": 1.0, "lamps": 3.0})
         os_client.search.side_effect = [
-            os_search_result([], total=0),           # strict keyword check: nothing
-            neighbours,                              # which words do the closest products contain?
-            os_search_result([], total=1),           # relaxed keyword check: found
+            os_search_result([], total=0),                # strict keyword check
+            os_search_result([], total=0),                # partial-word check
+            self._catalogue(0, 0, 1, size=40),            # which words are in the catalogue
+            os_search_result([], total=1),                # relaxed keyword check: found
             os_search_result([HIT], total=1, aggs=AGGS),  # the search
         ]
         user_filters = [{"term": {"currency": "SAR"}}]
-        r = await _search(service, query="I want steel valvs", query_vector=[0.1], filters=user_filters)
-        calls = [c.args[1] for c in os_client.search.await_args_list]
-        assert calls[0]["query"]["bool"]["filter"][0]["bool"]["should"][0]["multi_match"]["query"] == "I want steel valvs"
-        # Only close neighbours count (far ones would pick unrelated words).
-        knn = calls[1]["query"]["bool"]["must"][0]["knn"]["content_vector"]
-        assert (calls[1]["size"], knn["vector"], knn["k"]) == (20, [0.1], 20)
-        # Each word is a named, zero-boost clause: the score stays the kNN score.
-        named = calls[1]["query"]["bool"]["should"]
-        assert [c["constant_score"]["_name"] for c in named] == ["word_0", "word_1", "word_2", "word_3"]
-        assert all(c["constant_score"]["boost"] == 0 for c in named)
-        # Only products containing at least one query word compete for the neighbour slots.
-        assert knn["filter"] == {"bool": {"filter": [*user_filters, {"bool": {
-            "should": [c["constant_score"]["filter"] for c in named], "minimum_should_match": 1}}]}}
-        assert sorted(calls[1]["aggs"]) == ["catalogue"]
-        assert calls[1]["aggs"]["catalogue"]["global"] == {}
-        assert sorted(calls[1]["aggs"]["catalogue"]["aggs"]) == ["word_0", "word_1", "word_2", "word_3"]
-        bm25 = calls[3]["query"]["hybrid"]["queries"][0]
-        main, seller, fuzzy = bm25["bool"]["should"]
-        assert main["multi_match"]["query"] == "steel valvs"
-        assert seller["nested"]["query"]["multi_match"]["query"] == "steel valvs"
-        assert fuzzy["multi_match"]["query"] == "steel valvs"
-        assert calls[2]["query"]["bool"]["filter"][0] == bm25
-        assert r.total_results == 1 and len(r.products) == 1
+        vector = await embed("I want lamps")
+        calls.clear()
+        r = await _search(service, query="I want lamps", query_vector=vector, filters=user_filters)
+        bodies = [c.args[1] for c in os_client.search.await_args_list]
+        # The catalogue counts ignore the user's filters (how common a word is, not where it is).
+        assert bodies[2]["size"] == 0 and bodies[2]["aggs"]["catalogue"]["global"] == {}
+        assert sorted(bodies[2]["aggs"]["catalogue"]["aggs"]) == ["word_0", "word_1", "word_2"]
+        # One embedding per word left out; the full query's vector is the one passed in.
+        assert sorted(calls) == sorted(["want lamps", "I lamps", "I want"])
+        bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
+        main, seller, fuzzy, _prefix = bm25["bool"]["should"]
+        assert main["multi_match"]["query"] == seller["nested"]["query"]["multi_match"]["query"] == "lamps"
+        assert fuzzy["multi_match"]["query"] == "lamps"
+        assert bodies[3]["query"]["bool"]["filter"] == [bm25, *user_filters]
+        assert _body(os_client)["query"]["hybrid"]["queries"][1]["knn"]["content_vector"]["vector"] == vector
+        assert r.total_results == 1 and r.products[0].sku_id == "SKU-1"
 
-    async def test_words_common_to_the_whole_catalogue_are_not_searched_alone(self, service, os_client, monkeypatch):
+    async def test_no_relaxing_when_the_heaviest_word_is_in_no_product(self, service, os_client, monkeypatch):
+        # "laptop for work": no laptops -> "work" (also important) must not return steel tubes.
         from services import search as search_module
-        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
-        # "glass tube for cooking": the closest products (office supplies) only share "for", which 40 of
-        # the 100 catalogue products contain -> no retry with "for" (it returned paper clips), 0 results.
-        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_2"]}], total=1, aggs={
-            "catalogue": {"doc_count": 100, "word_0": {"doc_count": 2}, "word_1": {"doc_count": 3},
-                          "word_2": {"doc_count": 40}, "word_3": {"doc_count": 1}},
-        })
-        os_client.search.side_effect = [os_search_result([], total=0), neighbours]
-        r = await _search(service, query="glass tube for cooking", query_vector=[0.1])
-        assert os_client.search.await_count == 2 and r.total_results == 0 and r.products == []
+        embed, _calls = self._relaxing(service, {"laptop": 3.0, "for": 1.0, "work": 2.0})
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0),
+                                        self._catalogue(0, 2, 5)]
+        r = await _search(service, query="laptop for work", query_vector=await embed("laptop for work"))
+        assert os_client.search.await_count == 3 and r.total_results == 0 and r.products == []
 
-    async def test_rare_words_are_still_kept_when_a_common_one_is_dropped(self, service, os_client, monkeypatch):
-        from services import search as search_module
-        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
-        neighbours = os_search_result([{"_score": 0.9, "_source": {"sku_name": "Near"}, "matched_queries": ["word_0", "word_1"]}], total=1, aggs={
-            "catalogue": {"doc_count": 100, "word_0": {"doc_count": 4}, "word_1": {"doc_count": 60},
-                          "word_2": {"doc_count": 0}},
-        })
-        os_client.search.side_effect = [os_search_result([], total=0), neighbours,
-                                        os_search_result([], total=1), os_search_result([HIT], total=1, aggs=AGGS)]
-        await _search(service, query="valve for cooking", query_vector=[0.1])
+    async def test_unimportant_words_are_dropped_even_when_products_have_them(self, service, os_client):
+        embed, _calls = self._relaxing(service, {"red": 0.3, "steel": 2.8, "pipes": 3.0})
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0),
+                                        self._catalogue(7, 9, 4), os_search_result([], total=2),
+                                        os_search_result([HIT], total=2, aggs=AGGS)]
+        await _search(service, query="red steel pipes", query_vector=await embed("red steel pipes"))
+        main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
+        assert main["multi_match"]["query"] == "steel pipes"
+
+    async def test_words_common_to_the_whole_catalogue_are_not_kept(self, service, os_client):
+        # "for" is important here but in 60 of 100 products: it describes nothing -> dropped.
+        embed, _calls = self._relaxing(service, {"valve": 3.0, "for": 2.5, "cooking": 0.5})
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0),
+                                        self._catalogue(4, 60, 0), os_search_result([], total=1),
+                                        os_search_result([HIT], total=1, aggs=AGGS)]
+        await _search(service, query="valve for cooking", query_vector=await embed("valve for cooking"))
         main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
         assert main["multi_match"]["query"] == "valve"
 
-    async def test_no_relaxing_when_the_closest_products_have_none_or_all_of_the_words(self, service, os_client, monkeypatch):
-        from services import search as search_module
-        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
-        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
-        for matched in ([], ["word_0", "word_1"]):
-            os_client.search.reset_mock()
-            os_client.search.side_effect = [os_search_result([], total=0), os_search_result(
-                [{"_score": 0.9, "_source": {}, "matched_queries": matched}], total=1)]
-            r = await _search(service, query="zzq xvw", query_vector=[0.1])
-            assert os_client.search.await_count == 2 and r.total_results == 0
+    async def test_relaxed_retry_keeps_partial_words(self, service, os_client):
+        # "zz shiny elec": only "elec..." is in products (as a partial word) -> retried as "elec", still partial.
+        embed, _calls = self._relaxing(service, {"zz": 0.2, "shiny": 0.5, "elec": 3.0})
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0),
+                                        self._catalogue(0, 0, 5), os_search_result([], total=3),
+                                        os_search_result([HIT], total=3, aggs=AGGS)]
+        r = await _search(service, query="zz shiny elec", query_vector=await embed("zz shiny elec"))
+        word_aggs = os_client.search.await_args_list[2].args[1]["aggs"]["catalogue"]["aggs"]
+        assert "phrase_prefix" in str(word_aggs["word_2"]) and "phrase_prefix" in str(word_aggs["word_1"])
+        assert "phrase_prefix" not in str(word_aggs["word_0"])  # "zz" is too short
+        bm25 = _body(os_client)["query"]["hybrid"]["queries"][0]
+        assert bm25["bool"]["should"][0]["multi_match"]["query"] == "elec"
+        assert "phrase_prefix" in str(bm25["bool"]["should"][3])
+        assert r.total_results == 3
 
-    async def test_far_neighbours_do_not_choose_the_words(self, service, os_client, monkeypatch):
-        from services import search as search_module
-        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
-        monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
-        # "laptop for work": the nearest product (a steel tube, score 0.6 < 0.7) contains "work" ->
-        # not close enough to count -> no retry with "work", 0 results.
-        far = os_search_result([{"_score": 0.6, "_source": {"sku_name": "Structural Tube"},
-                                 "matched_queries": ["word_2"]}], total=1)
-        os_client.search.side_effect = [os_search_result([], total=0), far]
-        r = await _search(service, query="laptop for work", query_vector=[0.1])
-        assert os_client.search.await_count == 2 and r.total_results == 0
+    async def test_semantic_fallback_runs_after_the_relaxed_retry_fails(self, service, os_client):
+        embed, _calls = self._relaxing(service, {"zzq": 0.5, "products": 3.0})
+        os_client.search.side_effect = [
+            os_search_result([], total=0), os_search_result([], total=0),  # strict, partial-word checks
+            self._catalogue(0, 3),                                          # "products" is in the catalogue
+            os_search_result([], total=0),                                  # relaxed keyword check: nothing
+            os_search_result([HIT], total=1, aggs=AGGS),                    # the semantic fallback search
+        ]
+        r = await _search(service, query="zzq products", query_vector=await embed("zzq products"))
+        assert os_client.search.await_count == 5
+        assert "function_score" in _body(os_client)["query"] and r.total_results == 1
 
-    async def test_relax_counts_all_neighbours_when_min_score_is_off(self, service, os_client, monkeypatch):
+    async def test_relax_is_skipped_when_embedding_fails(self, service, os_client, monkeypatch):
         from services import search as search_module
-        monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
-        monkeypatch.setattr(search_module._cfg, "text_relax_min_score", 0.0)
-        far = os_search_result([{"_score": 0.6, "_source": {"sku_name": "Structural Tube"},
-                                 "matched_queries": ["word_2"]}], total=1)
-        os_client.search.side_effect = [os_search_result([], total=0), far,
-                                        os_search_result([], total=1), os_search_result([HIT], total=1, aggs=AGGS)]
-        await _search(service, query="laptop for work", query_vector=[0.1])
-        main = _body(os_client)["query"]["hybrid"]["queries"][0]["bool"]["should"][0]
-        assert main["multi_match"]["query"] == "work"
 
-    async def test_no_relaxing_for_one_word_or_when_off(self, service, os_client, monkeypatch):
+        async def broken(text: str) -> list[float]:
+            raise RuntimeError("OCI down")
+
+        service._embed = broken
+        os_client.search.side_effect = [os_search_result([], total=0), os_search_result([], total=0),
+                                        self._catalogue(0, 0, 1)]
+        r = await _search(service, query="I want lamps", query_vector=[0.1])
+        assert os_client.search.await_count == 3 and r.total_results == 0
+
+    async def test_no_relaxing_for_one_word_without_embedder_or_vector_or_when_off(self, service, os_client, monkeypatch):
         from services import search as search_module
         monkeypatch.setattr(search_module._cfg, "text_prefix_min_chars", 0)
         monkeypatch.setattr(search_module._cfg, "semantic_fallback_min_score", 0.0)
         os_client.search.return_value = os_search_result([], total=0)
-        await _search(service, query="zzqxvw", query_vector=[0.1])
+        await _search(service, query="zzq xvw", query_vector=[0.1])         # no embedder
         assert os_client.search.await_count == 1
-        monkeypatch.setattr(search_module._cfg, "text_relax_neighbors", 0)
+        _embed, calls = self._relaxing(service, {"zzq": 1.0, "xvw": 1.0, "zzqxvw": 1.0})
+        for query, vector in (("zzqxvw", [0.1]), ("zzq xvw", None)):         # one word / no text vector
+            os_client.search.reset_mock()
+            await _search(service, query=query, query_vector=vector)
+            assert os_client.search.await_count == 1
+        monkeypatch.setattr(search_module._cfg, "text_relax_min_importance", 0.0)  # off
         os_client.search.reset_mock()
         await _search(service, query="zzq xvw", query_vector=[0.1])
-        assert os_client.search.await_count == 1
+        assert os_client.search.await_count == 1 and calls == []
 
     async def test_typo_tolerant_match_on_text_fields_only(self, service, os_client):
         await _search(service, query="steel valvs", query_vector=[0.1])

@@ -18,8 +18,9 @@ key, a facet or a searched field.
 from __future__ import annotations
 
 import asyncio
+import math
 import time
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from config import settings as _cfg
 from models.response import (
@@ -33,6 +34,7 @@ from models.response import (
     SellerDetail,
     SuggestionsResponse,
 )
+from services.embedder import embedding_service
 from services.opensearch import OpenSearchClientService, os_client
 from utils.logger import logger
 
@@ -40,7 +42,7 @@ from utils.logger import logger
 PIPELINE_ID = "hybrid-rrf-pipeline"                       # plain RRF
 TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"  # weighted: [BM25, text kNN, image kNN]
 
-# ------------------------------------------------------------------------------------------------
+---------
 # Filters — every key the `filters` JSON may hold (any other key -> 400 INVALID_FILTER_KEY).
 #
 #   key: (index field(s), value type, nested path, multi-select facet)
@@ -55,7 +57,7 @@ TEXT_IMAGE_PIPELINE_ID = "hybrid-rrf-text-image-pipeline"  # weighted: [BM25, te
 #                    in a nested query, so it matches if ANY seller matches
 #   multi-select   — the facet this filter selects in; that facet is counted WITHOUT this filter
 #                    (but with every other one), so the user can still tick more of its values
-# ------------------------------------------------------------------------------------------------
+---------
 FILTERS: dict[str, tuple[tuple[str, ...], str, str | None, str | None]] = {
     # Facet filters: the frontend sends back the facet's ``id`` (see FACETS below).
     "category":               (("category_ids",), "single", None, None),
@@ -91,12 +93,11 @@ FILTERS: dict[str, tuple[tuple[str, ...], str, str | None, str | None]] = {
     "aramco_material_number": (("aramco_material_number",), "text", None, None),
 }
 
-# ------------------------------------------------------------------------------------------------
 # Facets returned with every search, counted over ALL matching products (not just the page).
 # Each value is {id, value, count}: ``id`` is what the frontend sends back as the filter with the
 # same key, ``value`` the label to show.
 #   key: (id field, label field or None to show the id, nested path or None)
-# ------------------------------------------------------------------------------------------------
+
 FACETS: dict[str, tuple[str, str | None, str | None]] = {
     "category":     ("category_ids", "category_name.keyword", None),
     "sub_category": ("sub_category_id", "sub_category_name.keyword", None),
@@ -123,11 +124,11 @@ FACET_AGGS: dict[str, Any] = {
 IMAGE_PATH = "images"
 IMAGE_VECTOR_FIELD = "images.image_vector"
 
-# ------------------------------------------------------------------------------------------------
+---------
 # Text fields searched by BM25, per request language. "field^N" = weight N (a match there ranks
 # higher). Fields missing from the index are skipped (``lenient``), so German search still works on
 # ``content`` until the index carries the ``*_de`` fields.
-# ------------------------------------------------------------------------------------------------
+---------
 KEYWORD_FIELDS = [
     "aramco_material_number^8",
     "asmo_material_number^8",
@@ -179,9 +180,19 @@ IDENTIFIER_VARIANT_FIELDS = (
 )
 
 
+def _cosine(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    norm = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
+    return dot / norm if norm else 0.0
+
+
 class SearchService:
-    def __init__(self, os_client: OpenSearchClientService) -> None:
+    def __init__(self, os_client: OpenSearchClientService,
+                 embed: Callable[[str], Awaitable[list[float]]] | None = None) -> None:
         self._os = os_client
+        # Text -> embedding (the query embedder): weighs the query words when nothing matches.
+        # None = no relaxed retry.
+        self._embed = embed
         # Set by setup_pipeline(): False when the cluster rejects weighted RRF; text + image search
         # then fuses the same 3 lists with the plain RRF pipeline.
         self._text_image_fusion = False
@@ -258,10 +269,10 @@ class SearchService:
                                   "page": page, "page_size": page_size, "request_id": request_id}},
         )
 
-        # ---------------------------------------------------------------------------------------
+        
         # 1. Multi-select facets (sub_category, product_type) with a selection are each counted by
         #    the same search WITHOUT their own filter. Started now, awaited in steps 2c / 6.
-        # ---------------------------------------------------------------------------------------
+        
         recount = {key: clauses for key, clauses in (multi_select_filters or {}).items() if key in FACETS and clauses}
         recount_task: asyncio.Future | None = None
         if recount:
@@ -276,9 +287,9 @@ class SearchService:
                 for clauses in recount.values()
             ))
 
-        # ---------------------------------------------------------------------------------------
+        
         # 2. Build the query.
-        # ---------------------------------------------------------------------------------------
+        
         # Per-query HNSW candidate count (Lucene ignores the index-level ef_search setting).
         knn_params = {"method_parameters": {"ef_search": cfg.knn_ef_search}} if cfg.knn_ef_search else {}
         # How many candidates each part of the search collects before merging and paging. FIXED for
@@ -370,7 +381,7 @@ class SearchService:
             # only) checks with a cheap size-0 search whether any product matches it:
             #   strict  — the words as typed (exact or with a typo)
             #   prefix  — also as partial words (skipped when no word can be partial)
-            #   relaxed — only the query words the products closest in meaning contain
+            #   relaxed — only the important query words some product has (see _relax_words)
             # Nothing matches -> semantic fallback (close products only), or 0 results.
             keyword_query = query
             semantic_fallback = False
@@ -446,56 +457,9 @@ class SearchService:
                                     f"(up to {cfg.identifier_fuzziness} edits)")
                         break
 
-                if attempt != "relaxed" and len(words) > 1 and query_vector is not None and cfg.text_relax_neighbors > 0:
-                    # Which query words do the products closest in meaning contain? Keep those — unless a
-                    # word is in too large a share of the WHOLE catalogue ("for", "with"): it describes
-                    # nothing. "i want steel valvs" -> "steel valvs".
-                    word_aggs = {f"word_{i}": {"filter": {"bool": {"should": [
-                        exact[w],
-                        {"nested": {"path": "seller_details", "ignore_unmapped": True, "query": {
-                            "multi_match": {"query": w, "fields": SELLER_FIELDS, "lenient": True}}}},
-                        *[c for c in (typo.get(w), partial.get(w)) if c],
-                    ], "minimum_should_match": 1}}} for i, w in enumerate(words)}
-                    # The nearest products with their scores. Each word clause is named with boost 0: the
-                    # score stays the kNN score, and each hit lists which words it contains
-                    # (matched_queries). Only neighbours scoring at least text_relax_min_score count: the
-                    # nearest are returned however far away they are, and far ones ("laptop" -> steel
-                    # tubes) would keep their words ("work") and return unrelated products.
-                    # The kNN only looks at products containing at least one query word: across the whole
-                    # catalogue, products close in meaning but sharing no word ("I want lamps" -> other
-                    # lighting) can fill every neighbour slot, so the one that has "lamps" is never seen
-                    # and no word is kept.
-                    any_word = {"bool": {"should": [clause["filter"] for clause in word_aggs.values()],
-                                         "minimum_should_match": 1}}
-                    neighbours = await self._os.search(index, {
-                        "size": cfg.text_relax_neighbors,
-                        "_source": ["sku_name", "product_name"],
-                        "query": {"bool": {
-                            "must": [{"knn": {cfg.opensearch_vector_field: {
-                                "vector": query_vector, "k": cfg.text_relax_neighbors, **knn_params,
-                                "filter": {"bool": {"filter": [*filters, any_word]}},
-                            }}}],
-                            "should": [{"constant_score": {"filter": clause["filter"], "boost": 0, "_name": name}}
-                                       for name, clause in word_aggs.items()],
-                        }},
-                        "aggs": {"catalogue": {"global": {}, "aggs": word_aggs}},
-                    })
-                    neighbour_hits = neighbours.get("hits", {}).get("hits", [])
-                    close = [h for h in neighbour_hits if (h.get("_score") or 0) >= cfg.text_relax_min_score]
-                    found = neighbours.get("aggregations", {})
-                    catalogue = found.get("catalogue", {})
-                    catalogue_size = catalogue.get("doc_count", 0)
-                    in_neighbours = {w: sum(f"word_{i}" in h.get("matched_queries", []) for h in close)
-                                     for i, w in enumerate(words)}
-                    share = {w: catalogue.get(f"word_{i}", {}).get("doc_count", 0) / catalogue_size if catalogue_size else 0.0
-                             for i, w in enumerate(words)}
-                    kept = [w for w in words if in_neighbours[w] > 0 and share[w] <= cfg.text_relax_max_word_share]
-                    nearest = [(round(h.get("_score") or 0, 4), (h.get("_source") or {}).get("sku_name")
-                                or (h.get("_source") or {}).get("product_name")) for h in neighbour_hits[:5]]
-                    logger.info(f"Search — relax {query!r}: {len(close)} of the {len(neighbour_hits)} nearest products "
-                                f"score >= {cfg.text_relax_min_score} (top 5: {nearest}); words in those {in_neighbours}, "
-                                f"catalogue share { {w: round(s, 3) for w, s in share.items()} } "
-                                f"(max {cfg.text_relax_max_word_share}) -> keep {kept}")
+                if (attempt != "relaxed" and len(words) > 1 and query_vector is not None and self._embed
+                        and cfg.text_relax_min_importance > 0):
+                    kept = await self._relax_words(index, query, query_vector, words, exact, typo, partial)
                     if kept and len(kept) < len(words):
                         keyword_query = " ".join(kept)  # the text vector still uses the full query
                         continue
@@ -584,9 +548,9 @@ class SearchService:
                     hybrid["filter"] = {"bool": {"filter": filters}}
                 query_clause = {"hybrid": hybrid}
 
-        # ---------------------------------------------------------------------------------------
+        
         # 3. Request body. Embedding vectors are never returned (large and useless to clients).
-        # ---------------------------------------------------------------------------------------
+        
         body: dict[str, Any] = {
             "from": (page - 1) * page_size,
             "size": page_size,
@@ -600,10 +564,10 @@ class SearchService:
                     f"sort={'price ' + sort_order if sort_by == 'price' else 'relevance'}",
                     extra={"search_query": query, "search_mode": mode, "pipeline": pipeline_id})
 
-        # ---------------------------------------------------------------------------------------
+        
         # 4. Run it. A hybrid search asked for a page after its last result gets "Reached end of
         #    search result" (400) from OpenSearch: return an empty page with page 1's total + facets.
-        # ---------------------------------------------------------------------------------------
+        
         start = time.perf_counter()
         try:
             raw = await self._os.search(index, body, pipeline_id=pipeline_id)
@@ -625,9 +589,9 @@ class SearchService:
                                         "max_score": raw["hits"].get("max_score"), "took_ms": raw.get("took", 0)}},
         )
 
-        # ---------------------------------------------------------------------------------------
+        
         # 5. Hits -> products (frontend contract 2.4), one log line per result.
-        # ---------------------------------------------------------------------------------------
+        
         products: list[ProductItem] = []
         for rank, hit in enumerate(hits, start=(page - 1) * page_size + 1):
             src = hit.get("_source", {})
@@ -670,10 +634,10 @@ class SearchService:
                                   "sellers": [s.name for s in sellers], "price": src.get("price")}},
             )
 
-        # ---------------------------------------------------------------------------------------
+        
         # 6. Aggregations -> facets {id, value, count}. Nested facets (seller) count products, not
         #    offers. Multi-select facets take the counts made without their own filter (step 1).
-        # ---------------------------------------------------------------------------------------
+        
         aggs = raw.get("aggregations", {})
         facets: dict[str, list[FacetTermValue]] = {}
         for key, (_id_field, label_field, nested_path) in FACETS.items():
@@ -699,6 +663,58 @@ class SearchService:
             products=products,
             facets=SearchFacets(**facets),
         )
+
+    async def _relax_words(
+        self, index: str, query: str, query_vector: list[float], words: list[str],
+        exact: dict[str, dict], typo: dict[str, dict], partial: dict[str, dict],
+    ) -> list[str]:
+        """The query words to search again with when no product has enough of them ([] = don't retry).
+
+        Each word is weighed by how much the query's meaning changes without it:
+        1 - cosine(query, query without the word), relative to the heaviest word. "I want lamps" ->
+        lamps 1.0, want 0.68, I 0.36. A word is kept when it is important (weight >= text_relax_min_importance)
+        AND some product has it (exactly, with a typo or as a partial word) AND it isn't in too large a
+        share of the catalogue ("for"). Nothing is kept when the heaviest word is in no product: the
+        catalogue doesn't sell what was asked for ("laptop for work" -> no laptops; "work" alone
+        returned steel tubes).
+        """
+        cfg = _cfg
+        word_aggs = {f"word_{i}": {"filter": {"bool": {"should": [
+            exact[w],
+            {"nested": {"path": "seller_details", "ignore_unmapped": True, "query": {
+                "multi_match": {"query": w, "fields": SELLER_FIELDS, "lenient": True}}}},
+            *[c for c in (typo.get(w), partial.get(w)) if c],
+        ], "minimum_should_match": 1}}} for i, w in enumerate(words)}
+        without = [" ".join(words[:i] + words[i + 1:]) for i in range(len(words))]
+        try:
+            # How many products have each word (whole catalogue) + the leave-one-out embeddings, together.
+            found, *rest = await asyncio.gather(
+                self._os.search(index, {"size": 0, "aggs": {"catalogue": {"global": {}, "aggs": word_aggs}}}),
+                *(self._embed(text) for text in without),
+            )
+        except Exception as exc:
+            logger.warning(f"Search — relax {query!r} skipped ({type(exc).__name__}: {exc})",
+                           extra={"status": "error", "error_details": str(exc)})
+            return []
+
+        catalogue = found.get("aggregations", {}).get("catalogue", {})
+        catalogue_size = catalogue.get("doc_count", 0)
+        count = [catalogue.get(f"word_{i}", {}).get("doc_count", 0) for i in range(len(words))]
+        usable = [n > 0 and (n / catalogue_size if catalogue_size else 0.0) <= cfg.text_relax_max_word_share
+                  for n in count]
+        drop = [max(0.0, 1 - _cosine(query_vector, vector)) for vector in rest]
+        heaviest = max(drop) or 1.0
+        weight = [d / heaviest for d in drop]
+        top = max(range(len(words)), key=lambda i: drop[i])
+        kept = [w for i, w in enumerate(words) if usable[i] and weight[i] >= cfg.text_relax_min_importance] \
+            if usable[top] else []
+        logger.info(
+            f"Search — relax {query!r}: word weights { {w: round(weight[i], 2) for i, w in enumerate(words)} }, "
+            f"products with the word { {w: count[i] for i, w in enumerate(words)} } of {catalogue_size} "
+            f"(max share {cfg.text_relax_max_word_share}); heaviest {words[top]!r} "
+            f"{'is' if usable[top] else 'is NOT'} in the catalogue -> keep {kept}"
+        )
+        return kept
 
     async def get_suggestions(
         self, query: str, query_limit: int = 5, product_limit: int = 5, language: str = "en",
@@ -787,4 +803,4 @@ class SearchService:
 
 
 # The one object the app uses — import it where needed:  from services.search import search_service
-search_service = SearchService(os_client)
+search_service = SearchService(os_client, embedding_service.encode_query)

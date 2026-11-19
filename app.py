@@ -148,9 +148,9 @@ app.include_router(index_router)
 app.include_router(v1_router)
 
 
-# ---------------------------------------------------------------------------------------------
+------
 # Health checks
-# ---------------------------------------------------------------------------------------------
+------
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health() -> HealthResponse:
@@ -217,9 +217,9 @@ async def latency(request: Request, samples: int = 5) -> LatencyResponse:
     return result
 
 
-# ---------------------------------------------------------------------------------------------
+------
 # Error handlers — every error leaves the API as {"code", "message"} (contract 5.1)
-# ---------------------------------------------------------------------------------------------
+------
 
 
 @app.exception_handler(StarletteHTTPException)

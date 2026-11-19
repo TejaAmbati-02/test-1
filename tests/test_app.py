@@ -19,9 +19,9 @@ from services.search import search_service
 from tests.conftest import make_search_response, multipart
 
 
-# --------------------------------------------------------------------------
+#---
 # /health
-# --------------------------------------------------------------------------
+#---
 
 
 class TestHealth:
@@ -73,9 +73,9 @@ class TestHealth:
         assert resp.json() == {"code": "INTERNAL_ERROR", "message": "boom"}
 
 
-# --------------------------------------------------------------------------
+#---
 # Latency helpers and endpoints
-# --------------------------------------------------------------------------
+#---
 
 
 class TestLatencyMeasurement:
@@ -167,9 +167,9 @@ class TestLatencyEndpoints:
         assert "throttled" in body["error"]
 
 
-# --------------------------------------------------------------------------
+#---
 # Lifespan (startup / shutdown)
-# --------------------------------------------------------------------------
+#---
 
 
 @pytest.fixture
@@ -240,9 +240,9 @@ class TestLifespan:
         assert _heartbeat_tasks() == []
 
 
-# --------------------------------------------------------------------------
+#---
 # Heartbeats
-# --------------------------------------------------------------------------
+#---
 
 
 class TestHeartbeats:
@@ -274,9 +274,9 @@ class TestHeartbeats:
         fake_sleep.assert_awaited_with(60)
 
 
-# --------------------------------------------------------------------------
+#---
 # Middleware and exception handlers
-# --------------------------------------------------------------------------
+#---
 
 
 class TestMiddleware:
